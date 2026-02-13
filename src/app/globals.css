@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fuente Inter usando sistema de fuentes */
+@layer base {
+  :root {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 0 72% 51%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 0 72% 51%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Fondo oscuro con matiz rojizo para combinar con el tema */
+    --background: 0 0% 9%;
+    --foreground: 0 0% 98%;
+    /* Cards con fondo ligeramente más claro y matiz rojizo sutil */
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
+    /* Primary rojo más vibrante para mejor contraste */
+    --primary: 0 72% 55%;
+    --primary-foreground: 0 0% 100%;
+    /* Secondary con matiz rojizo oscuro */
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 95%;
+    /* Muted con tonos rojizos oscuros */
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 70%;
+    /* Accent rojo para destacar elementos */
+    --accent: 0 72% 55%;
+    --accent-foreground: 0 0% 100%;
+    /* Destructive rojo más oscuro pero visible */
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 98%;
+    /* Borders con matiz rojizo sutil */
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    /* Ring rojo para focus */
+    --ring: 0 72% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Mejoras para móviles */
+  @media (max-width: 640px) {
+    html {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+    
+    /* Mejorar el scroll en móviles */
+    * {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Custom Animations */
+.animate-slide-up {
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hover-scale {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Sistema de espaciado consistente */
+@layer utilities {
+  .spacing-xs { @apply p-1; }
+  .spacing-sm { @apply p-2; }
+  .spacing-md { @apply p-4; }
+  .spacing-lg { @apply p-6; }
+  .spacing-xl { @apply p-8; }
+}
+
+/* Micro-interacciones mejoradas */
+@layer utilities {
+  .transition-smooth {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .transition-bounce {
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .hover-lift {
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+}
+
+/* Estados de carga mejorados */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(
+    to right,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Tipografía mejorada */
+@layer base {
+  h1 {
+    @apply text-4xl font-bold tracking-tight;
+  }
+  
+  h2 {
+    @apply text-3xl font-semibold tracking-tight;
+  }
+  
+  h3 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+  
+  h4 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  
+  h5 {
+    @apply text-lg font-semibold;
+  }
+  
+  h6 {
+    @apply text-base font-semibold;
+  }
+}
+
+/* Variables adicionales para estados */
+@layer base {
+  :root {
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+  }
+  
+  .dark {
+    --success: 142 71% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 53%;
+    --info-foreground: 0 0% 100%;
+  }
+}

@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Funciones auxiliares
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Pendiente: Definir bien quién es admin en tu sistema
+    // Por ahora, asumimos que si tiene claim de admin o está en una lista
+    // function isAdmin() {
+    //   return request.auth.token.admin == true;
+    // }
+
+    // Uploads de Registro SNTSS
+    // Ruta: uploads/{userId}/{filename}
+    match /uploads/{userId}/{allPaths=**} {
+      // Solo el dueño puede leer/escribir en su carpeta
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      // Admin también debería poder leer (para validación)
+      // allow read: if isAdmin();
+    }
+    
+    // Regla por defecto (bloqueo)
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

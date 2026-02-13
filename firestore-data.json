@@ -1,0 +1,13 @@
+{
+  "usuarios": {
+    "AqwcyeZtxEekx1MUoEToTo9ZJ1E2": {
+      "email": "gerardoyx@hotmail.com",
+      "nombre": "Gerardo",
+      "apellidoPaterno": "Arroyo",
+      "apellidoMaterno": "Arguelles",
+      "rol": "ADMIN",
+      "createdAt": "2026-01-12T00:00:00.000Z",
+      "updatedAt": "2026-01-12T00:00:00.000Z"
+    }
+  }
+}

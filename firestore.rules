@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función auxiliar para verificar si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Función para verificar si el usuario es admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.upper() == 'ADMIN';
+    }
+    
+    // Función para verificar si es el propio usuario
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Colección de usuarios
+    match /usuarios/{userId} {
+      // Lectura: Solo usuarios autenticados pueden leer
+      // Escritura: Solo el propio usuario o un admin
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    // Nueva Colección de usuarios (Registro SNTSS)
+    match /users/{userId} {
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Solo admin puede actualizar status/rol
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])) || 
+        isAdmin()
+      );
+    }
+
+    // Colección de tramites
+    match /tramites/{tramiteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // Colección de correspondencia enviada
+    match /correspondencia-enviada/{corrId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // Colección de afiliacion
+    match /afiliacion/{afilId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // Colección de cambios de consultorio
+    match /cambios-consultorio/{cambioId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // Colección de notificaciones
+    match /notifications/{notifId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    match /notificaciones/{notifId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+    
+    // Colección de contadores (para números de oficio)
+    match /contadores/{contadorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Cualquier otra colección: solo lectura para autenticados
+    match /{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
