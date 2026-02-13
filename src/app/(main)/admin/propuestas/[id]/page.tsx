@@ -12,7 +12,7 @@ export default function EditarPropuestaPage() {
   const propuestaId = params.id as string
 
   useEffect(() => {
-    if (!loading && (!user || userData?.rol !== 'ADMIN')) {
+    if (!loading && (!user || userData?.role !== 'ADMIN')) {
       router.push('/login')
     }
   }, [user, userData, loading, router])
@@ -25,7 +25,7 @@ export default function EditarPropuestaPage() {
     )
   }
 
-  if (!user || userData?.rol !== 'ADMIN') {
+  if (!user || userData?.role !== 'ADMIN') {
     return null
   }
 

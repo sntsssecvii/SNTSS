@@ -51,7 +51,7 @@ export function CommandPalette() {
     return () => document.removeEventListener('keydown', down)
   }, [])
 
-  const isAdmin = userData?.rol === 'ADMIN'
+  const isAdmin = userData?.role === 'ADMIN' || userData?.role === 'admin'
 
   const commands: CommandAction[] = [
     // Navegación principal

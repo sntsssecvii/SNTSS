@@ -10,7 +10,7 @@ export default function NuevaPropuestaPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && (!user || userData?.rol !== 'ADMIN')) {
+    if (!loading && (!user || userData?.role !== 'ADMIN')) {
       router.push('/login')
     }
   }, [user, userData, loading, router])
@@ -23,7 +23,7 @@ export default function NuevaPropuestaPage() {
     )
   }
 
-  if (!user || userData?.rol !== 'ADMIN') {
+  if (!user || userData?.role !== 'ADMIN') {
     return null
   }
 
