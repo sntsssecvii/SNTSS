@@ -1,10 +1,10 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import type { EstadoProcesamiento } from '@/types/escalafon'
+import type { EstadoProcesamiento } from '@/types/bolsa-de-trabajo'
 import { cn } from '@/lib/utils'
 
-interface EstadoBadgeEscalafonProps {
+interface EstadoBadgeBolsaDeTrabajoProps {
   estado: EstadoProcesamiento | undefined | null | unknown
   className?: string
 }
@@ -16,7 +16,7 @@ const ESTADOS_INFO: Record<EstadoProcesamiento, { label: string; variant: 'defau
   VALIDANDO: { label: 'Validando', variant: 'outline' },
 }
 
-export function EstadoBadgeEscalafon({ estado, className }: EstadoBadgeEscalafonProps) {
+export function EstadoBadgeBolsaDeTrabajo({ estado, className }: EstadoBadgeBolsaDeTrabajoProps) {
   // Asegurar que estado sea siempre un string válido (nunca un objeto)
   const estadoStr = typeof estado === 'string' ? estado : undefined
 

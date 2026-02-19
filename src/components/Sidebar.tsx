@@ -66,8 +66,8 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
         icon: FileText,
       },
       {
-        title: 'Escalafón',
-        href: '/admin/escalafon',
+        title: 'Bolsa de Trabajo',
+        href: '/admin/bolsa-de-trabajo',
         icon: Users,
       },
       {

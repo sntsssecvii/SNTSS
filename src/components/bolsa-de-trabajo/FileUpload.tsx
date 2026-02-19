@@ -8,8 +8,8 @@ import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { auth } from '@/lib/firebase/firebase-client'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import type { TipoEscalafon } from '@/types/escalafon'
-import { NOMBRES_TIPOS } from '@/types/escalafon'
+import type { TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import { NOMBRES_TIPOS } from '@/types/bolsa-de-trabajo'
 import { Select } from '@/components/ui/select'
 
 interface FileUploadProps {
@@ -18,7 +18,7 @@ interface FileUploadProps {
 
 export function FileUpload({ onUploadSuccess }: FileUploadProps) {
   const [file, setFile] = useState<File | null>(null)
-  const [tipo, setTipo] = useState<TipoEscalafon | ''>('')
+  const [tipo, setTipo] = useState<TipoBolsaDeTrabajo | ''>('')
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -114,7 +114,7 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
       // Usar XMLHttpRequest para progreso real de subida
       const data = await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        const url = '/api/escalafon/procesar'
+        const url = '/api/bolsa-de-trabajo/procesar'
 
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
@@ -212,7 +212,7 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
     }
   }, [file, tipo, user, toast, onUploadSuccess])
 
-  const tiposDisponibles: TipoEscalafon[] = [
+  const tiposDisponibles: TipoBolsaDeTrabajo[] = [
     'AMPLIACIONES_JORNADA',
     'CAMBIOS_AREA',
     'CAMBIOS_RAMA',
@@ -336,7 +336,7 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
                   </motion.h3>
                   <p className="text-sm text-muted-foreground">
                     {phase === 'upload' ? 'Estamos enviando tu archivo de forma segura' :
-                      phase === 'process' ? 'Extrayendo información del escalafón' : 'Todo listo para continuar'}
+                      phase === 'process' ? 'Extrayendo información del bolsa de trabajo' : 'Todo listo para continuar'}
                   </p>
                 </div>
 
@@ -385,7 +385,7 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
         </label>
         <Select
           value={tipo}
-          onChange={(e) => setTipo(e.target.value as TipoEscalafon)}
+          onChange={(e) => setTipo(e.target.value as TipoBolsaDeTrabajo)}
         >
           <option value="">Selecciona el tipo de documento</option>
           {tiposDisponibles.map((tipoItem) => (

@@ -1,15 +1,13 @@
-import type { ParseResult, EscalafonRegistro } from '@/types/escalafon'
+import type { ParseResult } from '@/types/bolsa-de-trabajo'
 import { parseUtils } from '../parser'
 import { parseCambiosArea } from './cambiosArea'
 
 export function parseCambiosRama(texto: string): ParseResult {
-  // Similar estructura a cambios de área pero con tipo diferente
   const resultado = parseCambiosArea(texto)
-  // Actualizar tipo de documento en los registros
-  resultado.registros = resultado.registros.map((reg) => ({
+  resultado.registros = resultado.registros.map((reg, idx) => ({
     ...reg,
-    tipoDocumento: 'CAMBIOS_RAMA',
-    id: parseUtils.generarIdRegistro('CAMBIOS_RAMA', resultado.registros.indexOf(reg)),
+    tipoDocumento: 'CAMBIOS_RAMA' as const,
+    id: parseUtils.generarIdRegistro('CAMBIOS_RAMA', idx),
   }))
   return resultado
 }

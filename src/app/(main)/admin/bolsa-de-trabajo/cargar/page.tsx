@@ -1,17 +1,17 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { FileUpload } from '@/components/escalafon/FileUpload'
+import { FileUpload } from '@/components/bolsa-de-trabajo/FileUpload'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export default function CargarEscalafonPage() {
+export default function CargarBolsaDeTrabajoPage() {
   const router = useRouter()
 
   const handleUploadSuccess = (documentoId: string) => {
     // Redirigir a la página de detalles después de cargar
-    router.push(`/admin/escalafon/${documentoId}`)
+    router.push(`/admin/bolsa-de-trabajo/${documentoId}`)
   }
 
   return (
@@ -25,9 +25,9 @@ export default function CargarEscalafonPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Button>
-        <h1 className="text-3xl font-bold">Cargar Documento de Escalafón</h1>
+        <h1 className="text-3xl font-bold">Cargar Documento de Bolsa de Trabajo</h1>
         <p className="text-muted-foreground mt-2">
-          Sube un archivo PDF para procesar y extraer información de escalafón
+          Sube un archivo PDF para procesar y extraer información de bolsa de trabajo
         </p>
       </div>
 

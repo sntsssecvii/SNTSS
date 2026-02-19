@@ -7,18 +7,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { getEscalafonDocumentos, deleteEscalafonDocumento } from '@/lib/firebase/escalafon'
-import type { EscalafonDocumento, TipoEscalafon, EstadoProcesamiento, FiltrosEscalafon } from '@/types/escalafon'
-import { NOMBRES_TIPOS } from '@/types/escalafon'
+import { getBolsaDeTrabajoDocumentos, deleteBolsaDeTrabajoDocumento } from '@/lib/firebase/bolsa-de-trabajo'
+import type { BolsaDeTrabajoDocumento, TipoBolsaDeTrabajo, EstadoProcesamiento, FiltrosBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import { NOMBRES_TIPOS } from '@/types/bolsa-de-trabajo'
 import { useToast } from '@/components/ui/use-toast'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { EstadoBadgeEscalafon } from '@/components/escalafon/EstadoBadgeEscalafon'
+import { EstadoBadgeBolsaDeTrabajo } from '@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo'
 
-export default function EscalafonPage() {
-  const [documentos, setDocumentos] = useState<EscalafonDocumento[]>([])
+export default function BolsaDeTrabajoPage() {
+  const [documentos, setDocumentos] = useState<BolsaDeTrabajoDocumento[]>([])
   const [loading, setLoading] = useState(true)
-  const [filtros, setFiltros] = useState<FiltrosEscalafon>({})
+  const [filtros, setFiltros] = useState<FiltrosBolsaDeTrabajo>({})
   const [busqueda, setBusqueda] = useState('')
   const router = useRouter()
   const { toast } = useToast()
@@ -30,7 +30,7 @@ export default function EscalafonPage() {
   const cargarDocumentos = async () => {
     try {
       setLoading(true)
-      const resultado = await getEscalafonDocumentos(filtros, 50)
+      const resultado = await getBolsaDeTrabajoDocumentos(filtros, 50)
       setDocumentos(resultado.documentos)
     } catch (error: any) {
       console.error('Error cargando documentos:', error)
@@ -50,7 +50,7 @@ export default function EscalafonPage() {
     }
 
     try {
-      await deleteEscalafonDocumento(id)
+      await deleteBolsaDeTrabajoDocumento(id)
       toast({
         title: 'Éxito',
         description: 'Documento eliminado correctamente',
@@ -80,7 +80,7 @@ export default function EscalafonPage() {
   })
 
   const estados: EstadoProcesamiento[] = ['PROCESANDO', 'COMPLETADO', 'ERROR', 'VALIDANDO']
-  const tipos: TipoEscalafon[] = [
+  const tipos: TipoBolsaDeTrabajo[] = [
     'AMPLIACIONES_JORNADA',
     'CAMBIOS_AREA',
     'CAMBIOS_RAMA',
@@ -95,12 +95,12 @@ export default function EscalafonPage() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Escalafón</h1>
+          <h1 className="text-3xl font-bold">Bolsa de Trabajo</h1>
           <p className="text-muted-foreground mt-2">
-            Gestiona los documentos de escalafón procesados
+            Gestiona los documentos de bolsa de trabajo procesados
           </p>
         </div>
-        <Button onClick={() => router.push('/admin/escalafon/cargar')}>
+        <Button onClick={() => router.push('/admin/bolsa-de-trabajo/cargar')}>
           <Plus className="mr-2 h-4 w-4" />
           Cargar Documento
         </Button>
@@ -135,7 +135,7 @@ export default function EscalafonPage() {
                 onChange={(e) =>
                   setFiltros({
                     ...filtros,
-                    tipo: e.target.value ? [e.target.value as TipoEscalafon] : undefined,
+                    tipo: e.target.value ? [e.target.value as TipoBolsaDeTrabajo] : undefined,
                   })
                 }
               >
@@ -180,9 +180,9 @@ export default function EscalafonPage() {
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <p className="text-muted-foreground mb-4">
-              No hay documentos de escalafón cargados
+              No hay documentos de bolsa de trabajo cargados
             </p>
-            <Button onClick={() => router.push('/admin/escalafon/cargar')}>
+            <Button onClick={() => router.push('/admin/bolsa-de-trabajo/cargar')}>
               <Plus className="mr-2 h-4 w-4" />
               Cargar Primer Documento
             </Button>
@@ -203,7 +203,7 @@ export default function EscalafonPage() {
                       {NOMBRES_TIPOS[documento.tipo]}
                     </CardDescription>
                   </div>
-                  <EstadoBadgeEscalafon estado={documento.estado} />
+                  <EstadoBadgeBolsaDeTrabajo estado={documento.estado} />
                 </div>
               </CardHeader>
               <CardContent>
@@ -242,7 +242,7 @@ export default function EscalafonPage() {
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => router.push(`/admin/escalafon/${documento.id}`)}
+                    onClick={() => router.push(`/admin/bolsa-de-trabajo/${documento.id}`)}
                   >
                     Ver Detalles
                   </Button>

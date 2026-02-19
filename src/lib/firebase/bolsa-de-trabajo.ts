@@ -20,15 +20,15 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import type {
-  EscalafonDocumento,
-  EscalafonRegistro,
-  FiltrosEscalafon,
-  EstadisticasEscalafon,
-  TipoEscalafon,
+  BolsaDeTrabajoDocumento,
+  BolsaDeTrabajoRegistro,
+  FiltrosBolsaDeTrabajo,
+  EstadisticasBolsaDeTrabajo,
+  TipoBolsaDeTrabajo,
   EstadoProcesamiento,
-} from '@/types/escalafon'
+} from '@/types/bolsa-de-trabajo'
 
-const COLECCION = 'escalafon_documentos'
+const COLECCION = 'bolsa_de_trabajo_documentos'
 const SUBCOLECCION_REGISTROS = 'registros' // Para documentos grandes
 
 // Convertir Firestore Timestamp a Date
@@ -42,8 +42,8 @@ const convertirTimestamp = (timestamp: any): Date => {
   return new Date()
 }
 
-// Convertir documento de Firestore a EscalafonDocumento
-const convertirDocumento = (doc: any, incluirRegistros: boolean = false): EscalafonDocumento => {
+// Convertir documento de Firestore a BolsaDeTrabajoDocumento
+const convertirDocumento = (doc: any, incluirRegistros: boolean = false): BolsaDeTrabajoDocumento => {
   const data = doc.data()
   return {
     id: doc.id,
@@ -65,9 +65,9 @@ const convertirDocumento = (doc: any, incluirRegistros: boolean = false): Escala
   }
 }
 
-// Crear nuevo documento de escalafón
-export const createEscalafonDocumento = async (
-  documento: Omit<EscalafonDocumento, 'id'>
+// Crear nuevo documento de bolsa de trabajo
+export const createBolsaDeTrabajoDocumento = async (
+  documento: Omit<BolsaDeTrabajoDocumento, 'id'>
 ): Promise<string> => {
   try {
     const ahora = Timestamp.now()
@@ -84,16 +84,16 @@ export const createEscalafonDocumento = async (
     const docRef = await addDoc(collection(db, COLECCION), nuevoDocumento)
     return docRef.id
   } catch (error) {
-    console.error('Error creando documento de escalafón:', error)
+    console.error('Error creando documento de bolsa de trabajo:', error)
     throw error
   }
 }
 
 // Obtener registros de una subcolección
-export const getRegistrosEscalafon = async (
+export const getRegistrosBolsaDeTrabajo = async (
   documentoId: string,
   limiteRegistros?: number
-): Promise<EscalafonRegistro[]> => {
+): Promise<BolsaDeTrabajoRegistro[]> => {
   try {
     const registrosRef = collection(db, COLECCION, documentoId, SUBCOLECCION_REGISTROS)
     const constraints: QueryConstraint[] = [orderBy('filaOriginal', 'asc')]
@@ -108,9 +108,9 @@ export const getRegistrosEscalafon = async (
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as EscalafonRegistro[]
+    })) as BolsaDeTrabajoRegistro[]
   } catch (error) {
-    console.error('Error obteniendo registros de escalafón:', error)
+    console.error('Error obteniendo registros de bolsa de trabajo:', error)
     throw error
   }
 }
@@ -118,7 +118,7 @@ export const getRegistrosEscalafon = async (
 // Guardar registros en subcolección (en lotes de 500)
 export const guardarRegistrosEnSubcoleccion = async (
   documentoId: string,
-  registros: EscalafonRegistro[]
+  registros: BolsaDeTrabajoRegistro[]
 ): Promise<void> => {
   try {
     const registrosRef = collection(db, COLECCION, documentoId, SUBCOLECCION_REGISTROS)
@@ -155,10 +155,10 @@ export const guardarRegistrosEnSubcoleccion = async (
 }
 
 // Obtener documento por ID (con registros opcionales)
-export const getEscalafonDocumentoById = async (
+export const getBolsaDeTrabajoDocumentoById = async (
   id: string,
   incluirRegistros: boolean = true
-): Promise<EscalafonDocumento | null> => {
+): Promise<BolsaDeTrabajoDocumento | null> => {
   try {
     const docRef = doc(db, COLECCION, id)
     const docSnap = await getDoc(docRef)
@@ -171,22 +171,22 @@ export const getEscalafonDocumentoById = async (
 
     // Cargar registros desde subcolección si se solicita
     if (incluirRegistros) {
-      documento.registros = await getRegistrosEscalafon(id)
+      documento.registros = await getRegistrosBolsaDeTrabajo(id)
     }
 
     return documento
   } catch (error) {
-    console.error('Error obteniendo documento de escalafón:', error)
+    console.error('Error obteniendo documento de bolsa de trabajo:', error)
     throw error
   }
 }
 
 // Obtener todos los documentos con filtros opcionales
-export const getEscalafonDocumentos = async (
-  filtros?: FiltrosEscalafon,
+export const getBolsaDeTrabajoDocumentos = async (
+  filtros?: FiltrosBolsaDeTrabajo,
   limite?: number,
   ultimoDoc?: QueryDocumentSnapshot
-): Promise<{ documentos: EscalafonDocumento[]; ultimoDoc?: QueryDocumentSnapshot }> => {
+): Promise<{ documentos: BolsaDeTrabajoDocumento[]; ultimoDoc?: QueryDocumentSnapshot }> => {
   try {
     const constraints: QueryConstraint[] = [orderBy('fechaCarga', 'desc')]
 
@@ -229,7 +229,7 @@ export const getEscalafonDocumentos = async (
       ultimoDoc: ultimoDocumento,
     }
   } catch (error) {
-    console.error('Error obteniendo documentos de escalafón:', error)
+    console.error('Error obteniendo documentos de bolsa de trabajo:', error)
     throw error
   }
 }
@@ -261,9 +261,9 @@ const eliminarUndefined = (obj: any): any => {
 }
 
 // Actualizar documento (sin incluir registros - se guardan en subcolección)
-export const updateEscalafonDocumento = async (
+export const updateBolsaDeTrabajoDocumento = async (
   id: string,
-  actualizaciones: Partial<Omit<EscalafonDocumento, 'registros'>>
+  actualizaciones: Partial<Omit<BolsaDeTrabajoDocumento, 'registros'>>
 ): Promise<void> => {
   try {
     const docRef = doc(db, COLECCION, id)
@@ -287,13 +287,13 @@ export const updateEscalafonDocumento = async (
 
     await updateDoc(docRef, datosLimpios)
   } catch (error) {
-    console.error('Error actualizando documento de escalafón:', error)
+    console.error('Error actualizando documento de bolsa de trabajo:', error)
     throw error
   }
 }
 
 // Eliminar documento y sus registros en subcolección
-export const deleteEscalafonDocumento = async (id: string): Promise<void> => {
+export const deleteBolsaDeTrabajoDocumento = async (id: string): Promise<void> => {
   try {
     const docRef = doc(db, COLECCION, id)
 
@@ -317,7 +317,7 @@ export const deleteEscalafonDocumento = async (id: string): Promise<void> => {
     // 2. Eliminar el documento principal
     await deleteDoc(docRef)
   } catch (error) {
-    console.error('Error eliminando documento de escalafón:', error)
+    console.error('Error eliminando documento de bolsa de trabajo:', error)
     throw error
   }
 }
@@ -328,7 +328,7 @@ export const updateEstadoDocumento = async (
   estado: EstadoProcesamiento
 ): Promise<void> => {
   try {
-    await updateEscalafonDocumento(id, { estado })
+    await updateBolsaDeTrabajoDocumento(id, { estado })
   } catch (error) {
     console.error('Error actualizando estado del documento:', error)
     throw error
@@ -342,7 +342,7 @@ export const validarRegistro = async (
   validadoPor: string
 ): Promise<void> => {
   try {
-    const documento = await getEscalafonDocumentoById(documentoId, true)
+    const documento = await getBolsaDeTrabajoDocumentoById(documentoId, true)
     if (!documento) {
       throw new Error('Documento no encontrado')
     }
@@ -357,10 +357,10 @@ export const validarRegistro = async (
     })
 
     // Actualizar contador de registros validados en el documento principal
-    const registros = await getRegistrosEscalafon(documentoId)
+    const registros = await getRegistrosBolsaDeTrabajo(documentoId)
     const registrosValidados = registros.filter((r) => r.validado).length
 
-    await updateEscalafonDocumento(documentoId, {
+    await updateBolsaDeTrabajoDocumento(documentoId, {
       registrosValidados,
     })
   } catch (error) {
@@ -370,12 +370,12 @@ export const validarRegistro = async (
 }
 
 // Obtener estadísticas
-export const getEstadisticasEscalafon = async (): Promise<EstadisticasEscalafon> => {
+export const getEstadisticasBolsaDeTrabajo = async (): Promise<EstadisticasBolsaDeTrabajo> => {
   try {
-    const todosLosDocumentos = await getEscalafonDocumentos()
+    const todosLosDocumentos = await getBolsaDeTrabajoDocumentos()
     const documentos = todosLosDocumentos.documentos
 
-    const documentosPorTipo: Record<TipoEscalafon, number> = {
+    const documentosPorTipo: Record<TipoBolsaDeTrabajo, number> = {
       AMPLIACIONES_JORNADA: 0,
       CAMBIOS_AREA: 0,
       CAMBIOS_RAMA: 0,

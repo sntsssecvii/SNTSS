@@ -1,14 +1,21 @@
-import type { ParseResult, EscalafonRegistro } from '@/types/escalafon'
+import type { ParseResult, BolsaDeTrabajoRegistro } from '@/types/bolsa-de-trabajo'
 import { parseUtils } from '../parser'
+import { dividirLineas, debeDescartarLinea, limpiarFooter, esEncabezadoSeccion } from '../preprocessing'
+import { SCHEMAS, validateRegistro } from '../schemas'
+
+const schema = SCHEMAS.CAMBIOS_RESIDENCIA_ORIGEN
+
+// Matches any state: "XX - STATE NAME"
+const REGEX_RESIDENCIA = /^(\d+)\s+(\d{2}\s+-\s+[A-ZÁÉÍÓÚÑ\s]+?)\s+(Mat|Ves|Noc|JAcum|Acum)\s+(\d{2}\/\d{2}\/\d{4})\s+([A-Z])\s+([\d,]+)\s+(\d{7,10})\s+([A-ZÁÉÍÓÚÑ&\/\s]+?)\s+([MF])\s+([A-Z0-9]+)\s+([A-ZÁÉÍÓÚÑ\s]*?\d*)\s*(\d+)\s+(\d+)/
 
 export function parseCambiosResidenciaOrigen(texto: string): ParseResult {
-  // Similar a cambios de residencia destino pero con origen
-  const registros: EscalafonRegistro[] = []
+  const registros: BolsaDeTrabajoRegistro[] = []
   const errores: string[] = []
   let zonaActual = ''
   let categoriaActual = ''
 
-  const lineas = parseUtils.dividirLineas(texto)
+  const lineasRaw = dividirLineas(texto)
+  const lineas = unirLineasPartidasResidencia(lineasRaw)
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i]
@@ -24,49 +31,73 @@ export function parseCambiosResidenciaOrigen(texto: string): ParseResult {
       continue
     }
 
-    if (
-      parseUtils.esEncabezado(linea) ||
-      linea.includes('--') ||
-      linea.includes('of') ||
-      linea.includes('IMSS-SIAP')
-    ) {
+    if (debeDescartarLinea(linea) || linea.includes('IMSS-SIAP')) {
       continue
     }
 
-    // Similar formato a destino
-    const registroMatch = linea.match(/^(\d+)\s+02\s+-\s+BAJA CALIFORNIA\s+([A-Za-z]+)\s+(\d{2}\/\d{2}\/\d{4})\s+([A-Z])\s+([\d,]+)\s+(\d{7,8})\s+([A-ZÁÉÍÓÚÑ\/\s]+)\s+([MF])\s+([A-Z0-9]+)\s+(\d+)\s+(\d+)$/)
+    const lineaLimpia = limpiarFooter(linea)
+    if (!lineaLimpia) continue
 
-    if (registroMatch) {
-      const [
-        ,
-        numero,
-        cambioSolicitado,
-        fecha,
-        registro,
-        codigo1,
-        matricula,
-        nombreCompleto,
-        genero,
-        clave,
-        codigo2,
-        codigo3,
-      ] = registroMatch
+    const match = lineaLimpia.match(REGEX_RESIDENCIA)
 
-      const registroObj: EscalafonRegistro = {
+    if (match) {
+      const [, numero, estado, cambioSolicitado, fecha, registro, _dias, matricula, nombre, sexo, clave] = match
+
+      const registroObj: BolsaDeTrabajoRegistro = {
         id: parseUtils.generarIdRegistro('CAMBIOS_RESIDENCIA_ORIGEN', registros.length),
         tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN',
-        residenciaOrigen: '02 - BAJA CALIFORNIA',
+        numeroProg: numero,
+        residenciaOrigen: estado.trim(),
         cambioSolicitado: cambioSolicitado.trim(),
         fecha: fecha.trim(),
         registro: registro.trim(),
         matricula: matricula.trim(),
-        nombre: nombreCompleto.trim(),
+        nombre: nombre.trim(),
+        sexo,
         clave: clave.trim(),
         zona: zonaActual,
         categoria: categoriaActual,
-        confianza: 0.9,
         filaOriginal: i + 1,
         necesitaValidacion: false,
+      }
+
+      const validationErrors = validateRegistro(registroObj, schema)
+      registroObj.confianza = validationErrors.length === 0 ? 0.95 : 0.85
+      if (validationErrors.length > 0) {
+        errores.push(`Fila ${i + 1}: ${validationErrors.join('; ')}`)
+      }
+
+      registros.push(registroObj)
+      continue
+    }
+
+    // Fallback flexible: find matrícula and date
+    const partes = lineaLimpia.split(/\s+/).filter(p => p.length > 0)
+    const matIdx = partes.findIndex(p => /^\d{7,10}$/.test(p))
+    const fechaIdx = partes.findIndex(p => /^\d{2}\/\d{2}\/\d{4}$/.test(p))
+    const estadoMatch = lineaLimpia.match(/(\d{2}\s+-\s+[A-ZÁÉÍÓÚÑ\s]+?)\s+(Mat|Ves|Noc|JAcum|Acum)/)
+
+    if (matIdx !== -1 && fechaIdx !== -1 && estadoMatch && /^\d+$/.test(partes[0])) {
+      const sexIdx = partes.findIndex((p, idx) => idx > matIdx && (p === 'M' || p === 'F'))
+
+      const registroObj: BolsaDeTrabajoRegistro = {
+        id: parseUtils.generarIdRegistro('CAMBIOS_RESIDENCIA_ORIGEN', registros.length),
+        tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN',
+        numeroProg: partes[0],
+        residenciaOrigen: estadoMatch[1].trim(),
+        cambioSolicitado: estadoMatch[2].trim(),
+        fecha: partes[fechaIdx],
+        registro: partes[fechaIdx + 1] || '',
+        matricula: partes[matIdx],
+        nombre: sexIdx !== -1
+          ? partes.slice(matIdx + 1, sexIdx).join(' ')
+          : partes.slice(matIdx + 1, matIdx + 5).join(' '),
+        sexo: sexIdx !== -1 ? partes[sexIdx] : '',
+        zona: zonaActual,
+        categoria: categoriaActual,
+        confianza: 0.7,
+        filaOriginal: i + 1,
+        necesitaValidacion: true,
       }
 
       registros.push(registroObj)
@@ -81,4 +112,46 @@ export function parseCambiosResidenciaOrigen(texto: string): ParseResult {
     },
     errores,
   }
+}
+
+function unirLineasPartidasResidencia(lineas: string[]): string[] {
+  const resultado: string[] = []
+  let i = 0
+
+  while (i < lineas.length) {
+    let linea = lineas[i]
+
+    if (i + 1 < lineas.length) {
+      const siguiente = lineas[i + 1].trim()
+
+      // State name continues on next line (e.g. "03 - BAJA CALIFORNIA" + "SUR")
+      if (/^\d+\s+\d{2}\s+-\s+[A-Z]+$/.test(linea.trim()) && /^[A-ZÁÉÍÓÚÑ]/.test(siguiente) && !esEncabezadoSeccion(siguiente)) {
+        linea = `${linea} ${siguiente}`
+        i++
+        // Check if there's yet another continuation
+        if (i + 1 < lineas.length) {
+          const sig2 = lineas[i + 1].trim()
+          if (/^(Mat|Ves|Noc|JAcum|Acum)\s/.test(sig2) || /^[A-Z]+\s+(Mat|Ves|Noc|JAcum|Acum)/.test(sig2)) {
+            linea = `${linea} ${sig2}`
+            i++
+          }
+        }
+      }
+      // Number split on next line (e.g., "12,817" alone or "1,966" alone)
+      else if (/\d{2}\s+-/.test(linea) && /^\d[\d,]+$/.test(siguiente)) {
+        linea = `${linea} ${siguiente}`
+        i++
+      }
+      // Matrícula continues on next line with more data
+      else if (/^\d+\s+\d{2}\s+-/.test(linea.trim()) && /^\d{7,10}\s+/.test(siguiente)) {
+        linea = `${linea} ${siguiente}`
+        i++
+      }
+    }
+
+    resultado.push(linea)
+    i++
+  }
+
+  return resultado
 }

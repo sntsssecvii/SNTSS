@@ -7,21 +7,21 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { getEscalafonDocumentoById, validarRegistro } from '@/lib/firebase/escalafon'
-import type { EscalafonDocumento, EscalafonRegistro } from '@/types/escalafon'
-import { NOMBRES_TIPOS } from '@/types/escalafon'
+import { getBolsaDeTrabajoDocumentoById, validarRegistro } from '@/lib/firebase/bolsa-de-trabajo'
+import type { BolsaDeTrabajoDocumento, BolsaDeTrabajoRegistro } from '@/types/bolsa-de-trabajo'
+import { NOMBRES_TIPOS } from '@/types/bolsa-de-trabajo'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
-import { EstadoBadgeEscalafon } from '@/components/escalafon/EstadoBadgeEscalafon'
+import { EstadoBadgeBolsaDeTrabajo } from '@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
 
-export default function DetalleEscalafonPage() {
+export default function DetalleBolsaDeTrabajoPage() {
   const params = useParams()
   const router = useRouter()
   const { user } = useAuth()
   const { toast } = useToast()
-  const [documento, setDocumento] = useState<EscalafonDocumento | null>(null)
+  const [documento, setDocumento] = useState<BolsaDeTrabajoDocumento | null>(null)
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [filtroValidacion, setFiltroValidacion] = useState<'all' | 'validados' | 'pendientes'>('all')
@@ -35,7 +35,7 @@ export default function DetalleEscalafonPage() {
   const [registrosPorPagina, setRegistrosPorPagina] = useState(50)
 
   // Modal de detalles
-  const [registroSeleccionado, setRegistroSeleccionado] = useState<EscalafonRegistro | null>(null)
+  const [registroSeleccionado, setRegistroSeleccionado] = useState<BolsaDeTrabajoRegistro | null>(null)
   const [modalAbierto, setModalAbierto] = useState(false)
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function DetalleEscalafonPage() {
   const cargarDocumento = async (id: string) => {
     try {
       setLoading(true)
-      const doc = await getEscalafonDocumentoById(id)
+      const doc = await getBolsaDeTrabajoDocumentoById(id)
       setDocumento(doc)
     } catch (error: any) {
       console.error('Error cargando documento:', error)
@@ -219,7 +219,7 @@ export default function DetalleEscalafonPage() {
     }
   }, [mostrarDropdownCategoria])
 
-  const abrirModalDetalle = (registro: EscalafonRegistro) => {
+  const abrirModalDetalle = (registro: BolsaDeTrabajoRegistro) => {
     setRegistroSeleccionado(registro)
     setModalAbierto(true)
   }
@@ -294,7 +294,7 @@ export default function DetalleEscalafonPage() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = `${documento.nombreArchivo || 'escalafon'}.csv`
+    link.download = `${documento.nombreArchivo || 'bolsa_de_trabajo'}.csv`
     link.click()
   }
 
@@ -314,7 +314,7 @@ export default function DetalleEscalafonPage() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">Documento no encontrado</p>
-            <Button onClick={() => router.push('/admin/escalafon')} className="mt-4">
+            <Button onClick={() => router.push('/admin/bolsa-de-trabajo')} className="mt-4">
               Volver a la lista
             </Button>
           </CardContent>
@@ -341,7 +341,7 @@ export default function DetalleEscalafonPage() {
               {NOMBRES_TIPOS[documento.tipo]}
             </p>
           </div>
-          <EstadoBadgeEscalafon estado={documento.estado} />
+          <EstadoBadgeBolsaDeTrabajo estado={documento.estado} />
         </div>
       </div>
 
@@ -568,7 +568,9 @@ export default function DetalleEscalafonPage() {
                       <TableHead>Fecha Registro</TableHead>
                       <TableHead>Grupo</TableHead>
                       <TableHead>Calificación</TableHead>
+                      <TableHead>Tipo Contratación</TableHead>
                       <TableHead>Días Laborados</TableHead>
+                      <TableHead>Estatus</TableHead>
                       <TableHead>Zona</TableHead>
                       <TableHead>Categoría</TableHead>
                       <TableHead className="w-12">Ver</TableHead>
@@ -603,7 +605,7 @@ export default function DetalleEscalafonPage() {
                 {registrosPaginated.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={documento.tipo === 'NUEVO_INGRESO' ? 10 : 8}
+                      colSpan={documento.tipo === 'NUEVO_INGRESO' ? 12 : documento.tipo === 'AMPLIACIONES_JORNADA' ? 9 : 8}
                       className="text-center py-8 text-muted-foreground"
                     >
                       No hay registros que coincidan con los filtros
@@ -615,12 +617,20 @@ export default function DetalleEscalafonPage() {
                       {documento.tipo === 'NUEVO_INGRESO' ? (
                         <>
                           <TableCell>{registro.numeroProg || 'N/A'}</TableCell>
-                          <TableCell className="font-medium">{registro.nombre || 'N/A'}</TableCell>
+                          <TableCell className="font-medium max-w-[180px] truncate">{registro.nombre || 'N/A'}</TableCell>
                           <TableCell>{registro.matricula || 'N/A'}</TableCell>
-                          <TableCell>{registro.fecha || 'N/A'}</TableCell>
+                          <TableCell className="whitespace-nowrap">{registro.fecha || 'N/A'}</TableCell>
                           <TableCell>{registro.grupo || 'N/A'}</TableCell>
                           <TableCell>{registro.calificacion || 'N/A'}</TableCell>
+                          <TableCell className="max-w-[120px] truncate" title={registro.tipoContratacion || ''}>
+                            {registro.tipoContratacion || 'N/A'}
+                          </TableCell>
                           <TableCell>{registro.diasLaborados || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Badge variant={registro.estatus === 'A' ? 'default' : 'secondary'} className="text-xs">
+                              {registro.estatus || 'N/A'}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="max-w-xs truncate">
                             {registro.zona || 'N/A'}
                           </TableCell>
@@ -945,6 +955,44 @@ export default function DetalleEscalafonPage() {
                       <p className="text-sm text-muted-foreground">Adscripción</p>
                       <p className="font-medium">{registroSeleccionado.adscripcion || 'N/A'}</p>
                     </div>
+                    {(registroSeleccionado.residenciaDestino ?? registroSeleccionado.residenciaOrigen) && (
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">Residencia</p>
+                        <p className="font-medium">
+                          {registroSeleccionado.residenciaDestino ?? registroSeleccionado.residenciaOrigen ?? 'N/A'}
+                        </p>
+                      </div>
+                    )}
+                    {(registroSeleccionado.turnoAnterior ?? registroSeleccionado.turnoNuevo) && (
+                      <>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Turno Anterior</p>
+                          <p className="font-medium">{registroSeleccionado.turnoAnterior || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Turno Nuevo</p>
+                          <p className="font-medium">{registroSeleccionado.turnoNuevo || 'N/A'}</p>
+                        </div>
+                      </>
+                    )}
+                    {(registroSeleccionado.tipoPlazaAnterior ?? registroSeleccionado.tipoPlazaNuevo) && (
+                      <>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Tipo Plaza Anterior</p>
+                          <p className="font-medium">{registroSeleccionado.tipoPlazaAnterior || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Tipo Plaza Nuevo</p>
+                          <p className="font-medium">{registroSeleccionado.tipoPlazaNuevo || 'N/A'}</p>
+                        </div>
+                      </>
+                    )}
+                    {registroSeleccionado.registro && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Registro</p>
+                        <p className="font-medium">{registroSeleccionado.registro}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm text-muted-foreground">Zona</p>
                       <p className="font-medium">{registroSeleccionado.zona || 'N/A'}</p>

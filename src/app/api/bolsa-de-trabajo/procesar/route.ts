@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parsePDF, detectarTipoDocumento } from '@/lib/pdf/parser'
-import { createEscalafonDocumento, updateEscalafonDocumento, updateEstadoDocumento, guardarRegistrosEnSubcoleccion } from '@/lib/firebase/escalafon'
+import { createBolsaDeTrabajoDocumento, updateBolsaDeTrabajoDocumento, updateEstadoDocumento, guardarRegistrosEnSubcoleccion } from '@/lib/firebase/bolsa-de-trabajo'
 import { Timestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { app, storage } from '@/lib/firebase/server-config'
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Crear documento inicial con estado PROCESANDO
     const ahora = new Date()
-    const documentoId = await createEscalafonDocumento({
+    const documentoId = await createBolsaDeTrabajoDocumento({
       tipo: tipoDocumento,
       fechaActualizacion: ahora,
       fechaCarga: ahora,
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         console.warn('Firebase Storage no está disponible, continuando sin subir archivo')
         urlArchivo = '' // Continuar sin URL de Storage
       } else {
-        const storageRef = ref(storage, `escalafon/${documentoId}/${file.name}`)
+        const storageRef = ref(storage, `bolsa_de_trabajo/${documentoId}/${file.name}`)
         const snapshot = await uploadBytes(storageRef, buffer)
         urlArchivo = await getDownloadURL(snapshot.ref)
       }
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
     await guardarRegistrosEnSubcoleccion(documentoId, resultadoParse.registros)
 
     // Actualizar documento principal (sin registros)
-    await updateEscalafonDocumento(documentoId, {
+    await updateBolsaDeTrabajoDocumento(documentoId, {
       urlArchivo: urlArchivo || '',
       estado: resultadoParse.registros.length > 0 ? 'COMPLETADO' : 'VALIDANDO',
       metadata: resultadoParse.metadata || {},

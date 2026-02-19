@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase/firestore'
 
-// Tipos de documentos de escalafón
-export type TipoEscalafon =
+// Tipos de documentos de bolsa de trabajo
+export type TipoBolsaDeTrabajo =
   | 'AMPLIACIONES_JORNADA'
   | 'CAMBIOS_AREA'
   | 'CAMBIOS_RAMA'
@@ -15,17 +15,17 @@ export type TipoEscalafon =
 export type EstadoProcesamiento = 'PROCESANDO' | 'COMPLETADO' | 'ERROR' | 'VALIDANDO'
 
 // Resultado del parseo de un PDF (registros + metadata + errores)
-export interface EscalafonParseResult {
-  registros: EscalafonRegistro[]
-  metadata: Pick<MetadataEscalafon, 'zona' | 'categoria'>
+export interface BolsaDeTrabajoParseResult {
+  registros: BolsaDeTrabajoRegistro[]
+  metadata: Pick<MetadataBolsaDeTrabajo, 'zona' | 'categoria'>
   errores: string[]
 }
 
-/** @deprecated Usar EscalafonParseResult */
-export type ParseResult = EscalafonParseResult
+/** @deprecated Usar BolsaDeTrabajoParseResult */
+export type ParseResult = BolsaDeTrabajoParseResult
 
 // Metadata del documento
-export interface MetadataEscalafon {
+export interface MetadataBolsaDeTrabajo {
   zona?: string
   categoria?: string
   fechaActualizacionOriginal?: string
@@ -34,9 +34,9 @@ export interface MetadataEscalafon {
 }
 
 // Registro extraído de un PDF
-export interface EscalafonRegistro {
+export interface BolsaDeTrabajoRegistro {
   id: string
-  tipoDocumento: TipoEscalafon
+  tipoDocumento: TipoBolsaDeTrabajo
 
   // Campos comunes a todos los tipos
   nombre?: string
@@ -100,10 +100,10 @@ export interface EscalafonRegistro {
   fechaValidacion?: Timestamp
 }
 
-// Documento de escalafón completo
-export interface EscalafonDocumento {
+// Documento de bolsa de trabajo completo
+export interface BolsaDeTrabajoDocumento {
   id?: string
-  tipo: TipoEscalafon
+  tipo: TipoBolsaDeTrabajo
   fechaActualizacion: Timestamp | Date // Fecha del documento original
   fechaCarga: Timestamp | Date // Cuándo se subió al sistema
   subidoPor: string // UID del usuario
@@ -111,8 +111,8 @@ export interface EscalafonDocumento {
   estado: EstadoProcesamiento
   urlArchivo: string // Firebase Storage URL
   nombreArchivo?: string // Nombre original del archivo
-  metadata: MetadataEscalafon
-  registros: EscalafonRegistro[] // Array de registros extraídos
+  metadata: MetadataBolsaDeTrabajo
+  registros: BolsaDeTrabajoRegistro[] // Array de registros extraídos
   errores?: string[] // Errores durante la extracción
   version: number // Versión del documento (para historial)
   totalRegistros?: number // Total de registros extraídos
@@ -121,8 +121,8 @@ export interface EscalafonDocumento {
 }
 
 // Filtros para búsqueda
-export interface FiltrosEscalafon {
-  tipo?: TipoEscalafon[]
+export interface FiltrosBolsaDeTrabajo {
+  tipo?: TipoBolsaDeTrabajo[]
   zona?: string[]
   categoria?: string[]
   fechaDesde?: Date
@@ -132,10 +132,10 @@ export interface FiltrosEscalafon {
   textoBusqueda?: string // Búsqueda en nombres, matrículas, etc.
 }
 
-// Estadísticas de escalafón
-export interface EstadisticasEscalafon {
+// Estadísticas de bolsa de trabajo
+export interface EstadisticasBolsaDeTrabajo {
   totalDocumentos: number
-  documentosPorTipo: Record<TipoEscalafon, number>
+  documentosPorTipo: Record<TipoBolsaDeTrabajo, number>
   documentosPorEstado: Record<EstadoProcesamiento, number>
   totalRegistros: number
   registrosValidados: number
@@ -144,7 +144,7 @@ export interface EstadisticasEscalafon {
 }
 
 // Mapeo de nombres de archivo a tipos
-export const MAPEO_TIPOS_ARCHIVO: Record<string, TipoEscalafon> = {
+export const MAPEO_TIPOS_ARCHIVO: Record<string, TipoBolsaDeTrabajo> = {
   'AMPLIACIONES DE JORNADA': 'AMPLIACIONES_JORNADA',
   'CAMBIOS DE ÁREA': 'CAMBIOS_AREA',
   'CAMBIOS DE RAMA': 'CAMBIOS_RAMA',
@@ -156,7 +156,7 @@ export const MAPEO_TIPOS_ARCHIVO: Record<string, TipoEscalafon> = {
 }
 
 // Nombres legibles para los tipos
-export const NOMBRES_TIPOS: Record<TipoEscalafon, string> = {
+export const NOMBRES_TIPOS: Record<TipoBolsaDeTrabajo, string> = {
   AMPLIACIONES_JORNADA: 'Ampliaciones de Jornada',
   CAMBIOS_AREA: 'Cambios de Área',
   CAMBIOS_RAMA: 'Cambios de Rama',

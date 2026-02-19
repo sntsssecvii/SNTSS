@@ -1,10 +1,10 @@
 // Importación dinámica de pdf-parse para evitar problemas con Next.js bundling
 import type {
-  EscalafonRegistro,
-  TipoEscalafon,
-  EscalafonDocumento,
-  MetadataEscalafon,
-} from '@/types/escalafon'
+  BolsaDeTrabajoRegistro,
+  TipoBolsaDeTrabajo,
+  BolsaDeTrabajoDocumento,
+  MetadataBolsaDeTrabajo,
+} from '@/types/bolsa-de-trabajo'
 import { parseNuevoIngreso } from './parsers/nuevoIngreso'
 import { parseAmpliacionesJornada } from './parsers/ampliacionesJornada'
 import { parseCambiosArea } from './parsers/cambiosArea'
@@ -15,8 +15,8 @@ import { parseCambiosTipoPlaza } from './parsers/cambiosTipoPlaza'
 import { parseCambiosTurnoAdscripcion } from './parsers/cambiosTurnoAdscripcion'
 
 export interface ParseResult {
-  registros: EscalafonRegistro[]
-  metadata: MetadataEscalafon
+  registros: BolsaDeTrabajoRegistro[]
+  metadata: MetadataBolsaDeTrabajo
   errores: string[]
 }
 
@@ -25,8 +25,9 @@ export interface ParseResult {
  */
 export async function parsePDF(
   buffer: Buffer,
-  tipo: TipoEscalafon,
-  nombreArchivo?: string
+  tipo: TipoBolsaDeTrabajo,
+  nombreArchivo?: string,
+  options: { maxPages?: number } = {}
 ): Promise<ParseResult> {
   try {
     // Importar pdf-parse dinámicamente para evitar problemas con Next.js bundling
@@ -48,7 +49,11 @@ export async function parsePDF(
     }
 
     // Crear instancia de PDFParse con el buffer
-    const parser = new PDFParseClass({ data: buffer })
+    // @ts-ignore - pdf-parse types might not include max option
+    const parser = new PDFParseClass({
+      data: buffer,
+      max: options.maxPages
+    })
 
     // Extraer texto del PDF usando getText()
     const result = await parser.getText()
@@ -113,7 +118,7 @@ export async function parsePDF(
 export function detectarTipoDocumento(
   nombreArchivo?: string,
   contenido?: string
-): TipoEscalafon | null {
+): TipoBolsaDeTrabajo | null {
   if (nombreArchivo) {
     const nombreUpper = nombreArchivo.toUpperCase()
 
@@ -189,12 +194,38 @@ export function detectarTipoDocumento(
 }
 
 /**
- * Utilidades para parsing
+ * Utilidades para parsing.
+ * Las funciones de preprocesamiento se centralizan en ./preprocessing.ts
  */
+import {
+  dividirLineas,
+  esEncabezado,
+  limpiarFooter,
+  esEncabezadoSeccion,
+  esRuido,
+  debeDescartarLinea,
+  extraerZona,
+  extraerCategoria,
+  preprocessLines,
+  unirLineasPartidasGeneric,
+  dividirLineasPegadas,
+} from './preprocessing'
+
+export {
+  dividirLineas,
+  esEncabezado,
+  limpiarFooter,
+  esEncabezadoSeccion,
+  esRuido,
+  debeDescartarLinea,
+  extraerZona,
+  extraerCategoria,
+  preprocessLines,
+  unirLineasPartidasGeneric,
+  dividirLineasPegadas,
+}
+
 export const parseUtils = {
-  /**
-   * Limpiar y normalizar texto
-   */
   limpiarTexto(texto: string): string {
     return texto
       .replace(/\s+/g, ' ')
@@ -202,60 +233,22 @@ export const parseUtils = {
       .trim()
   },
 
-  /**
-   * Extraer fecha del texto (formato DD/MM/YYYY)
-   */
   extraerFecha(texto: string): string | undefined {
     const fechaRegex = /(\d{2}\/\d{2}\/\d{4})/g
     const match = texto.match(fechaRegex)
     return match ? match[0] : undefined
   },
 
-  /**
-   * Extraer número de matrícula
-   */
   extraerMatricula(texto: string): string | undefined {
     const matriculaRegex = /\b\d{7,10}\b/g
     const match = texto.match(matriculaRegex)
     return match ? match[0] : undefined
   },
 
-  /**
-   * Dividir texto en líneas y filtrar vacías
-   */
-  dividirLineas(texto: string): string[] {
-    return texto
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-  },
+  dividirLineas,
+  esEncabezado,
 
-  /**
-   * Detectar si una línea es un encabezado
-   */
-  esEncabezado(linea: string): boolean {
-    const encabezados = [
-      'CAMBIO SOLICITADO',
-      'SITUACIÓN ACTUAL',
-      'ADSCRIPCIÓN',
-      'FECHA',
-      'REGISTRO',
-      'NOMBRE',
-      'MATRÍCULA',
-      'No. Prog',
-      'Zona',
-      'CATEGORÍA',
-      'IMSS-SIAP',
-      'DIRECCIÓN',
-      'LISTADO',
-    ]
-    return encabezados.some((enc) => linea.toUpperCase().includes(enc))
-  },
-
-  /**
-   * Generar ID único para registro
-   */
-  generarIdRegistro(tipo: TipoEscalafon, indice: number): string {
+  generarIdRegistro(tipo: TipoBolsaDeTrabajo, indice: number): string {
     return `${tipo}_${Date.now()}_${indice}`
   },
 }
