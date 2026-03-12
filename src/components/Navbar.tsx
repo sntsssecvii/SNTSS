@@ -46,6 +46,9 @@ export function Navbar() {
     }
   }
 
+  const roleUpper = userData?.role?.toUpperCase()
+  const isAdmin = roleUpper === 'ADMIN'
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'success':
@@ -214,15 +217,23 @@ export function Navbar() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/admin/perfil">Mi Perfil</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/configuracion">Configuración</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/cambiar-contrasena">Cambiar Contraseña</Link>
-              </DropdownMenuItem>
+              {isAdmin ? (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/perfil">Mi Perfil</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/configuracion">Configuración</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/cambiar-contrasena">Cambiar Contraseña</Link>
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard">Mi Portal</Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
                 Cerrar Sesión

@@ -90,23 +90,25 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
   }
 
   // Items comunes para todos
-  baseItems.push(
-    {
-      title: 'Mi Perfil',
-      href: '/admin/perfil',
-      icon: User,
-    },
-    {
-      title: 'Configuración',
-      href: '/admin/configuracion',
-      icon: Settings,
-    },
-    {
-      title: 'Cambiar Contraseña',
-      href: '/admin/cambiar-contrasena',
-      icon: Lock,
-    }
-  )
+  if (roleUpper === 'ADMIN') {
+    baseItems.push(
+      {
+        title: 'Mi Perfil',
+        href: '/admin/perfil',
+        icon: User,
+      },
+      {
+        title: 'Configuración',
+        href: '/admin/configuracion',
+        icon: Settings,
+      },
+      {
+        title: 'Cambiar Contraseña',
+        href: '/admin/cambiar-contrasena',
+        icon: Lock,
+      }
+    )
+  }
 
   return baseItems
 }
