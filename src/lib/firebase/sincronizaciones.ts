@@ -47,6 +47,23 @@ const convertirSincronizacion = (doc: any): Sincronizacion => {
     }
 }
 
+const scoreSincronizacion = (sync: Sincronizacion): number => {
+    const estadoScore = sync.estado === 'COMPLETADO'
+        ? 2
+        : sync.estado === 'PROCESANDO'
+            ? 1
+            : 0
+    const fecha = convertirTimestamp(sync.fechaFinalizacion || sync.fechaInicio).getTime()
+
+    return (sync.esFuenteVerdad ? 1_000_000_000_000 : 0) + (estadoScore * 1_000_000_000) + fecha
+}
+
+const seleccionarSincronizacionCanonica = (sincronizaciones: Sincronizacion[]): Sincronizacion | null => {
+    if (sincronizaciones.length === 0) return null
+
+    return [...sincronizaciones].sort((a, b) => scoreSincronizacion(b) - scoreSincronizacion(a))[0]
+}
+
 export const createSincronizacion = async (
     sync: Omit<Sincronizacion, 'id' | 'fechaInicio' | 'estado' | 'esFuenteVerdad'>
 ): Promise<string> => {
@@ -88,12 +105,11 @@ export const getSincronizacionPorPeriodo = async (
             collection(db, COLECCION),
             where('anio', '==', anio),
             where('mes', '==', mes),
-            where('quincena', '==', quincena),
-            limit(1)
+            where('quincena', '==', quincena)
         )
         const querySnapshot = await getDocs(q)
         if (querySnapshot.empty) return null
-        return convertirSincronizacion(querySnapshot.docs[0])
+        return seleccionarSincronizacionCanonica(querySnapshot.docs.map(convertirSincronizacion))
     } catch (error) {
         console.error('Error obteniendo sincronización por periodo:', error)
         throw error

@@ -43,6 +43,41 @@ function getEstadoUI(sync: Sincronizacion, documentos: BolsaDeTrabajoDocumento[]
   return 'LISTA'
 }
 
+function getPeriodoKey(sync: Sincronizacion) {
+  return `${sync.anio}-${sync.mes}-${sync.quincena}`
+}
+
+function getResumenScore(item: QuincenaResumen) {
+  const baseDate = item.sync.fechaFinalizacion || item.sync.fechaInicio
+  const timestamp = baseDate instanceof Date ? baseDate.getTime() : baseDate?.toDate?.().getTime?.() || 0
+  const estadoScore = item.estadoUI === 'PUBLICADA'
+    ? 4
+    : item.estadoUI === 'LISTA'
+      ? 3
+      : item.estadoUI === 'INCOMPLETA'
+        ? 2
+        : item.estadoUI === 'CON_ERROR'
+          ? 1
+          : 0
+
+  return (estadoScore * 1_000_000_000_000) + (item.tiposCargados * 1_000_000_000) + timestamp
+}
+
+function consolidarResumenesPorPeriodo(items: QuincenaResumen[]) {
+  const grouped = new Map<string, QuincenaResumen[]>()
+
+  items.forEach((item) => {
+    const key = getPeriodoKey(item.sync)
+    const bucket = grouped.get(key) || []
+    bucket.push(item)
+    grouped.set(key, bucket)
+  })
+
+  return Array.from(grouped.values())
+    .map((bucket) => bucket.sort((a, b) => getResumenScore(b) - getResumenScore(a))[0])
+    .sort((a, b) => getResumenScore(b) - getResumenScore(a))
+}
+
 export default function BolsaDeTrabajoPage() {
   const [resumenes, setResumenes] = useState<QuincenaResumen[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,7 +97,7 @@ export default function BolsaDeTrabajoPage() {
           }))
         )
 
-        setResumenes(docsPorSync.map(({ sync, documentos }) => ({
+        const items = docsPorSync.map(({ sync, documentos }) => ({
           sync,
           documentos,
           tiposCargados: new Set(documentos.map((doc) => doc.tipo)).size,
@@ -70,7 +105,9 @@ export default function BolsaDeTrabajoPage() {
           errores: documentos.filter((doc) => doc.estado === 'ERROR').length,
           procesando: documentos.filter((doc) => doc.estado === 'PROCESANDO' || doc.estado === 'VALIDANDO').length,
           estadoUI: getEstadoUI(sync, documentos),
-        })))
+        }))
+
+        setResumenes(consolidarResumenesPorPeriodo(items))
       } catch (error) {
         console.error(error)
         toast({

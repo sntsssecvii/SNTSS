@@ -160,13 +160,16 @@ export default function DetalleBolsaDeTrabajoPage() {
     if (!documento) return registrosFiltrados
     const tipo = documento.tipo
 
-    // Si no es un tipo que soporte posiciones calculadas (NI, AJ, CTA)
-    if (
-      tipo !== 'NUEVO_INGRESO' &&
-      tipo !== 'AMPLIACIONES_JORNADA' &&
-      tipo !== 'CAMBIOS_TURNO_ADSCRIPCION' &&
-      tipo !== 'CAMBIOS_RAMA'
-    ) return registrosFiltrados
+    if (![
+      'NUEVO_INGRESO',
+      'AMPLIACIONES_JORNADA',
+      'CAMBIOS_TURNO_ADSCRIPCION',
+      'CAMBIOS_RAMA',
+      'CAMBIOS_AREA',
+      'CAMBIOS_TIPO_PLAZA',
+      'CAMBIOS_RESIDENCIA_DESTINO',
+      'CAMBIOS_RESIDENCIA_ORIGEN',
+    ].includes(tipo)) return registrosFiltrados
 
     return registrosFiltrados.map(reg => {
       const grupoRegistros = getComparisonRecordsForWorker(documento.registros, reg, tipo)
@@ -183,6 +186,15 @@ export default function DetalleBolsaDeTrabajoPage() {
   const abrirModalDetalle = (reg: BolsaDeTrabajoRegistro) => {
     setRegistroSeleccionado(reg)
     setModalAbierto(true)
+  }
+
+  const volverPasoAnterior = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+      return
+    }
+
+    router.push(rutaQuincena)
   }
 
   const exportarCSV = () => {
@@ -218,7 +230,7 @@ export default function DetalleBolsaDeTrabajoPage() {
       setEliminando(true)
       await deleteBolsaDeTrabajoDocumento(documento.id)
       toast({ title: 'Eliminado', description: 'El documento ha sido eliminado con éxito' })
-      router.push('/admin/bolsa-de-trabajo')
+      volverPasoAnterior()
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo eliminar el documento', variant: 'destructive' })
       setEliminando(false)
@@ -255,7 +267,7 @@ export default function DetalleBolsaDeTrabajoPage() {
         <div className="px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-4">
-              <Button variant="ghost" size="icon" onClick={() => router.push(rutaQuincena)} className="rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
+              <Button variant="ghost" size="icon" onClick={volverPasoAnterior} className="rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div className="flex-1 min-w-0">
@@ -308,10 +320,10 @@ export default function DetalleBolsaDeTrabajoPage() {
                 </span>
                 {documento.syncId && (
                   <button
-                    onClick={() => router.push(rutaQuincena)}
+                    onClick={volverPasoAnterior}
                     className="text-[10px] font-black text-slate-500 uppercase underline-offset-4 hover:underline"
                   >
-                    Volver a la quincena
+                    Volver al paso anterior
                   </button>
                 )}
               </div>
@@ -538,6 +550,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Nombre / Categoría</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Matrícula</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">{documento.tipo === 'CAMBIOS_RESIDENCIA_DESTINO' ? 'Delegación Destino' : 'Delegación Origen'}</TableHead>
+                      <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800 text-center">Posición</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Días Lab.</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Fecha Registro</TableHead>
                       <TableHead className="w-16 border-b border-slate-200 dark:border-slate-800"></TableHead>
@@ -557,6 +570,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Nombre / Categoría</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Matrícula</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Cód. Rama / Calificación</TableHead>
+                      <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800 text-center">Posición</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Días Lab.</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Fecha Registro</TableHead>
                       <TableHead className="w-16 border-b border-slate-200 dark:border-slate-800"></TableHead>
@@ -568,6 +582,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Nombre / Categoría</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Matrícula</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Tipo → Adscripción Destino</TableHead>
+                      <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800 text-center">Posición</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Días Lab.</TableHead>
                       <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">Fecha Registro</TableHead>
                       <TableHead className="w-16 border-b border-slate-200 dark:border-slate-800"></TableHead>
@@ -678,6 +693,14 @@ export default function DetalleBolsaDeTrabajoPage() {
                           <TableCell className="py-4 px-6 text-xs font-bold text-slate-600 dark:text-slate-400 truncate max-w-[200px]">
                             {reg.delegacionDestino || reg.delegacionOrigen || '---'}
                           </TableCell>
+                          <TableCell className="py-4 px-6 text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm font-black text-cyan-600 bg-cyan-50 dark:bg-cyan-900/10 px-2.5 py-1 rounded-lg border border-cyan-200 dark:border-cyan-800/50 min-w-[32px] text-center shadow-sm">
+                                {(reg as any)._posCalculada?.posicionBase || '---'}
+                              </span>
+                              <span className="text-[8px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">En fila</span>
+                            </div>
+                          </TableCell>
                           <TableCell className="py-4 px-6 text-xs font-black text-slate-500">{reg.diasLaborados || '---'}</TableCell>
                           <TableCell className="py-4 px-6 text-[10px] font-black uppercase text-slate-500">{reg.fecha}</TableCell>
                         </>
@@ -721,6 +744,14 @@ export default function DetalleBolsaDeTrabajoPage() {
                               {reg.calificacion && <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{reg.calificacion} pts</span>}
                             </div>
                           </TableCell>
+                          <TableCell className="py-4 px-6 text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm font-black text-fuchsia-600 bg-fuchsia-50 dark:bg-fuchsia-900/10 px-2.5 py-1 rounded-lg border border-fuchsia-200 dark:border-fuchsia-800/50 min-w-[32px] text-center shadow-sm">
+                                {(reg as any)._posCalculada?.posicionBase || '---'}
+                              </span>
+                              <span className="text-[8px] font-bold text-fuchsia-500 mt-1 uppercase tracking-widest">En fila</span>
+                            </div>
+                          </TableCell>
                           <TableCell className="py-4 px-6 text-xs font-black text-slate-500">{reg.diasLaborados || '---'}</TableCell>
                           <TableCell className="py-4 px-6 text-[10px] font-black uppercase text-slate-500">{reg.fecha}</TableCell>
                         </>
@@ -737,6 +768,14 @@ export default function DetalleBolsaDeTrabajoPage() {
                             <div className="flex items-center gap-1.5">
                               {reg.registro && <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px] font-black text-slate-600 dark:text-slate-300">{reg.registro}</span>}
                               <span className="text-xs font-bold text-slate-600 dark:text-slate-400 truncate max-w-[160px]">{reg.adscripcionNueva || '---'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-4 px-6 text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm font-black text-rose-600 bg-rose-50 dark:bg-rose-900/10 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800/50 min-w-[32px] text-center shadow-sm">
+                                {(reg as any)._posCalculada?.posicionBase || '---'}
+                              </span>
+                              <span className="text-[8px] font-bold text-rose-500 mt-1 uppercase tracking-widest">En fila</span>
                             </div>
                           </TableCell>
                           <TableCell className="py-4 px-6 text-xs font-black text-slate-500">{reg.diasLaborados || '---'}</TableCell>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarClock, CircleAlert, CircleCheckBig, Eye, FileText, Plus, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, CalendarClock, CircleAlert, CircleCheckBig, FileText, Plus, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -42,7 +42,6 @@ export default function DetalleQuincenaPage() {
   const [loading, setLoading] = useState(true)
   const [sync, setSync] = useState<Sincronizacion | null>(null)
   const [documentos, setDocumentos] = useState<BolsaDeTrabajoDocumento[]>([])
-  const [selectedTipo, setSelectedTipo] = useState<TipoBolsaDeTrabajo | null>(null)
 
   useEffect(() => {
     const cargar = async () => {
@@ -85,9 +84,6 @@ export default function DetalleQuincenaPage() {
     [documentos]
   )
 
-  const docsDelTipo = selectedTipo
-    ? documentos.filter((doc) => doc.tipo === selectedTipo)
-    : []
   const checklistTipos = useMemo(() => TIPOS.map((tipo) => {
     const docs = documentos.filter((doc) => doc.tipo === tipo)
     const doc = docs[0]
@@ -205,83 +201,31 @@ export default function DetalleQuincenaPage() {
           </Card>
         )}
 
-        {selectedTipo ? (
-          <section className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tipo seleccionado</p>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white">{NOMBRES_TIPOS[selectedTipo]}</h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() => router.push(`/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${selectedTipo}`)}
-                  className="rounded-2xl font-black"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {docsDelTipo.length > 0 ? 'Reemplazar documento' : 'Cargar documento'}
-                </Button>
-                <Button variant="outline" onClick={() => setSelectedTipo(null)} className="rounded-2xl font-black">
-                  Volver a checklist
-                </Button>
-              </div>
-            </div>
-
-            {docsDelTipo.length === 0 ? (
-              <Card className="rounded-3xl border-dashed border-slate-300 dark:border-slate-700">
-                <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center">
-                  <FileText className="h-10 w-10 text-slate-300" />
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white">Sin documento cargado</h3>
-                  <p className="max-w-md text-sm font-medium text-slate-500 dark:text-slate-400">
-                    Este tipo aún no tiene documento dentro de la quincena. Cárgalo o reemplázalo desde el flujo de captura.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {docsDelTipo.map((doc) => (
-                  <button
-                    key={doc.id}
-                    onClick={() => router.push(`/admin/bolsa-de-trabajo/${doc.id}`)}
-                    className="text-left"
-                  >
-                    <Card className="rounded-3xl border-slate-200 bg-white transition-all hover:border-primary hover:shadow-lg dark:border-slate-800 dark:bg-slate-900/50">
-                      <CardContent className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-                        <div className="space-y-2">
-                          <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                            {doc.nombreArchivo || 'Documento sin nombre'}
-                          </h3>
-                          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                            {doc.totalRegistros || 0} registros · cargado {formatFecha(doc.fechaCarga as Date)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Badge variant={doc.estado === 'COMPLETADO' ? 'success' : doc.estado === 'ERROR' ? 'destructive' : 'warning'}>
-                            {doc.estado}
-                          </Badge>
-                          <div className="rounded-2xl bg-primary/10 px-3 py-2 text-sm font-black text-primary">
-                            Abrir detalle
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-        ) : (
-          <section className="space-y-4">
+        <section className="space-y-4">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Checklist del corte</p>
               <h2 className="text-2xl font-black text-slate-900 dark:text-white">Tipos oficiales de la quincena</h2>
               <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-                Cada fila representa un tipo. Desde aquí cargas, reemplazas o entras al detalle del documento vigente.
+                Cada fila representa un tipo. Si ya existe documento, al tocar la fila entras directo a su tabla. Si falta, el flujo te lleva a cargarlo.
               </p>
             </div>
 
             <div className="space-y-3">
               {checklistTipos.map(({ tipo, doc, status }) => (
-                <Card key={tipo} className="rounded-3xl border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50">
+                <div
+                  key={tipo}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(doc ? `/admin/bolsa-de-trabajo/${doc.id}` : `/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${tipo}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      router.push(doc ? `/admin/bolsa-de-trabajo/${doc.id}` : `/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${tipo}`)
+                    }
+                  }}
+                  className="w-full text-left"
+                >
+                <Card className="rounded-3xl border-slate-200 bg-white transition-all hover:border-primary hover:shadow-lg dark:border-slate-800 dark:bg-slate-900/50">
                   <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -323,27 +267,36 @@ export default function DetalleQuincenaPage() {
 
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Button
-                        onClick={() => router.push(`/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${tipo}`)}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          router.push(`/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${tipo}`)
+                        }}
                         className="rounded-2xl font-black"
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         {doc ? 'Reemplazar' : 'Cargar'}
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setSelectedTipo(tipo)}
-                        className="rounded-2xl font-black"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver detalle
-                      </Button>
+                      {doc && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            router.push(`/admin/bolsa-de-trabajo/${doc.id}`)
+                          }}
+                          className="rounded-2xl font-black"
+                        >
+                          Abrir tabla
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               ))}
             </div>
           </section>
-        )}
       </div>
     </div>
   )
