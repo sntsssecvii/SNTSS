@@ -22,6 +22,8 @@ Mantener una base estable para SNTSS mientras se sigue desarrollando el flujo de
 - `scripts/tests/`: pruebas manuales y regresion
 - `scripts/debug/`: scripts de investigacion o debugging
 - `artifacts/`: salidas temporales generadas por pruebas o diagnostico
+- `.codex/skills/sntss/`: skills reutilizables para tareas frecuentes del proyecto
+- `docs/agents/`: politica de MCPs y plantillas de tarea para agentes
 
 ## Cambios que requieren cuidado extra
 - Reglas o credenciales de Firebase
@@ -46,3 +48,4 @@ Mantener una base estable para SNTSS mientras se sigue desarrollando el flujo de
 - Usa ramas por intencion (`feat/*`, `fix/*`, `chore/*`, `docs/*`) y evita trabajar directo en `main` para cambios medianos o grandes.
 - Si agregas scripts temporales, nombrarlos claramente y documentar si son diagnostico, fixture o prueba manual.
 - Los artefactos temporales deben ir a `tmp/` o `artifacts/`, no a `scripts/` ni a la raiz del repo.
+- Si una tarea coincide con un skill del proyecto, usalo antes de improvisar flujo o validaciones.
