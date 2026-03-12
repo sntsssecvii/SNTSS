@@ -10,6 +10,7 @@ import { getStorage, FirebaseStorage } from 'firebase/storage';
  */
 export const getServerApp = (): FirebaseApp => {
   if (getApps().length === 0) {
+    // Aseguramos que el bucket de storage esté configurado explícitamente si existe
     return initializeApp(firebaseConfig);
   }
   return getApp();

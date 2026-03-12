@@ -1,4 +1,4 @@
-// Importación dinámica de pdf-parse para evitar problemas con Next.js bundling
+// Extracción de texto PDF usando pdfplumber (Python Bridge) para máxima precisión
 import type {
   BolsaDeTrabajoRegistro,
   TipoBolsaDeTrabajo,
@@ -18,6 +18,7 @@ export interface ParseResult {
   registros: BolsaDeTrabajoRegistro[]
   metadata: MetadataBolsaDeTrabajo
   errores: string[]
+  texto?: string // Texto crudo extraído
 }
 
 /**
@@ -30,41 +31,56 @@ export async function parsePDF(
   options: { maxPages?: number } = {}
 ): Promise<ParseResult> {
   try {
-    // Importar pdf-parse dinámicamente para evitar problemas con Next.js bundling
-    // En el servidor, usar require directamente ya que está excluido del bundling
-    let PDFParseClass: any
-    if (typeof window === 'undefined') {
-      // En el servidor, usar require
-      const pdfParseModule = require('pdf-parse')
-      // pdf-parse v2.4.5 exporta PDFParse como clase
-      PDFParseClass = pdfParseModule.PDFParse
-    } else {
-      // En el cliente (no debería llegar aquí, pero por si acaso)
-      const pdfParseModule = await import('pdf-parse')
-      PDFParseClass = pdfParseModule.PDFParse
+    // Intentar usar pdfplumber (Python) como motor principal para extracción de texto
+    let texto = ''
+    try {
+      console.log(`Usando pdfplumber para extraer texto de ${tipo}: ${nombreArchivo || 'identificador desconocido'}`)
+      const { callPythonExtractor } = await import('./pythonBridge')
+
+      let pdfPath = ''
+      const fs = await import('fs')
+      const path = await import('path')
+      const os = await import('os')
+      const tempDir = path.join(os.tmpdir(), 'sntss-pdf-' + Date.now())
+      fs.mkdirSync(tempDir, { recursive: true })
+      pdfPath = path.join(tempDir, nombreArchivo || 'temp.pdf')
+      fs.writeFileSync(pdfPath, buffer)
+
+      try {
+        const extraction = await callPythonExtractor(pdfPath)
+        // Concatenar texto de todas las páginas
+        texto = extraction.pages.map(p => p.text).join('\n')
+      } finally {
+        try { fs.unlinkSync(pdfPath); fs.rmdirSync(tempDir); } catch (e) { }
+      }
+    } catch (plumberError) {
+      console.warn('Error con pdfplumber extractive, intentando fallback de JavaScript (Baja Precisión):', plumberError)
+
+      try {
+        // Polyfill para evitar errores de DOMMatrix/Canvas en Vercel (solo lo mínimo necesario)
+        if (typeof global !== 'undefined') {
+          if (!(global as any).DOMMatrix) (global as any).DOMMatrix = class DOMMatrix { };
+          if (!(global as any).Path2D) (global as any).Path2D = class Path2D { };
+          if (!(global as any).ImageData) (global as any).ImageData = class ImageData { };
+        }
+
+        const pdfParseModule = await import('pdf-parse');
+        const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : (pdfParseModule as any).default || pdfParseModule;
+
+        const data = await (pdfParse as any)(buffer)
+        texto = data.text
+        if (texto) {
+          console.log('Extracción exitosa con pdf-parse (fallback JS)')
+        }
+      } catch (parseError) {
+        console.error('Error crítico: Falló también el fallback de pdf-parse:', parseError)
+        throw new Error(`No se pudo extraer texto del PDF con ningún motor disponible (Python/Adobe/JS).`)
+      }
     }
 
-    if (!PDFParseClass || typeof PDFParseClass !== 'function') {
-      throw new Error(`PDFParse no está disponible. Tipo: ${typeof PDFParseClass}`)
+    if (!texto) {
+      throw new Error('No se pudo extraer texto del PDF.')
     }
-
-    // Crear instancia de PDFParse con el buffer
-    // @ts-ignore - pdf-parse types might not include max option
-    const parser = new PDFParseClass({
-      data: buffer,
-      max: options.maxPages
-    })
-
-    // Extraer texto del PDF usando getText()
-    const result = await parser.getText()
-    const texto = result.text
-
-    // Limpiar recursos
-    await parser.destroy()
-
-    // Log para debugging (solo primeras 500 caracteres)
-    console.log('Texto extraído del PDF (primeros 500 caracteres):', texto.substring(0, 500))
-    console.log('Total de caracteres extraídos:', texto.length)
 
     // Determinar parser según el tipo
     let resultado: ParseResult
@@ -100,17 +116,24 @@ export async function parsePDF(
 
     // Agregar metadata adicional
     resultado.metadata.totalRegistros = resultado.registros.length
+    resultado.metadata.extraidoCon = 'PDF'
+    resultado.texto = texto
 
     return resultado
   } catch (error: any) {
     console.error('Error parseando PDF:', error)
     return {
       registros: [],
-      metadata: {},
+      metadata: {
+        totalRegistros: 0,
+        extraidoCon: 'PDF'
+      },
       errores: [`Error al parsear PDF: ${error.message}`],
     }
   }
 }
+
+import { MAPEO_TIPOS_ARCHIVO } from '@/types/bolsa-de-trabajo'
 
 /**
  * Detectar el tipo de documento basado en el nombre del archivo o contenido
@@ -120,8 +143,16 @@ export function detectarTipoDocumento(
   contenido?: string
 ): TipoBolsaDeTrabajo | null {
   if (nombreArchivo) {
-    const nombreUpper = nombreArchivo.toUpperCase()
+    const nombreUpper = nombreArchivo.normalize('NFC').toUpperCase()
 
+    // 1. Intentar con el mapeo exacto
+    for (const [key, value] of Object.entries(MAPEO_TIPOS_ARCHIVO)) {
+      if (nombreUpper.includes(key.normalize('NFC').toUpperCase())) {
+        return value
+      }
+    }
+
+    // 2. Fallbacks flexibles (por si el nombre no es exacto)
     if (nombreUpper.includes('AMPLIACIONES') && nombreUpper.includes('JORNADA')) {
       return 'AMPLIACIONES_JORNADA'
     }
@@ -150,8 +181,9 @@ export function detectarTipoDocumento(
 
   // Intentar detectar por contenido si no se pudo por nombre
   if (contenido) {
-    const contenidoUpper = contenido.toUpperCase()
-    const primerasLineas = contenido.split('\n').slice(0, 30).join(' ').toUpperCase()
+    const contenidoNorm = contenido.normalize('NFC')
+    const contenidoUpper = contenidoNorm.toUpperCase()
+    const primerasLineas = contenidoNorm.split('\n').slice(0, 30).join(' ').toUpperCase()
 
     // Detectar NUEVO INGRESO por el formato característico de columnas
     // Buscar patrones como "No. Prog", "Nombre", "Matrícula", "Fecha de Registro"

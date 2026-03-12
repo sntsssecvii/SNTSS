@@ -164,7 +164,7 @@ export default function TestFirestorePage() {
 
           {!testing && log.length === 0 && (
             <div className="bg-gray-100 rounded-lg p-6 text-center text-gray-500">
-              Haz clic en "Ejecutar Prueba" para comenzar el diagnóstico
+              Haz clic en &quot;Ejecutar Prueba&quot; para comenzar el diagnóstico
             </div>
           )}
         </div>

@@ -210,6 +210,18 @@ export const getBolsaDeTrabajoDocumentos = async (
       constraints.push(where('fechaActualizacion', '<=', Timestamp.fromDate(filtros.fechaHasta)))
     }
 
+    if (filtros?.anio) {
+      constraints.push(where('metadata.anio', '==', filtros.anio))
+    }
+
+    if (filtros?.mes) {
+      constraints.push(where('metadata.mes', '==', filtros.mes))
+    }
+
+    if (filtros?.quincena) {
+      constraints.push(where('metadata.quincena', '==', filtros.quincena))
+    }
+
     if (limite) {
       constraints.push(limit(limite))
     }

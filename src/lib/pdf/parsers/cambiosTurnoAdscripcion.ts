@@ -102,7 +102,7 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
     const esRegistroPotencial = /^\d+\s+[A-Z]{2,}\s+/.test(linea)
 
     if (debeDescartarLinea(linea, esRegistroPotencial) ||
-        (!esRegistroPotencial && (linea.includes(' of ') || linea.includes('No. Prog')))) {
+      (!esRegistroPotencial && (linea.includes(' of ') || linea.includes('No. Prog')))) {
       continue
     }
 
@@ -113,9 +113,9 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
 
     if (match) {
       const [
-        , numeroProg, _cambio, _adscripActClave, turnoAnterior,
-        fecha, registro, _dias, matricula, nombre, sexo,
-        _adscripNuevaClave, _adscripNuevaNombre, _plaza, _jornada, turnoNuevo,
+        , numeroProg, tipoCambio, _adscripActClave, turnoAnterior,
+        fecha, status, _dias, matricula, nombre, sexo,
+        adscripcionNueva, adscripcionNuevaNombre, _plaza, _jornada, turnoNuevo,
       ] = match
 
       const registroObj: BolsaDeTrabajoRegistro = {
@@ -125,10 +125,13 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
         turnoAnterior,
         turnoNuevo,
         fecha,
-        registro,
+        registro: tipoCambio, // CAT o CAD
+        estatus: status,
         matricula,
         nombre: nombre.trim(),
         sexo,
+        adscripcionNueva,
+        adscripcionNuevaNombre: adscripcionNuevaNombre.trim(),
         zona: zonaActual,
         categoria: categoriaActual,
         filaOriginal: i + 1,
@@ -167,10 +170,10 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
       id: parseUtils.generarIdRegistro('CAMBIOS_TURNO_ADSCRIPCION', registros.length),
       tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
       numeroProg: partes[0],
+      registro: partes[1] || '', // CAT/CAD
       turnoAnterior: turnoIdx !== -1 ? partes[turnoIdx] : '',
       turnoNuevo: turnoNuevoVal,
       fecha: partes[fechaIdx],
-      registro: partes[fechaIdx + 1] || '',
       matricula: partes[matIdx],
       nombre: sexIdx !== -1
         ? partes.slice(matIdx + 1, sexIdx).join(' ')

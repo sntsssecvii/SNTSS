@@ -17,7 +17,7 @@ export type EstadoProcesamiento = 'PROCESANDO' | 'COMPLETADO' | 'ERROR' | 'VALID
 // Resultado del parseo de un PDF (registros + metadata + errores)
 export interface BolsaDeTrabajoParseResult {
   registros: BolsaDeTrabajoRegistro[]
-  metadata: Pick<MetadataBolsaDeTrabajo, 'zona' | 'categoria'>
+  metadata: Pick<MetadataBolsaDeTrabajo, 'zona' | 'categoria' | 'totalRegistros' | 'extraidoCon'>
   errores: string[]
 }
 
@@ -31,12 +31,17 @@ export interface MetadataBolsaDeTrabajo {
   fechaActualizacionOriginal?: string
   totalRegistros?: number
   organoOperacion?: string
+  extraidoCon?: 'PDF' | 'EXCEL'
+  anio?: number
+  mes?: number
+  quincena?: 1 | 2
 }
 
 // Registro extraído de un PDF
 export interface BolsaDeTrabajoRegistro {
   id: string
   tipoDocumento: TipoBolsaDeTrabajo
+  syncId?: string // ID de la sincronización a la que pertenece
 
   // Campos comunes a todos los tipos
   nombre?: string
@@ -48,12 +53,12 @@ export interface BolsaDeTrabajoRegistro {
   zona?: string
   categoria?: string
 
-  // Campos específicos para AMPLIACIONES DE JORNADA
+  // Campos comunes: jornada y turno (usados en varios tipos)
   jornadaActual?: string
-  adscripcionActualClave?: string
-  turnoActual?: string
   jornadaNueva?: string
-  turnoNueva?: string // Ya existía turnoNuevo, pero mantenemos consistencia
+  turnoActual?: string
+  turnoNueva?: string
+  adscripcionActualClave?: string
   sexo?: string
   numeroPlaza?: string
   adscripcionNuevaClave?: string
@@ -82,6 +87,11 @@ export interface BolsaDeTrabajoRegistro {
   adscripcionAnterior?: string
   adscripcionNueva?: string
 
+  // Campos específicos para CAMBIOS DE ÁREA / RESIDENCIA / RAMA
+  ramaNueva?: string
+  delegacionDestino?: string
+  delegacionOrigen?: string
+
   // Campos específicos para NUEVO INGRESO
   numeroProg?: string
   grupo?: string
@@ -103,6 +113,7 @@ export interface BolsaDeTrabajoRegistro {
 // Documento de bolsa de trabajo completo
 export interface BolsaDeTrabajoDocumento {
   id?: string
+  syncId?: string // ID de la sincronización a la que pertenece
   tipo: TipoBolsaDeTrabajo
   fechaActualizacion: Timestamp | Date // Fecha del documento original
   fechaCarga: Timestamp | Date // Cuándo se subió al sistema
@@ -120,6 +131,23 @@ export interface BolsaDeTrabajoDocumento {
   registrosConErrores?: number // Cantidad de registros con errores
 }
 
+// Modelo de Sincronización
+export type EstadoSincronizacion = 'PROCESANDO' | 'COMPLETADO' | 'ERROR' | 'BORRADOR'
+
+export interface Sincronizacion {
+  id: string
+  anio: number
+  mes: number
+  quincena: 1 | 2
+  estado: EstadoSincronizacion
+  fechaInicio: Timestamp | Date
+  fechaFinalizacion?: Timestamp | Date
+  archivosSubidos: string[] // IDs de documentos en 'bolsa_de_trabajo_documentos'
+  esFuenteVerdad: boolean // Flag para identificar la versión activa
+  subidoPor: string
+  subidoPorEmail?: string
+}
+
 // Filtros para búsqueda
 export interface FiltrosBolsaDeTrabajo {
   tipo?: TipoBolsaDeTrabajo[]
@@ -130,6 +158,9 @@ export interface FiltrosBolsaDeTrabajo {
   estado?: EstadoProcesamiento[]
   necesitaValidacion?: boolean
   textoBusqueda?: string // Búsqueda en nombres, matrículas, etc.
+  anio?: number
+  mes?: number
+  quincena?: 1 | 2
 }
 
 // Estadísticas de bolsa de trabajo

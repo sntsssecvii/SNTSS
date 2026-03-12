@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Table,
@@ -66,10 +66,6 @@ export function PropuestasTable({ onNuevaPropuesta }: PropuestasTableProps) {
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
 
   // Cargar propuestas
-  useEffect(() => {
-    cargarPropuestas()
-  }, [])
-
   // Debounce para la búsqueda (esperar 500ms después de que el usuario deje de escribir)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -79,7 +75,7 @@ export function PropuestasTable({ onNuevaPropuesta }: PropuestasTableProps) {
     return () => clearTimeout(timer)
   }, [busqueda])
 
-  const cargarPropuestas = async () => {
+  const cargarPropuestas = useCallback(async () => {
     try {
       setLoading(true)
       const todasLasPropuestas = await getPropuestas()
@@ -94,7 +90,11 @@ export function PropuestasTable({ onNuevaPropuesta }: PropuestasTableProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    cargarPropuestas()
+  }, [cargarPropuestas])
 
   // Aplicar filtros y búsqueda
   useEffect(() => {

@@ -233,6 +233,8 @@ export function parseNuevoIngreso(texto: string): ParseResult {
     metadata: {
       zona: zonaActual || undefined,
       categoria: categoriaActual || undefined,
+      totalRegistros: registros.length,
+      extraidoCon: 'PDF',
     },
     errores,
   }

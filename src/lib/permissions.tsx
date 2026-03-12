@@ -26,7 +26,7 @@ export const withPermission = <P extends object>(
   permisoRequerido: PERMISOS,
   FallbackComponent?: React.ComponentType
 ) => {
-  return (props: P & { rol?: UserRole }) => {
+  const WrappedComponent = (props: P & { rol?: UserRole }) => {
     const { rol, ...restProps } = props
 
     if (!tienePermiso(rol, permisoRequerido)) {
@@ -47,6 +47,10 @@ export const withPermission = <P extends object>(
 
     return <Component {...(restProps as P)} />
   }
+
+  WrappedComponent.displayName = `withPermission(${Component.displayName || Component.name || 'Component'})`
+
+  return WrappedComponent
 }
 
 /**

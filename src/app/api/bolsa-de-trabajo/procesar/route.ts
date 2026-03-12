@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parsePDF, detectarTipoDocumento } from '@/lib/pdf/parser'
+import { parseExcel } from '@/lib/excel/parsers/excelParser'
 import { createBolsaDeTrabajoDocumento, updateBolsaDeTrabajoDocumento, updateEstadoDocumento, guardarRegistrosEnSubcoleccion } from '@/lib/firebase/bolsa-de-trabajo'
 import { Timestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
@@ -13,6 +14,10 @@ export async function POST(request: NextRequest) {
     const tipo = formData.get('tipo') as string
     const userId = formData.get('userId') as string
     const userEmail = formData.get('userEmail') as string
+    const anio = parseInt(formData.get('anio') as string || new Date().getFullYear().toString())
+    const mes = parseInt(formData.get('mes') as string || (new Date().getMonth() + 1).toString())
+    const quincena = parseInt(formData.get('quincena') as string || (new Date().getDate() <= 15 ? 1 : 2).toString()) as 1 | 2
+    const syncId = formData.get('syncId') as string || undefined
 
     // Verificar autenticación básica
     // Nota: En producción, implementar verificación de token JWT de Firebase
@@ -31,10 +36,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validar que sea un PDF
-    if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+    // Validar que sea un PDF o Excel
+    const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf')
+    const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel' || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+
+    if (!isPDF && !isExcel) {
       return NextResponse.json(
-        { error: 'El archivo debe ser un PDF' },
+        { error: 'El archivo debe ser un PDF o un Excel (.xlsx)' },
         { status: 400 }
       )
     }
@@ -50,11 +58,12 @@ export async function POST(request: NextRequest) {
       if (!tipoDocumento) {
         // Intentar detectar por contenido parseando una muestra
         try {
-          const { PDFParse } = require('pdf-parse')
-          const parser = new PDFParse({ data: buffer.slice(0, 10000) }) // Solo primeros 10KB para detectar
-          const result = await parser.getText()
-          await parser.destroy()
-          tipoDocumento = detectarTipoDocumento(file.name, result.text)
+          // Usar pdfplumber para extraer texto para detección
+          const { parsePDF } = await import('@/lib/pdf/parser')
+          const data = await parsePDF(buffer, 'NUEVO_INGRESO', file.name) // Tipo dummy para extraer texto
+          // Intentar detectar
+          const detected = detectarTipoDocumento(file.name, data.texto) // Usamos el texto crudo extraído
+          if (detected) tipoDocumento = detected
         } catch (error) {
           console.warn('No se pudo detectar tipo por contenido:', error)
         }
@@ -72,6 +81,7 @@ export async function POST(request: NextRequest) {
     const ahora = new Date()
     const documentoId = await createBolsaDeTrabajoDocumento({
       tipo: tipoDocumento,
+      syncId,
       fechaActualizacion: ahora,
       fechaCarga: ahora,
       subidoPor: userId,
@@ -79,7 +89,11 @@ export async function POST(request: NextRequest) {
       estado: 'PROCESANDO',
       urlArchivo: '', // Se actualizará después
       nombreArchivo: file.name,
-      metadata: {},
+      metadata: {
+        anio,
+        mes,
+        quincena
+      },
       registros: [],
       errores: [],
       version: 1,
@@ -91,35 +105,73 @@ export async function POST(request: NextRequest) {
     // Subir archivo a Firebase Storage (opcional - continuar aunque falle)
     let urlArchivo = ''
     try {
-      if (!storage) {
-        console.warn('Firebase Storage no está disponible, continuando sin subir archivo')
-        urlArchivo = '' // Continuar sin URL de Storage
-      } else {
-        const storageRef = ref(storage, `bolsa_de_trabajo/${documentoId}/${file.name}`)
-        const snapshot = await uploadBytes(storageRef, buffer)
-        urlArchivo = await getDownloadURL(snapshot.ref)
-      }
+      const { adminStorage } = await import('@/lib/firebase/admin')
+      const bucket = adminStorage.bucket()
+      const destination = `bolsa_de_trabajo/${documentoId}/${file.name}`
+      const fileRef = bucket.file(destination)
+
+      await fileRef.save(buffer, {
+        metadata: {
+          contentType: isPDF ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      })
+
+      // Hacer el archivo público o generar una URL firmada
+      // Por simplicidad, generamos una URL de descarga que expira en 10 años
+      const [downloadUrl] = await fileRef.getSignedUrl({
+        action: 'read',
+        expires: '03-09-2491',
+      })
+      urlArchivo = downloadUrl
     } catch (error: any) {
       console.warn('Error subiendo archivo a Storage (continuando sin Storage):', error.message)
-      // No fallar completamente, solo continuar sin URL de Storage
       urlArchivo = ''
     }
 
-    // Procesar PDF
-    let resultadoParse
+    // Procesar Archivo
+    let resultadoParse: any
     try {
-      resultadoParse = await parsePDF(buffer, tipoDocumento, file.name)
+      if (isExcel) {
+        console.log('Procesando archivo como Excel directamente')
+        resultadoParse = await parseExcel(buffer, tipoDocumento, file.name)
+      } else if (isPDF) {
+        // Priorizar Adobe PDF Services para conversión de alta calidad si las llaves están configuradas
+        if (process.env.ADOBE_CLIENT_ID && process.env.ADOBE_CLIENT_SECRET) {
+          try {
+            const { AdobePdfService } = await import('@/lib/excel/services/adobePdfService')
+            console.log(`Usando Adobe PDF Services para conversión de ${tipoDocumento}`)
+            const excelBuffer = await AdobePdfService.convertPdfToExcel(buffer, file.name)
+            resultadoParse = await parseExcel(excelBuffer, tipoDocumento, file.name.replace(/\.pdf$/i, '.xlsx'))
+
+            if (resultadoParse.metadata) {
+              resultadoParse.metadata.extraidoCon = 'EXCEL'
+            }
+          } catch (convError) {
+            console.warn('Error en Adobe PDF Services, cayendo a parser estándar:', convError)
+            resultadoParse = await parsePDF(buffer, tipoDocumento, file.name)
+          }
+        } else {
+          // Fallback a parser local de texto si no hay Adobe
+          resultadoParse = await parsePDF(buffer, tipoDocumento, file.name)
+        }
+      }
     } catch (error: any) {
-      console.error('Error parseando PDF:', error)
+      console.error('Error parseando archivo:', error)
       await updateEstadoDocumento(documentoId, 'ERROR')
       return NextResponse.json(
-        { error: `Error procesando PDF: ${error.message}` },
+        { error: `Error procesando archivo: ${error.message}` },
         { status: 500 }
       )
     }
 
+    // Asegurar que la metadata del periodo esté presente
+    if (!resultadoParse.metadata) resultadoParse.metadata = {}
+    resultadoParse.metadata.anio = anio
+    resultadoParse.metadata.mes = mes
+    resultadoParse.metadata.quincena = quincena
+
     // Actualizar documento con resultados
-    const registrosConErrores = resultadoParse.registros.filter((r) => r.necesitaValidacion).length
+    const registrosConErrores = resultadoParse.registros.filter((r: any) => r.necesitaValidacion).length
 
     // Log para debugging
     console.log('Resultado del parseo:', {
@@ -136,7 +188,12 @@ export async function POST(request: NextRequest) {
     await updateBolsaDeTrabajoDocumento(documentoId, {
       urlArchivo: urlArchivo || '',
       estado: resultadoParse.registros.length > 0 ? 'COMPLETADO' : 'VALIDANDO',
-      metadata: resultadoParse.metadata || {},
+      metadata: {
+        ...(resultadoParse.metadata || {}),
+        anio,
+        mes,
+        quincena
+      },
       errores: resultadoParse.errores || [],
       totalRegistros: resultadoParse.registros.length,
       registrosConErrores,

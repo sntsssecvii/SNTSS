@@ -61,7 +61,7 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
         })
 
         return () => unsubscribe()
-    }, [])
+    }, [filterStatus])
 
     const handleApprove = async () => {
         if (!selectedRequest) return
@@ -245,10 +245,13 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                                                     title="Preview INE"
                                                 />
                                             ) : (
-                                                <img
+                                                <Image
                                                     src={selectedRequest.documents.identificacion}
                                                     alt="Identificación"
-                                                    className="w-full h-full object-cover"
+                                                    fill
+                                                    unoptimized
+                                                    className="object-cover"
+                                                    sizes="(max-width: 640px) 100vw, 50vw"
                                                 />
                                             )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -274,10 +277,13 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                                                     title="Preview Tarjetón"
                                                 />
                                             ) : (
-                                                <img
+                                                <Image
                                                     src={selectedRequest.documents.tarjeton}
                                                     alt="Tarjetón"
-                                                    className="w-full h-full object-cover"
+                                                    fill
+                                                    unoptimized
+                                                    className="object-cover"
+                                                    sizes="(max-width: 640px) 100vw, 50vw"
                                                 />
                                             )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -359,10 +365,13 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                             />
                         ) : (
                             <div className="relative w-full h-full flex items-center justify-center">
-                                <img
-                                    src={viewingDoc?.url}
+                                <Image
+                                    src={viewingDoc?.url || ''}
                                     alt="Documento expandido"
-                                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                    fill
+                                    unoptimized
+                                    className="object-contain rounded-lg shadow-2xl"
+                                    sizes="100vw"
                                 />
                             </div>
                         )}
