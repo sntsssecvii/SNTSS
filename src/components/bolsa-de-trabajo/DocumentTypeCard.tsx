@@ -52,8 +52,15 @@ const COLORS: Record<string, string> = {
 
 export function DocumentTypeCard({ tipo, count, validados, errores, procesando, onClick }: DocumentTypeCardProps) {
     const Icono = ICONOS[tipo]
-    const progress = count > 0 ? (validados / count) * 100 : 0
     const colorClass = COLORS[tipo]
+    const estado =
+        errores > 0
+            ? 'Revisar'
+            : procesando > 0
+                ? 'Procesando'
+                : count > 0
+                    ? 'Listo'
+                    : 'Pendiente'
 
     return (
         <motion.div
@@ -103,20 +110,22 @@ export function DocumentTypeCard({ tipo, count, validados, errores, procesando, 
                             {NOMBRES_TIPOS[tipo]}
                         </h3>
                         <p className="text-3xl font-black mb-4">
-                            {count} <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Archivos</span>
+                            {count} <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">Documentos</span>
                         </p>
 
                         <div className="space-y-3">
                             <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                <span>Progreso de Validación</span>
-                                <span>{Math.round(progress)}%</span>
+                                <span>Estado del tipo</span>
+                                <span>{estado}</span>
                             </div>
-                            <div className="h-2 w-full bg-white/50 dark:bg-black/20 rounded-full overflow-hidden p-[2px]">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${progress}%` }}
-                                    className={cn("h-full rounded-full bg-current", colorClass)}
-                                />
+                            <div className="rounded-2xl bg-white/50 px-3 py-2 text-xs font-bold text-slate-600 dark:bg-black/20 dark:text-slate-300">
+                                {count === 0
+                                    ? 'Aún no hay documento cargado para este tipo.'
+                                    : errores > 0
+                                        ? 'Hay documentos con error y requieren revisión.'
+                                        : procesando > 0
+                                            ? 'Hay documentos todavía en procesamiento.'
+                                            : 'Ya existe al menos un documento listo para consulta.'}
                             </div>
                         </div>
                     </div>
