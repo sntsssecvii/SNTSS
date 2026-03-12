@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { EstadoBadgeBolsaDeTrabajo } from '@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
+import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog'
@@ -167,43 +168,8 @@ export default function DetalleBolsaDeTrabajoPage() {
       tipo !== 'CAMBIOS_RAMA'
     ) return registrosFiltrados
 
-    // Agrupar registros para el cálculo exacto
-    // NI: Cat + Zona
-    // AJ: Jornada solicitada + Adscripción solicitada + Turno solicitado
-    // CTA: Cat + Zona + Tipo (CAT/CAD) + Adscripción Solicitada (+ Turno si CAT)
-    // Rama: Categoria (la estrategia resuelve zona especifica vs incondicional)
-    const registrosMap = new Map<string, BolsaDeTrabajoRegistro[]>()
-    documento.registros.forEach(r => {
-      let key = `${r.categoria}-${r.zona}`
-      if (tipo === 'AMPLIACIONES_JORNADA') {
-        key = `${r.jornadaNueva || ''}-${r.adscripcionNueva || ''}-${r.turnoNuevo || ''}`
-      } else if (tipo === 'CAMBIOS_RAMA') {
-        key = `${r.categoria || ''}`
-      } else if (tipo === 'CAMBIOS_TURNO_ADSCRIPCION') {
-        key += `-${r.registro || ''}-${r.adscripcionNueva || ''}`
-        if (r.registro === 'CAT') {
-          key += `-${r.turnoNuevo || ''}`
-        }
-      }
-
-      if (!registrosMap.has(key)) registrosMap.set(key, [])
-      registrosMap.get(key)!.push(r)
-    })
-
     return registrosFiltrados.map(reg => {
-      let key = `${reg.categoria}-${reg.zona}`
-      if (tipo === 'AMPLIACIONES_JORNADA') {
-        key = `${reg.jornadaNueva || ''}-${reg.adscripcionNueva || ''}-${reg.turnoNuevo || ''}`
-      } else if (tipo === 'CAMBIOS_RAMA') {
-        key = `${reg.categoria || ''}`
-      } else if (tipo === 'CAMBIOS_TURNO_ADSCRIPCION') {
-        key += `-${reg.registro || ''}-${reg.adscripcionNueva || ''}`
-        if (reg.registro === 'CAT') {
-          key += `-${reg.turnoNuevo || ''}`
-        }
-      }
-
-      const grupoRegistros = registrosMap.get(key) || []
+      const grupoRegistros = getComparisonRecordsForWorker(documento.registros, reg, tipo)
       const pos = calcularPosiciones(grupoRegistros, reg.matricula || '', tipo)
       return { ...reg, _posCalculada: pos }
     })
@@ -259,6 +225,14 @@ export default function DetalleBolsaDeTrabajoPage() {
     }
   }
 
+  const rutaQuincena = documento?.syncId
+    ? `/admin/bolsa-de-trabajo/quincenas/${documento.syncId}`
+    : '/admin/bolsa-de-trabajo'
+
+  const rutaReemplazo = documento?.metadata?.anio && documento?.metadata?.mes && documento?.metadata?.quincena
+    ? `/admin/bolsa-de-trabajo/cargar?anio=${documento.metadata.anio}&mes=${documento.metadata.mes}&quincena=${documento.metadata.quincena}&tipo=${documento.tipo}`
+    : '/admin/bolsa-de-trabajo/cargar'
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-[#020617] space-y-4">
       <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -278,12 +252,23 @@ export default function DetalleBolsaDeTrabajoPage() {
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] flex flex-col h-screen overflow-hidden">
       {/* HEADER STICKY */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-30 shrink-0">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1 min-w-0">
+        <div className="px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-start gap-4">
+              <Button variant="ghost" size="icon" onClick={() => router.push(rutaQuincena)} className="rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-1 rounded-full">
+                    Documento del corte
+                  </span>
+                  {documento.metadata?.anio && (
+                    <span className="text-[10px] font-black text-slate-500 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
+                      {documento.metadata.quincena}° Qna {documento.metadata.mes}/{documento.metadata.anio}
+                    </span>
+                  )}
+                </div>
               {editandoNombre ? (
                 <div className="flex items-center gap-2">
                   <Input
@@ -321,16 +306,26 @@ export default function DetalleBolsaDeTrabajoPage() {
                 <span className="text-[10px] font-black text-primary uppercase">
                   {documento.totalRegistros} Registros Totales
                 </span>
-                {documento.metadata?.anio && (
-                  <span className="text-[10px] font-black text-slate-500 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                    {documento.metadata.quincena}° Qna {documento.metadata.mes}/{documento.metadata.anio}
-                  </span>
+                {documento.syncId && (
+                  <button
+                    onClick={() => router.push(rutaQuincena)}
+                    className="text-[10px] font-black text-slate-500 uppercase underline-offset-4 hover:underline"
+                  >
+                    Volver a la quincena
+                  </button>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => router.push(rutaReemplazo)}
+              variant="outline"
+              className="rounded-xl border-2 font-black h-10 px-4"
+            >
+              Reemplazar documento
+            </Button>
             <Button onClick={exportarCSV} variant="outline" className="rounded-xl border-2 font-black h-10 px-4 hidden sm:flex">
               <Download className="mr-2 h-4 w-4" /> EXPORTAR
             </Button>
@@ -344,11 +339,12 @@ export default function DetalleBolsaDeTrabajoPage() {
             <EstadoBadgeBolsaDeTrabajo estado={documento.estado} />
           </div>
         </div>
+        </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* SIDEBAR CATEGORIAS */}
-        <aside className="w-80 bg-slate-50 dark:bg-slate-950/20 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0">
+        <aside className="w-full border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r">
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -361,7 +357,7 @@ export default function DetalleBolsaDeTrabajoPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+          <div className="max-h-[40vh] overflow-y-auto p-3 space-y-1 custom-scrollbar lg:max-h-none lg:flex-1">
             <button
               onClick={() => setFiltroCategoria('all')}
               className={cn(
@@ -451,8 +447,8 @@ export default function DetalleBolsaDeTrabajoPage() {
         {/* MAIN DATA GRID */}
         <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#020617]">
           {/* TOOLBAR */}
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
-            <div className="flex-1 max-w-xl relative">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-3 shrink-0 xl:flex-row xl:items-center xl:justify-between">
+            <div className="w-full xl:max-w-xl relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Busca registros en esta sección..."
@@ -462,7 +458,7 @@ export default function DetalleBolsaDeTrabajoPage() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                 <Button
                   variant={filtroValidacion === 'all' ? 'secondary' : 'ghost'}
@@ -473,13 +469,13 @@ export default function DetalleBolsaDeTrabajoPage() {
                 </Button>
               </div>
 
-              <div className="h-6 w-[px] bg-slate-200 dark:bg-slate-800 mx-1" />
+              <div className="hidden h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 xl:block" />
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Select
                   value={filtroCategoria}
                   onChange={(e) => setFiltroCategoria(e.target.value)}
-                  className="h-9 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase w-[160px]"
+                  className="h-9 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px]"
                 >
                   <option value="all">Categoría: Todas</option>
                   {categoriasUnicas.map(cat => (
@@ -490,7 +486,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                 <Select
                   value={filtroZona}
                   onChange={(e) => setFiltroZona(e.target.value)}
-                  className="h-9 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase w-[160px]"
+                  className="h-9 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px]"
                 >
                   <option value="all">Zona: Todas</option>
                   {zonasUnicas.map(zona => (
@@ -499,7 +495,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                 </Select>
               </div>
 
-              <div className="h-6 w-[px] bg-slate-200 dark:bg-slate-800 mx-1" />
+              <div className="hidden h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 xl:block" />
 
               <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={paginaActual === 1} onClick={() => setPaginaActual(p => p - 1)}>

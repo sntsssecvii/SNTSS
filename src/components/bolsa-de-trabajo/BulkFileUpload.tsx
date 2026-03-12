@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { auth } from '@/lib/firebase/firebase-client'
-import type { TipoBolsaDeTrabajo, EstadoSincronizacion } from '@/types/bolsa-de-trabajo'
+import type { TipoBolsaDeTrabajo, Sincronizacion } from '@/types/bolsa-de-trabajo'
 import { NOMBRES_TIPOS, MAPEO_TIPOS_ARCHIVO } from '@/types/bolsa-de-trabajo'
 import { cn } from '@/lib/utils'
-import { createSincronizacion, updateSincronizacion, establecerFuenteVerdad } from '@/lib/firebase/sincronizaciones'
-import { useRouter } from 'next/navigation'
+import { createSincronizacion, updateSincronizacion, establecerFuenteVerdad, getSincronizacionPorPeriodo } from '@/lib/firebase/sincronizaciones'
+import { getBolsaDeTrabajoDocumentosBySyncId } from '@/lib/firebase/bolsa-de-trabajo'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { PeriodSelector } from '@/components/bolsa-de-trabajo/PeriodSelector'
 
 interface FileItem {
     id: string
@@ -21,21 +23,65 @@ interface FileItem {
     progress: number
     error?: string
     documentoId?: string
+    willReplace?: boolean
 }
 
 export function BulkFileUpload() {
+    const searchParams = useSearchParams()
     const [files, setFiles] = useState<FileItem[]>([])
     const [syncId, setSyncId] = useState<string | null>(null)
     const [isSyncing, setIsSyncing] = useState(false)
     const [periodo, setPeriodo] = useState({
-        anio: new Date().getFullYear(),
-        mes: new Date().getMonth() + 1,
-        quincena: new Date().getDate() <= 15 ? 1 : 2
+        anio: Number(searchParams.get('anio')) || new Date().getFullYear(),
+        mes: Number(searchParams.get('mes')) || new Date().getMonth() + 1,
+        quincena: (Number(searchParams.get('quincena')) as 1 | 2) || (new Date().getDate() <= 15 ? 1 : 2)
     })
+    const [existingSync, setExistingSync] = useState<Sincronizacion | null>(null)
+    const [existingTipos, setExistingTipos] = useState<TipoBolsaDeTrabajo[]>([])
+    const [checkingSync, setCheckingSync] = useState(false)
 
     const { user } = useAuth()
     const { toast } = useToast()
     const router = useRouter()
+    const tipoPreseleccionado = (searchParams.get('tipo') as TipoBolsaDeTrabajo | null) || null
+
+    const periodoEnCurso = (() => {
+        const ahora = new Date()
+        return (
+            periodo.anio === ahora.getFullYear() &&
+            periodo.mes === ahora.getMonth() + 1 &&
+            periodo.quincena === (ahora.getDate() <= 15 ? 1 : 2)
+        )
+    })()
+
+    useEffect(() => {
+        const revisarQuincena = async () => {
+            if (syncId) return
+            try {
+                setCheckingSync(true)
+                const sync = await getSincronizacionPorPeriodo(
+                    periodo.anio,
+                    periodo.mes,
+                    periodo.quincena as 1 | 2
+                )
+                setExistingSync(sync)
+                if (sync?.id) {
+                    const documentos = await getBolsaDeTrabajoDocumentosBySyncId(sync.id)
+                    setExistingTipos(documentos.map((doc) => doc.tipo))
+                } else {
+                    setExistingTipos([])
+                }
+            } catch (error) {
+                console.error(error)
+                setExistingSync(null)
+                setExistingTipos([])
+            } finally {
+                setCheckingSync(false)
+            }
+        }
+
+        revisarQuincena()
+    }, [periodo, syncId])
 
     const detectType = useCallback((fileName: string): TipoBolsaDeTrabajo | null => {
         const upperName = fileName.normalize('NFC').toUpperCase()
@@ -53,16 +99,72 @@ export function BulkFileUpload() {
             f.name.endsWith('.xls')
         )
 
-        const fileItems: FileItem[] = validFiles.map(f => ({
-            id: Math.random().toString(36).substring(7),
-            file: f,
-            tipo: detectType(f.name),
-            status: 'pending',
-            progress: 0
-        }))
+        const invalidCount = newFiles.length - validFiles.length
+        if (invalidCount > 0) {
+            toast({
+                title: 'Archivos ignorados',
+                description: 'Solo se aceptan PDFs o Excels del corte quincenal.',
+                variant: 'destructive'
+            })
+        }
 
-        setFiles(prev => [...prev, ...fileItems])
-    }, [detectType])
+        const unknownFiles: string[] = []
+        const replacedTypes: string[] = []
+
+        setFiles(prev => {
+            const next = [...prev]
+
+            for (const file of validFiles) {
+                const tipo = detectType(file.name)
+
+                if (!tipo) {
+                    unknownFiles.push(file.name)
+                    continue
+                }
+
+                if (tipoPreseleccionado && tipo !== tipoPreseleccionado) {
+                    unknownFiles.push(file.name)
+                    continue
+                }
+
+                const newItem: FileItem = {
+                    id: Math.random().toString(36).substring(7),
+                    file,
+                    tipo,
+                    status: 'pending',
+                    progress: 0,
+                    willReplace: existingTipos.includes(tipo)
+                }
+
+                const existingIndex = next.findIndex(item => item.tipo === tipo)
+                if (existingIndex >= 0) {
+                    next[existingIndex] = newItem
+                    replacedTypes.push(NOMBRES_TIPOS[tipo])
+                } else {
+                    next.push(newItem)
+                }
+            }
+
+            return next
+        })
+
+        if (unknownFiles.length > 0) {
+            toast({
+                title: tipoPreseleccionado ? 'Archivo fuera del tipo esperado' : 'Tipo no detectado',
+                description: tipoPreseleccionado
+                    ? `Solo puedes cargar ${NOMBRES_TIPOS[tipoPreseleccionado]} en este flujo dirigido.`
+                    : `No se agregaron ${unknownFiles.length} archivo(s) porque su nombre no coincide con un tipo oficial.`,
+                variant: 'destructive'
+            })
+        }
+
+        if (replacedTypes.length > 0) {
+            toast({
+                title: 'Archivo reemplazado',
+                description: `Se reemplazó el archivo previo para: ${replacedTypes.join(', ')}.`
+            })
+        }
+    }, [detectType, existingTipos, tipoPreseleccionado, toast])
 
     const onDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault()
@@ -74,14 +176,20 @@ export function BulkFileUpload() {
         setFiles(prev => prev.filter(f => f.id !== id))
     }
 
+    const resetUploadState = () => {
+        setFiles([])
+        setSyncId(null)
+        setIsSyncing(false)
+    }
+
     const startBulkUpload = async () => {
         if (!user || files.length === 0) return
 
         setIsSyncing(true)
 
         try {
-            // 1. Crear registro de Sincronización
-            const id = await createSincronizacion({
+            // 1. Reutilizar la quincena si ya existe; si no, crearla
+            const id = existingSync?.id || await createSincronizacion({
                 ...periodo,
                 quincena: periodo.quincena as 1 | 2,
                 subidoPor: user.uid,
@@ -139,7 +247,8 @@ export function BulkFileUpload() {
                             ...f,
                             status: 'completed',
                             progress: 100,
-                            documentoId: result.documentoId
+                            documentoId: result.documentoId,
+                            willReplace: Boolean(result.reemplazado)
                         } : f))
                     } else {
                         throw new Error(result.error || 'Error desconocido')
@@ -180,6 +289,14 @@ export function BulkFileUpload() {
 
     const handlePublish = async () => {
         if (!syncId) return
+        if (!periodoEnCurso) {
+            toast({
+                title: "Publicación no permitida",
+                description: "Solo la quincena en curso puede activarse como oficial.",
+                variant: "destructive"
+            })
+            return
+        }
         try {
             await establecerFuenteVerdad(syncId)
             toast({ title: "Publicado", description: "Esta quincena ya es la información oficial." })
@@ -193,12 +310,69 @@ export function BulkFileUpload() {
         t => !files.some(f => f.tipo === t)
     ) as TipoBolsaDeTrabajo[]
 
+    const hasUnknownTypes = files.some(f => !f.tipo)
+    const completedCount = files.filter(f => f.status === 'completed').length
+    const errorCount = files.filter(f => f.status === 'error').length
+    const canStartUpload = syncId === null && files.length > 0 && tiposFaltantes.length === 0 && !hasUnknownTypes && !isSyncing
+    const tiposFaltantesReales = tipoPreseleccionado
+        ? []
+        : tiposFaltantes
+    const canStartFocusedUpload = Boolean(tipoPreseleccionado) && syncId === null && files.length === 1 && !hasUnknownTypes && !isSyncing
+    const canStartAnyUpload = tipoPreseleccionado ? canStartFocusedUpload : canStartUpload
+    const canPublish = Boolean(syncId) && !isSyncing && files.length > 0 && completedCount === files.length && errorCount === 0 && periodoEnCurso
+
     const totalProgress = files.length > 0
         ? Math.round(files.reduce((acc, f) => acc + f.progress, 0) / files.length)
         : 0
 
     return (
         <div className="space-y-8">
+            {!isSyncing && syncId === null && (
+                <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
+                    <div className="space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-primary">Paso 1</p>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-white">Selecciona la quincena de destino</h3>
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                            Puedes cargar una quincena histórica o la actual. Solo la quincena en curso podrá activarse como oficial.
+                        </p>
+                    </div>
+
+                    <PeriodSelector
+                        anio={periodo.anio}
+                        mes={periodo.mes}
+                        quincena={periodo.quincena as 1 | 2}
+                        onChange={setPeriodo}
+                    />
+
+                    <div className={cn(
+                        "rounded-2xl border px-4 py-3 text-sm font-medium",
+                        existingSync
+                            ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-300"
+                            : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-300"
+                    )}>
+                        {checkingSync
+                            ? 'Revisando si esta quincena ya existe...'
+                            : existingSync
+                                ? existingTipos.length > 0
+                                    ? 'Ya existe una quincena para este periodo y ya tiene documentos cargados. Si subes un tipo existente, se reemplazará su documento actual.'
+                                    : 'Ya existe una quincena para este periodo, pero todavía no tiene documentos cargados. Puedes comenzar a poblarla ahora.'
+                                : 'No existe todavía una quincena para este periodo. Se creará una nueva al iniciar la carga.'}
+                    </div>
+
+                    {tipoPreseleccionado && (
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium text-primary">
+                            Flujo dirigido al tipo <span className="font-black uppercase">{NOMBRES_TIPOS[tipoPreseleccionado]}</span>. Si subes ese documento en esta quincena, el sistema lo tratará como reemplazo del tipo.
+                        </div>
+                    )}
+
+                    {!periodoEnCurso && (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                            Esta no es la quincena en curso. Podrás cargarla y revisarla, pero no activarla como oficial desde aquí.
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Global Progress View when Syncing */}
             <AnimatePresence>
                 {isSyncing && (
@@ -263,11 +437,22 @@ export function BulkFileUpload() {
                     className="border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center hover:border-primary/50 transition-all bg-white dark:bg-slate-900/50 group"
                 >
                     <Upload className="h-16 w-16 text-slate-300 mx-auto mb-4 group-hover:scale-110 group-hover:text-primary transition-all duration-300" />
-                    <h3 className="text-xl font-black text-slate-900 dark:text-white">Sincronización Quincenal</h3>
-                    <p className="text-slate-500 font-medium mb-6">Arrastra los 8 archivos PDF de la quincena aquí</p>
+                    <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                        {tipoPreseleccionado ? `Carga dirigida: ${NOMBRES_TIPOS[tipoPreseleccionado]}` : 'Sincronización Quincenal'}
+                    </h3>
+                    <p className="text-slate-500 font-medium mb-2">
+                        {tipoPreseleccionado
+                            ? `Arrastra aquí únicamente el archivo de ${NOMBRES_TIPOS[tipoPreseleccionado]}.`
+                            : 'Arrastra aquí los 8 archivos oficiales del corte.'}
+                    </p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">
+                        {tipoPreseleccionado
+                            ? 'Este flujo reemplaza o carga sólo un tipo dentro de la quincena seleccionada'
+                            : 'Solo se conserva un archivo por tipo de trámite'}
+                    </p>
                     <input
                         type="file"
-                        multiple
+                        multiple={!tipoPreseleccionado}
                         accept=".pdf,.xlsx"
                         className="hidden"
                         id="bulk-upload"
@@ -286,9 +471,13 @@ export function BulkFileUpload() {
                     animate={{ opacity: 1, scale: 1 }}
                     className="bg-slate-100/50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-200 dark:border-slate-800"
                 >
-                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 text-center">Estado de Documentación Requerida ({8 - tiposFaltantes.length}/8)</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {Object.entries(NOMBRES_TIPOS).map(([tipo, nombre]) => {
+                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 text-center">
+                        {tipoPreseleccionado
+                            ? `Estado del tipo seleccionado (${files.length > 0 ? '1/1' : '0/1'})`
+                            : `Estado de Documentación Requerida (${8 - tiposFaltantes.length}/8)`}
+                    </h4>
+                    <div className={cn("grid gap-2", tipoPreseleccionado ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2")}>
+                        {(tipoPreseleccionado ? [[tipoPreseleccionado, NOMBRES_TIPOS[tipoPreseleccionado]]] : Object.entries(NOMBRES_TIPOS)).map(([tipo, nombre]) => {
                             const existe = files.some(f => f.tipo === tipo)
                             return (
                                 <div key={tipo} className={cn(
@@ -301,9 +490,16 @@ export function BulkFileUpload() {
                             )
                         })}
                     </div>
-                    {tiposFaltantes.length > 0 && (
+                    {tiposFaltantesReales.length > 0 && (
                         <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-600 text-[10px] font-bold text-center">
-                            Aviso: La quincena requiere {tiposFaltantes.length} documentos más para estar completa.
+                            Aviso: La quincena requiere {tiposFaltantesReales.length} documentos más para estar completa.
+                        </div>
+                    )}
+                    {(tipoPreseleccionado ? files.length === 1 : tiposFaltantes.length === 0) && !hasUnknownTypes && (
+                        <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-600 text-[10px] font-bold text-center">
+                            {tipoPreseleccionado
+                                ? 'Documento listo. Ya puedes iniciar el reemplazo o carga del tipo seleccionado.'
+                                : 'Quincena completa. Ya puedes iniciar el procesamiento.'}
                         </div>
                     )}
                 </motion.div>
@@ -356,6 +552,14 @@ export function BulkFileUpload() {
                                         <p className="text-xs font-medium text-slate-500">
                                             {item.tipo ? NOMBRES_TIPOS[item.tipo] : "Tipo no detectado"}
                                         </p>
+                                        {item.tipo && (
+                                            <p className={cn(
+                                                "mt-1 text-[10px] font-black uppercase tracking-widest",
+                                                item.willReplace ? "text-amber-600" : "text-emerald-600"
+                                            )}>
+                                                {item.willReplace ? 'Reemplazará el documento existente de este tipo' : 'Creará un documento nuevo para este tipo'}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-3">
@@ -406,16 +610,27 @@ export function BulkFileUpload() {
             {/* Action Buttons */}
             <div className="flex flex-col gap-4">
                 {syncId === null ? (
-                    <Button
-                        size="lg"
-                        disabled={files.length === 0 || isSyncing}
-                        onClick={startBulkUpload}
-                        className="w-full h-16 rounded-2xl font-black text-xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                        {isSyncing ? <Loader2 className="mr-3 h-6 w-6 animate-spin" /> : <Play className="mr-3 h-6 w-6" />}
-                        INICIAR PROCESO DE CARGA
-                    </Button>
-                ) : !isSyncing && (
+                    <>
+                        <Button
+                            size="lg"
+                            disabled={!canStartAnyUpload}
+                            onClick={startBulkUpload}
+                            className="w-full h-16 rounded-2xl font-black text-xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            {isSyncing ? <Loader2 className="mr-3 h-6 w-6 animate-spin" /> : <Play className="mr-3 h-6 w-6" />}
+                            {tipoPreseleccionado ? 'INICIAR CARGA DEL TIPO' : 'INICIAR PROCESO DE CARGA'}
+                        </Button>
+                        {!canStartAnyUpload && (
+                            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-center">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">
+                                    {tipoPreseleccionado
+                                        ? 'Debes cargar exactamente el documento del tipo seleccionado antes de iniciar este flujo.'
+                                        : 'Debes tener los 8 tipos oficiales, sin tipos desconocidos, antes de procesar la quincena.'}
+                                </p>
+                            </div>
+                        )}
+                    </>
+                ) : canPublish ? (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -427,17 +642,63 @@ export function BulkFileUpload() {
                             </div>
                             <div>
                                 <h4 className="font-black text-2xl tracking-tight">¡Procesamiento exitoso!</h4>
-                                <p className="font-medium text-emerald-600/70">Todo listo para activar esta quincena.</p>
+                                <p className="font-medium text-emerald-600/70">
+                                    {periodoEnCurso
+                                        ? 'Todo listo para activar esta quincena.'
+                                        : 'La carga terminó correctamente. Este corte queda listo para revisión, no para activación oficial.'}
+                                </p>
                             </div>
                         </div>
-                        <Button
-                            onClick={handlePublish}
-                            className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-emerald-600/30 transition-all hover:scale-[1.01] active:scale-[0.99]"
-                        >
-                            ACTIVAR QUINCENA OFICIAL
-                        </Button>
+                        {periodoEnCurso ? (
+                            <Button
+                                onClick={handlePublish}
+                                className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-emerald-600/30 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                            >
+                                ACTIVAR QUINCENA OFICIAL
+                            </Button>
+                        ) : (
+                            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center text-sm font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">
+                                Esta quincena quedó cargada, pero la activación oficial se reserva para la quincena en curso.
+                            </div>
+                        )}
                     </motion.div>
-                )}
+                ) : !isSyncing ? (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-amber-500/10 border border-amber-500/20 p-8 rounded-[2.5rem] space-y-6"
+                    >
+                        <div className="flex items-center gap-4 text-amber-600">
+                            <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-lg shadow-amber-500/30">
+                                <AlertCircle className="h-8 w-8" />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-2xl tracking-tight">Revisión necesaria</h4>
+                                <p className="font-medium text-amber-700/80">
+                                    {errorCount > 0
+                                        ? `Hay ${errorCount} archivo(s) con error. La quincena no puede publicarse todavía.`
+                                        : 'La sincronización no está lista para publicarse.'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={resetUploadState}
+                                className="rounded-2xl font-black"
+                            >
+                                Preparar nueva carga
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => router.push('/admin/bolsa-de-trabajo')}
+                                className="rounded-2xl font-black"
+                            >
+                                Volver al dashboard
+                            </Button>
+                        </div>
+                    </motion.div>
+                ) : null}
             </div>
         </div>
     )

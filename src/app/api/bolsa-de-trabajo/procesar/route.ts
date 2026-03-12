@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parsePDF, detectarTipoDocumento } from '@/lib/pdf/parser'
 import { parseExcel } from '@/lib/excel/parsers/excelParser'
-import { createBolsaDeTrabajoDocumento, updateBolsaDeTrabajoDocumento, updateEstadoDocumento, guardarRegistrosEnSubcoleccion } from '@/lib/firebase/bolsa-de-trabajo'
+import {
+  createBolsaDeTrabajoDocumento,
+  updateBolsaDeTrabajoDocumento,
+  updateEstadoDocumento,
+  guardarRegistrosEnSubcoleccion,
+  reemplazarRegistrosEnSubcoleccion,
+  getBolsaDeTrabajoDocumentoBySyncAndTipo,
+} from '@/lib/firebase/bolsa-de-trabajo'
 import { Timestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { app, storage } from '@/lib/firebase/server-config'
@@ -77,9 +84,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Crear documento inicial con estado PROCESANDO
+    // Crear o reutilizar documento inicial con estado PROCESANDO
     const ahora = new Date()
-    const documentoId = await createBolsaDeTrabajoDocumento({
+    const documentoExistente = syncId
+      ? await getBolsaDeTrabajoDocumentoBySyncAndTipo(syncId, tipoDocumento)
+      : null
+
+    const documentoId = documentoExistente?.id || await createBolsaDeTrabajoDocumento({
       tipo: tipoDocumento,
       syncId,
       fechaActualizacion: ahora,
@@ -101,6 +112,27 @@ export async function POST(request: NextRequest) {
       registrosValidados: 0,
       registrosConErrores: 0,
     })
+
+    if (documentoExistente?.id) {
+      await updateBolsaDeTrabajoDocumento(documentoId, {
+        fechaActualizacion: ahora,
+        fechaCarga: ahora,
+        subidoPor: userId,
+        subidoPorEmail: userEmail,
+        estado: 'PROCESANDO',
+        urlArchivo: '',
+        nombreArchivo: file.name,
+        metadata: {
+          anio,
+          mes,
+          quincena,
+        },
+        errores: [],
+        totalRegistros: 0,
+        registrosConErrores: 0,
+        version: (documentoExistente.version || 1) + 1,
+      })
+    }
 
     // Subir archivo a Firebase Storage (opcional - continuar aunque falle)
     let urlArchivo = ''
@@ -181,8 +213,12 @@ export async function POST(request: NextRequest) {
       primerosRegistros: resultadoParse.registros.slice(0, 3),
     })
 
-    // Guardar registros en subcolección (evita límite de tamaño)
-    await guardarRegistrosEnSubcoleccion(documentoId, resultadoParse.registros)
+    // Guardar o reemplazar registros en subcolección (evita límite de tamaño)
+    if (documentoExistente?.id) {
+      await reemplazarRegistrosEnSubcoleccion(documentoId, resultadoParse.registros)
+    } else {
+      await guardarRegistrosEnSubcoleccion(documentoId, resultadoParse.registros)
+    }
 
     // Actualizar documento principal (sin registros)
     await updateBolsaDeTrabajoDocumento(documentoId, {
@@ -202,6 +238,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       documentoId,
+      reemplazado: Boolean(documentoExistente?.id),
       totalRegistros: resultadoParse.registros.length,
       registrosConErrores,
       errores: resultadoParse.errores,

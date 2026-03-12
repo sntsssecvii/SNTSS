@@ -1,10 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { Calendar, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PeriodSelectorProps {
@@ -20,137 +16,75 @@ const MESES = [
 ]
 
 export function PeriodSelector({ anio, mes, quincena, onChange }: PeriodSelectorProps) {
-    const [isOpen, setIsOpen] = useState(false)
-
-    const handleAnioChange = (delta: number) => {
-        onChange({ anio: anio + delta, mes, quincena })
-    }
-
-    const handleMesChange = (nuevoMes: number) => {
-        onChange({ anio, mes: nuevoMes, quincena })
-    }
-
-    const handleQuincenaChange = (nuevaQuincena: 1 | 2) => {
-        onChange({ anio, mes, quincena: nuevaQuincena })
-    }
+    const years = Array.from({ length: 5 }, (_, index) => new Date().getFullYear() - 2 + index)
 
     return (
-        <div className="relative z-20">
-            <motion.div
-                initial={false}
-                animate={isOpen ? "open" : "closed"}
-                className="flex items-center gap-3"
-            >
-                <Button
-                    variant="outline"
-                    onClick={() => setIsOpen(!isOpen)}
-                    className={cn(
-                        "h-12 px-6 rounded-2xl border-2 transition-all duration-300 flex items-center gap-3 bg-white dark:bg-card hover:shadow-lg",
-                        isOpen ? "border-primary shadow-primary/10 ring-4 ring-primary/5" : "border-border shadow-sm"
-                    )}
-                >
-                    <Calendar className={cn("h-5 w-5 transition-colors", isOpen ? "text-primary" : "text-muted-foreground")} />
-                    <div className="text-left">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground leading-none mb-1">Periodo Actual</p>
-                        <p className="text-sm font-extrabold leading-none">
-                            {MESES[mes - 1]} {anio} • <span className="text-primary">{quincena}ª Qna</span>
-                        </p>
+        <div className="w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-end 2xl:justify-between">
+                <div className="space-y-1">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                        <Calendar className="h-4 w-4" />
+                        Periodo de trabajo
                     </div>
-                    <motion.div
-                        animate={{ rotate: isOpen ? 180 : 0 }}
-                        className="ml-2"
-                    >
-                        <ChevronRight className="h-4 w-4 opacity-50" />
-                    </motion.div>
-                </Button>
-            </motion.div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Selecciona la quincena antes de revisar archivos o iniciar una nueva sincronización.
+                    </p>
+                </div>
 
-            <AnimatePresence>
-                {isOpen && (
-                    <>
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsOpen(false)}
-                            className="fixed inset-0 z-10 bg-black/5 backdrop-blur-[2px]"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-                            className="absolute top-14 left-0 z-20 w-[340px] origin-top-left"
-                        >
-                            <Card className="p-4 shadow-2xl border-2 border-primary/10 bg-white/95 dark:bg-card/95 backdrop-blur-xl overflow-hidden">
-                                {/* Selector de Año */}
-                                <div className="flex items-center justify-between mb-6 bg-primary/5 p-2 rounded-xl">
-                                    <Button variant="ghost" size="icon" onClick={() => handleAnioChange(-1)} className="hover:bg-white dark:hover:bg-card rounded-lg h-8 w-8">
-                                        <ChevronLeft className="h-4 w-4" />
-                                    </Button>
-                                    <span className="font-extrabold text-lg tracking-tight">{anio}</span>
-                                    <Button variant="ghost" size="icon" onClick={() => handleAnioChange(1)} className="hover:bg-white dark:hover:bg-card rounded-lg h-8 w-8">
-                                        <ChevronRight className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                <div className="grid w-full gap-4 xl:grid-cols-[minmax(260px,1.4fr)_180px]">
+                    <div className="grid gap-4 md:grid-cols-[minmax(240px,1fr)_160px]">
+                        <label className="space-y-2">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Mes</span>
+                            <select
+                                value={mes}
+                                onChange={(e) => onChange({ anio, mes: Number(e.target.value), quincena })}
+                                className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-950/60"
+                            >
+                                {MESES.map((nombreMes, index) => (
+                                    <option key={nombreMes} value={index + 1}>
+                                        {nombreMes}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
 
-                                {/* Grid de Meses */}
-                                <div className="grid grid-cols-3 gap-2 mb-6">
-                                    {MESES.map((nombreMes, index) => {
-                                        const mesNum = index + 1
-                                        const isSelected = mes === mesNum
-                                        return (
-                                            <button
-                                                key={nombreMes}
-                                                onClick={() => handleMesChange(mesNum)}
-                                                className={cn(
-                                                    "px-2 py-2.5 rounded-lg text-xs font-bold transition-all duration-200",
-                                                    isSelected
-                                                        ? "bg-primary text-primary-foreground shadow-md scale-105"
-                                                        : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                                                )}
-                                            >
-                                                {nombreMes.slice(0, 3)}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
+                        <label className="space-y-2">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Año</span>
+                            <select
+                                value={anio}
+                                onChange={(e) => onChange({ anio: Number(e.target.value), mes, quincena })}
+                                className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-950/60"
+                            >
+                                {years.map((year) => (
+                                    <option key={year} value={year}>
+                                        {year}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
 
-                                {/* Selector de Quincena */}
-                                <div className="flex gap-2 p-1 bg-muted rounded-xl">
-                                    {[1, 2].map((q) => {
-                                        const isSelected = quincena === q
-                                        return (
-                                            <button
-                                                key={q}
-                                                onClick={() => handleQuincenaChange(q as 1 | 2)}
-                                                className={cn(
-                                                    "flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-200",
-                                                    isSelected
-                                                        ? "bg-white dark:bg-card text-primary shadow-sm"
-                                                        : "text-muted-foreground hover:text-foreground"
-                                                )}
-                                            >
-                                                {q}ª Quincena
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t flex justify-end">
-                                    <Button
-                                        size="sm"
-                                        className="rounded-lg font-bold"
-                                        onClick={() => setIsOpen(false)}
-                                    >
-                                        Aplicar Filtro
-                                    </Button>
-                                </div>
-                            </Card>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
+                    <div className="space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Quincena</span>
+                        <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950/60">
+                            {[1, 2].map((value) => (
+                                <button
+                                    key={value}
+                                    onClick={() => onChange({ anio, mes, quincena: value as 1 | 2 })}
+                                    className={cn(
+                                        'rounded-xl px-4 py-3 text-sm font-black transition-all',
+                                        quincena === value
+                                            ? 'bg-white text-primary shadow-sm dark:bg-slate-800'
+                                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                                    )}
+                                >
+                                    {value}ª Qna
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

@@ -78,6 +78,28 @@ export const getSincronizacionById = async (id: string): Promise<Sincronizacion 
     }
 }
 
+export const getSincronizacionPorPeriodo = async (
+    anio: number,
+    mes: number,
+    quincena: 1 | 2
+): Promise<Sincronizacion | null> => {
+    try {
+        const q = query(
+            collection(db, COLECCION),
+            where('anio', '==', anio),
+            where('mes', '==', mes),
+            where('quincena', '==', quincena),
+            limit(1)
+        )
+        const querySnapshot = await getDocs(q)
+        if (querySnapshot.empty) return null
+        return convertirSincronizacion(querySnapshot.docs[0])
+    } catch (error) {
+        console.error('Error obteniendo sincronización por periodo:', error)
+        throw error
+    }
+}
+
 export const getFuenteVerdad = async (): Promise<Sincronizacion | null> => {
     try {
         const q = query(

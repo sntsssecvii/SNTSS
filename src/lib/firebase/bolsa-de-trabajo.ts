@@ -154,6 +154,33 @@ export const guardarRegistrosEnSubcoleccion = async (
   }
 }
 
+export const reemplazarRegistrosEnSubcoleccion = async (
+  documentoId: string,
+  registros: BolsaDeTrabajoRegistro[]
+): Promise<void> => {
+  try {
+    const registrosRef = collection(db, COLECCION, documentoId, SUBCOLECCION_REGISTROS)
+    const existentes = await getDocs(registrosRef)
+
+    if (!existentes.empty) {
+      const BATCH_SIZE = 500
+      const docs = existentes.docs
+
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        const lote = docs.slice(i, i + BATCH_SIZE)
+        lote.forEach((docSnap) => batch.delete(docSnap.ref))
+        await batch.commit()
+      }
+    }
+
+    await guardarRegistrosEnSubcoleccion(documentoId, registros)
+  } catch (error) {
+    console.error('Error reemplazando registros en subcolección:', error)
+    throw error
+  }
+}
+
 // Obtener documento por ID (con registros opcionales)
 export const getBolsaDeTrabajoDocumentoById = async (
   id: string,
@@ -242,6 +269,43 @@ export const getBolsaDeTrabajoDocumentos = async (
     }
   } catch (error) {
     console.error('Error obteniendo documentos de bolsa de trabajo:', error)
+    throw error
+  }
+}
+
+export const getBolsaDeTrabajoDocumentosBySyncId = async (
+  syncId: string
+): Promise<BolsaDeTrabajoDocumento[]> => {
+  try {
+    const q = query(
+      collection(db, COLECCION),
+      where('syncId', '==', syncId),
+      orderBy('fechaCarga', 'desc')
+    )
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map(doc => convertirDocumento(doc))
+  } catch (error) {
+    console.error('Error obteniendo documentos por sincronización:', error)
+    throw error
+  }
+}
+
+export const getBolsaDeTrabajoDocumentoBySyncAndTipo = async (
+  syncId: string,
+  tipo: TipoBolsaDeTrabajo
+): Promise<BolsaDeTrabajoDocumento | null> => {
+  try {
+    const q = query(
+      collection(db, COLECCION),
+      where('syncId', '==', syncId),
+      where('tipo', '==', tipo),
+      limit(1)
+    )
+    const querySnapshot = await getDocs(q)
+    if (querySnapshot.empty) return null
+    return convertirDocumento(querySnapshot.docs[0])
+  } catch (error) {
+    console.error('Error obteniendo documento por sincronización y tipo:', error)
     throw error
   }
 }
