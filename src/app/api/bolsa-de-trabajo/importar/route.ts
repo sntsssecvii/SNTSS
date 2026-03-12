@@ -20,6 +20,7 @@ export interface FilaValidada {
   fecha?: string
   zona?: string
   categoria?: string
+  subcategoria?: string
   grupo?: string
   calificacion?: string
   tipoContratacion?: string
@@ -53,6 +54,7 @@ function mapearFilaARegistro(fila: FilaValidada, tipo: TipoBolsaDeTrabajo): Bols
     confianza: fila.confianza,
     zona: fila.zona,
     categoria: fila.categoria,
+    subcategoria: fila.subcategoria,
     numeroProg: fila.numeroProg,
     nombre: fila.nombre,
     matricula: fila.matricula,
@@ -115,6 +117,7 @@ export async function POST(request: NextRequest) {
             fecha: getValue('fecha'),
             zona: getValue('zona'),
             categoria: getValue('categoría'),
+            subcategoria: getValue('subcategoría') || getValue('subcategoria'),
             grupo: getValue('grupo'),
             calificacion: getValue('calificación'),
             tipoContratacion: getValue('tipo contratación'),
@@ -258,6 +261,7 @@ export async function GET() {
           fecha: '27/11/2023',
           zona: '1-San Luis Rio Col. Son.',
           categoria: '202100 - AUX DE ENFERMERIA GRAL',
+          subcategoria: '16 CIRUGIA GENERAL',
           grupo: '2023003',
           calificacion: '73.000',
           tipoContratacion: '2',

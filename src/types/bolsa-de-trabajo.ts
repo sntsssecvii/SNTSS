@@ -95,6 +95,7 @@ export interface BolsaDeTrabajoRegistro {
   // Campos específicos para NUEVO INGRESO
   numeroProg?: string
   grupo?: string
+  subcategoria?: string
   calificacion?: string
   tipoContratacion?: string
   diasLaborados?: string

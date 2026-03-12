@@ -3,6 +3,7 @@ import { getFuenteVerdad } from '@/lib/firebase/sincronizaciones'
 import { db } from '@/lib/firebase/server-config'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
+import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
 import { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export async function GET(request: NextRequest) {
@@ -57,45 +58,14 @@ export async function GET(request: NextRequest) {
             }, { status: 404 })
         }
 
-        const { categoria, zona, adscripcionNueva, jornadaNueva, turnoNuevo } = dataTrabajador
-
-        // 4. Obtener registros para comparar según el tipo de documento
+        // 4. Obtener todos los registros del documento encontrado y derivar el grupo comparable
         const registrosRef = collection(db, 'bolsa_de_trabajo_documentos', docIdEncontrado, 'registros')
-
-        // Criterio base: Categoría y Zona
-        let queryParams = [
-            where('categoria', '==', categoria),
-            where('zona', '==', zona)
-        ]
-
-        // Criterios para Ampliaciones de Jornada: Jornada solicitada + Adscripción + Turno
-        if (tipoDocumento === 'AMPLIACIONES_JORNADA') {
-            queryParams = []
-            if (jornadaNueva) queryParams.push(where('jornadaNueva', '==', jornadaNueva))
-            if (adscripcionNueva) queryParams.push(where('adscripcionNueva', '==', adscripcionNueva))
-            if (turnoNuevo) queryParams.push(where('turnoNuevo', '==', turnoNuevo))
-        }
-
-        // Criterio extra para Cambios de Turno/Adscripción: CAT/CAD + Unidad (+ Turno si CAT)
-        if (tipoDocumento === 'CAMBIOS_TURNO_ADSCRIPCION') {
-            const { registro: tipoCambio, adscripcionNueva, turnoNuevo } = dataTrabajador
-            if (tipoCambio) queryParams.push(where('registro', '==', tipoCambio))
-            if (adscripcionNueva) queryParams.push(where('adscripcionNueva', '==', adscripcionNueva))
-            if (tipoCambio === 'CAT' && turnoNuevo) queryParams.push(where('turnoNuevo', '==', turnoNuevo))
-        }
-
-        // Cambios de Rama: comparar por categoria, resolviendo la prioridad de zona incondicional en el engine
-        if (tipoDocumento === 'CAMBIOS_RAMA') {
-            queryParams = []
-            if (categoria) queryParams.push(where('categoria', '==', categoria))
-        }
-
-        const qComparacion = query(registrosRef, ...queryParams)
-        const snapComparacion = await getDocs(qComparacion)
+        const snapComparacion = await getDocs(registrosRef)
         const registros = snapComparacion.docs.map(doc => ({ id: doc.id, ...doc.data() })) as BolsaDeTrabajoRegistro[]
+        const comparisonRecords = getComparisonRecordsForWorker(registros, dataTrabajador, tipoDocumento)
 
         // 5. Realizar cálculos
-        const resultado = calcularPosiciones(registros, matricula, tipoDocumento)
+        const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
 
         if (!resultado) {
             return NextResponse.json({ error: 'Error al calcular posiciones.' }, { status: 500 })

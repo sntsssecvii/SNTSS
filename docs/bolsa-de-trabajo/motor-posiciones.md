@@ -51,12 +51,13 @@ En todos los tipos, la base del cálculo es el orden oficial del listado.
 
 ### 1. NUEVO_INGRESO
 
-- Grupo comparable: `zona + categoria`
+- Grupo comparable: `zona + categoria + subcategoria` cuando exista `subcategoria`
 - Orden: `consecutivo`
 - Regla especial:
   - calcula `posicionBase` sobre todas las matrículas únicas del grupo
   - si `tipoContratacion === 8`, calcula además `posicionInterinato`
   - `posicionInterinato` sólo considera a los eventuales del mismo grupo
+  - en categorías con subespecialidades o subcategorías, no compiten juntas; cada `subcategoria` se rankea por separado
 - Salida esperada:
   - `posicionBase`
   - `posicionInterinato` si aplica

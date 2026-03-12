@@ -97,6 +97,7 @@ function parseNuevoIngresoExcel(workbook: XLSX.WorkBook): ExcelParseResult {
     let zonaActual = '';
     // categoriaActual SE RESETEA en cada hoja para evitar contaminar con categorías de hojas previas
     let categoriaActual = '';
+    let subcategoriaActual = '';
 
     // Procesamos todas las hojas
     workbook.SheetNames.forEach((sheetName) => {
@@ -181,6 +182,7 @@ function parseNuevoIngresoExcel(workbook: XLSX.WorkBook): ExcelParseResult {
                         observaciones: String(row[9] || '').trim() || undefined,
                         zona: zonaActual,
                         categoria: categoriaActual,
+                        subcategoria: subcategoriaActual || undefined,
                         filaOriginal: index + 1,
                         confianza: 1.0,
                         necesitaValidacion: false,
@@ -205,6 +207,12 @@ function parseNuevoIngresoExcel(workbook: XLSX.WorkBook): ExcelParseResult {
             // ─────────────────────────────────────────────────────────────
             if (/^\d{5,6}\s*-\s*\S/.test(firstColRaw) && !col1 && !col2) {
                 categoriaActual = firstColRaw;
+                subcategoriaActual = '';
+                return;
+            }
+
+            if (/^\d{1,3}\s+[A-ZÁÉÍÓÚÑ]/.test(firstColRaw) && !col1 && !col2 && !firstColRaw.includes('/')) {
+                subcategoriaActual = firstColRaw;
                 return;
             }
 

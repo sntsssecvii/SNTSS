@@ -24,12 +24,13 @@ function isZonaIncondicional(value?: string): boolean {
 export const nuevoIngresoStrategy: PositionStrategy = {
   tipo: 'NUEVO_INGRESO',
   buildGroupKey(record) {
-    return `${record.zona || ''}::${record.categoria || ''}`
+    return `${record.zona || ''}::${record.categoria || ''}::${record.subcategoria || ''}`
   },
   buildGroupInfo(record) {
     return {
       zona: record.zona,
       categoria: record.categoria,
+      subcategoria: record.subcategoria,
     }
   },
   getSortValue(record) {
@@ -50,11 +51,15 @@ export const nuevoIngresoStrategy: PositionStrategy = {
     }
   },
   explain(result, target) {
+    const scope = target.subcategoria
+      ? `${target.categoria || 'la categoria'} / ${target.subcategoria}`
+      : `${target.categoria || 'la categoria'}`
+
     if (target.tipoContratacion === '8') {
-      return `Posicion calculada por consecutivo oficial dentro de ${target.categoria || 'la categoria'} en ${target.zona || 'la zona'}, con posicion adicional entre eventuales.`
+      return `Posicion calculada por consecutivo oficial dentro de ${scope} en ${target.zona || 'la zona'}, con posicion adicional entre eventuales.`
     }
 
-    return `Posicion calculada por consecutivo oficial dentro de ${target.categoria || 'la categoria'} en ${target.zona || 'la zona'}.`
+    return `Posicion calculada por consecutivo oficial dentro de ${scope} en ${target.zona || 'la zona'}.`
   },
 }
 

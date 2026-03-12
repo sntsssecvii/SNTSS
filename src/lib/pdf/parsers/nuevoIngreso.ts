@@ -93,6 +93,7 @@ export function parseNuevoIngreso(texto: string): ParseResult {
   const errores: string[] = []
   let zonaActual = ''
   let categoriaActual = ''
+  let subcategoriaActual = ''
 
   const lineasRaw = dividirLineas(texto)
   let lineas = dividirLineasPegadas(lineasRaw)
@@ -116,32 +117,18 @@ export function parseNuevoIngreso(texto: string): ParseResult {
     const categoriaMatch = linea.match(/^(\d{6})\s*-\s*(.+)$/)
     if (categoriaMatch) {
       categoriaActual = linea.trim()
+      subcategoriaActual = ''
       continue
     }
 
-    // Detección de Subcategoría (ej. "203601 ... - OFTALMOLOGIA")
-    // Si la línea empieza con un código numérico y texto, pero NO es un registro (sin No. Prog, Nombre, Matrícula)
-    const subcategoriaMatch = linea.match(/^(\d+)\s+([A-ZÁÉÍÓÚÑ\s.-]{5,})$/)
+    // Detección de subcategoría interna de la categoría principal.
+    // Ejemplo: "16 CIRUGIA GENERAL"
+    const subcategoriaMatch = linea.match(/^(\d{1,3})\s+([A-ZÁÉÍÓÚÑ\s.-]{5,})$/)
     if (subcategoriaMatch && !linea.includes('No. Prog') && !linea.includes('Nombre') && !linea.includes('Matrícula')) {
       const posibleNombre = subcategoriaMatch[2].trim()
 
-      // Validar que parece un nombre de categoría y no un nombre de persona
-      // Los nombres de personas suelen tener "/" o ser cortos. Las categorías son largas y sin "/"
       if (posibleNombre.length > 5 && !posibleNombre.includes('/') && !posibleNombre.includes('&')) {
-        // En lugar de concatenar a ciegas, verificamos si el código coincide
-        // Si el código de la subcategoría es igual al inicio de la categoría actual, actualizamos la descripción
-        const codigoSub = subcategoriaMatch[1];
-        if (categoriaActual.startsWith(codigoSub)) {
-          // Es una extensión de la misma categoría base (ej. 203601 -> 203601 - ESPECIALIDAD)
-          // Pero cuidado: a veces el PDF repite el código para una subespecialidad DISTINTA
-          // Ejemplo: 203601 - CIRUGIA GENERAL
-          // Luego: 203601 - CIRUGIA GENERAL - OFTALMOLOGIA
-          // Lo correcto es TOMAR LA LÍNEA COMPLETA como nueva categoría actual
-          categoriaActual = `${codigoSub} - ${posibleNombre}`
-        } else {
-          // Código diferente o no coincide, asumimos que es una nueva definición completa si tiene formato válido
-          categoriaActual = `${codigoSub} - ${posibleNombre}`
-        }
+        subcategoriaActual = `${subcategoriaMatch[1]} ${posibleNombre}`
         continue
       }
     }
@@ -156,7 +143,7 @@ export function parseNuevoIngreso(texto: string): ParseResult {
       const fechaMatch = resto.match(/(\d{2}\/\d{2}\/\d{4})/)
 
       if (matriculaMatch && fechaMatch) {
-        procesarLineaRegistro(linea, registros, errores, zonaActual, categoriaActual, i)
+        procesarLineaRegistro(linea, registros, errores, zonaActual, categoriaActual, subcategoriaActual, i)
         continue
       } else {
         if (matriculaMatch) {
@@ -189,7 +176,7 @@ export function parseNuevoIngreso(texto: string): ParseResult {
         const nomObj = nombresPendientes.shift()!
         const mat = matriculasPendientes.shift() || '00000000'
 
-        const reg = extraerDatosDesdeFecha(linea, i, zonaActual, categoriaActual)
+        const reg = extraerDatosDesdeFecha(linea, i, zonaActual, categoriaActual, subcategoriaActual)
         if (reg) {
           const registroObj: BolsaDeTrabajoRegistro = {
             ...reg,
@@ -246,6 +233,7 @@ function procesarLineaRegistro(
   errores: string[],
   zona: string,
   categoria: string,
+  subcategoria: string,
   i: number
 ) {
   const partes = linea.split(/\s+/).filter((p: string) => p.length > 0)
@@ -255,7 +243,7 @@ function procesarLineaRegistro(
   const nombre = partes.slice(1, matIndex).join(' ')
   const mat = partes[matIndex]
 
-  const datos = extraerDatosDesdeFecha(linea, i, zona, categoria)
+  const datos = extraerDatosDesdeFecha(linea, i, zona, categoria, subcategoria)
   if (datos) {
     const registroObj: BolsaDeTrabajoRegistro = {
       ...datos,
@@ -281,7 +269,8 @@ function extraerDatosDesdeFecha(
   linea: string,
   fila: number,
   zona: string,
-  categoria: string
+  categoria: string,
+  subcategoria: string
 ): Partial<BolsaDeTrabajoRegistro> | null {
   const partes = linea.split(/\s+/).filter(p => p.length > 0)
   const fechaIndex = partes.findIndex(p => p.match(/^\d{2}\/\d{2}\/\d{4}$/))
@@ -373,6 +362,7 @@ function extraerDatosDesdeFecha(
     observaciones: observaciones.trim() || undefined,
     zona,
     categoria,
+    subcategoria: subcategoria || undefined,
     filaOriginal: fila + 1,
   }
 }

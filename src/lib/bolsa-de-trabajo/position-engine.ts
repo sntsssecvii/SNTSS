@@ -29,6 +29,8 @@ export function normalizePositionRecord(record: BolsaDeTrabajoRegistro): Normali
     numeroProg: parseInt(record.numeroProg || '999999'),
     zona: record.zona,
     categoria: record.categoria,
+    subcategoria: record.subcategoria,
+    grupo: record.grupo,
     registro: record.registro,
     adscripcionNueva: record.adscripcionNueva,
     turnoNuevo: record.turnoNuevo || record.turnoNueva,
@@ -78,6 +80,8 @@ export function buildDefaultPositionResult(context: PositionEngineContext): Posi
     grupoComparable: {
       zona: target.zona,
       categoria: target.categoria,
+      subcategoria: target.subcategoria,
+      grupo: target.grupo,
       registro: target.registro,
       adscripcionNueva: target.adscripcionNueva,
       turnoNuevo: target.turnoNuevo,
@@ -104,7 +108,9 @@ export function runPositionEngine(
 
   let comparableRecords = strategy?.selectComparableRecords
     ? strategy.selectComparableRecords(orderedRecords, orderedTarget)
-    : orderedRecords
+    : strategy
+      ? orderedRecords.filter((record) => strategy.buildGroupKey(record) === strategy.buildGroupKey(orderedTarget))
+      : orderedRecords
 
   if (strategy?.applyPriorityRules) {
     comparableRecords = strategy.applyPriorityRules(comparableRecords, orderedTarget)

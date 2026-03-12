@@ -61,6 +61,72 @@ function testNuevoIngresoDeduplicaPorMatricula() {
   console.log('OK NUEVO_INGRESO deduplica por matricula y conserva el primer consecutivo')
 }
 
+function testNuevoIngresoFiltraPorSubcategoria() {
+  const registros: BolsaDeTrabajoRegistro[] = [
+    registro({
+      tipoDocumento: 'NUEVO_INGRESO',
+      numeroProg: '1',
+      matricula: 'NM001',
+      nombre: 'Angiologia 1',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+      zona: 'Z1',
+      tipoContratacion: '2',
+    }),
+    registro({
+      tipoDocumento: 'NUEVO_INGRESO',
+      numeroProg: '2',
+      matricula: 'NM002',
+      nombre: 'Cardiologia 1',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '14 CARDIOLOGIA',
+      zona: 'Z1',
+      tipoContratacion: '2',
+    }),
+    registro({
+      tipoDocumento: 'NUEVO_INGRESO',
+      numeroProg: '3',
+      matricula: 'NM003',
+      nombre: 'Angiologia 2',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+      zona: 'Z1',
+      tipoContratacion: '8',
+    }),
+    registro({
+      tipoDocumento: 'NUEVO_INGRESO',
+      numeroProg: '4',
+      matricula: 'NM004',
+      nombre: 'Cardiologia 2',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '14 CARDIOLOGIA',
+      zona: 'Z1',
+      tipoContratacion: '8',
+    }),
+  ]
+
+  const angiologia = calcularPosiciones(registros, 'NM003', 'NUEVO_INGRESO')
+  assert.ok(angiologia)
+  assert.equal(angiologia.posicionBase, 2)
+  assert.equal(angiologia.totalEnCategoria, 2)
+  assert.equal(angiologia.posicionInterinato, 1)
+  assert.equal(angiologia.totalEventualesEnCategoria, 1)
+  assert.deepEqual(angiologia.grupoComparable, {
+    zona: 'Z1',
+    categoria: '203601 - MEDICO NO FAMILIAR',
+    subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+  })
+
+  const cardiologia = calcularPosiciones(registros, 'NM004', 'NUEVO_INGRESO')
+  assert.ok(cardiologia)
+  assert.equal(cardiologia.posicionBase, 2)
+  assert.equal(cardiologia.totalEnCategoria, 2)
+  assert.equal(cardiologia.posicionInterinato, 1)
+  assert.equal(cardiologia.totalEventualesEnCategoria, 1)
+
+  console.log('OK NUEVO_INGRESO filtra por subcategoria cuando existe grupo')
+}
+
 function testCambiosTurnoAdscripcion() {
   const registros: BolsaDeTrabajoRegistro[] = [
     registro({ tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '9', matricula: 'C003', nombre: 'Tercero', categoria: 'MED', zona: 'Z2', registro: 'CAT', adscripcionNueva: 'UMF1', turnoNuevo: 'MAT' }),
@@ -207,6 +273,7 @@ function testCambiosRamaPriorizaIncondicional() {
 function main() {
   testNuevoIngreso()
   testNuevoIngresoDeduplicaPorMatricula()
+  testNuevoIngresoFiltraPorSubcategoria()
   testCambiosTurnoAdscripcion()
   testCambiosTurnoAdscripcionDeduplica()
   testCambiosArea()

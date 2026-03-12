@@ -3,6 +3,8 @@ import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-d
 export interface PositionGroupInfo {
   zona?: string
   categoria?: string
+  subcategoria?: string
+  grupo?: string
   registro?: string
   adscripcionNueva?: string
   turnoNuevo?: string
@@ -18,6 +20,8 @@ export interface NormalizedPositionRecord {
   numeroProg: number
   zona?: string
   categoria?: string
+  subcategoria?: string
+  grupo?: string
   registro?: string
   adscripcionNueva?: string
   turnoNuevo?: string
