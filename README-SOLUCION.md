@@ -31,7 +31,7 @@ https://console.firebase.google.com/project/sntss-e2117/firestore
 Ejecuta este comando:
 ```bash
 cd /Users/gerardoarroyo/Desktop/SNTSS
-node scripts/crear-usuario-firestore.js
+node scripts/ops/crear-usuario-firestore.js
 ```
 
 Esto creará automáticamente el documento del usuario en Firestore.
@@ -56,7 +56,7 @@ firebase deploy --only firestore:rules
 
 Ejecuta el script de diagnóstico:
 ```bash
-./scripts/diagnostico-completo.sh
+./scripts/ops/diagnostico-completo.sh
 ```
 
 Debe mostrar:
@@ -87,8 +87,8 @@ Debe mostrar:
 ## 📁 Archivos Creados
 
 ### Scripts
-- `scripts/crear-usuario-firestore.js` - Crea el documento del usuario
-- `scripts/diagnostico-completo.sh` - Verifica toda la configuración
+- `scripts/ops/crear-usuario-firestore.js` - Crea el documento del usuario
+- `scripts/ops/diagnostico-completo.sh` - Verifica toda la configuración
 
 ### Configuración
 - `firestore.rules` - Reglas de seguridad de Firestore

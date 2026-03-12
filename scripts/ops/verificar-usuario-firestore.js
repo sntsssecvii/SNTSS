@@ -83,7 +83,7 @@ async function main() {
   
   if (!password) {
     console.error('❌ Se requiere contraseña');
-    console.log('Uso: node scripts/verificar-usuario-firestore.js <email> <password>');
+    console.log('Uso: node scripts/ops/verificar-usuario-firestore.js <email> <password>');
     process.exit(1);
   }
   

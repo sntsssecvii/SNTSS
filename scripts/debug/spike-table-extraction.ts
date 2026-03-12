@@ -5,13 +5,13 @@
  * 2. pdf-parse getTable() - tablas nativas
  * 3. pdfjs-dist getTextContent() - texto con coordenadas
  *
- * Uso: npx tsx scripts/spike-table-extraction.ts
+ * Uso: npx tsx scripts/debug/spike-table-extraction.ts
  */
 
 import fs from 'fs'
 import path from 'path'
 
-const PDF_PATH = path.join(__dirname, '..', 'src', 'assets', 'PDFs', 'CAMBIOS DE ÁREA.pdf')
+const PDF_PATH = path.join(__dirname, '..', '..', 'src', 'assets', 'PDFs', 'CAMBIOS DE ÁREA.pdf')
 
 async function testPdfParseGetText() {
   console.log('\n=== 1. pdf-parse getText() (actual) ===')

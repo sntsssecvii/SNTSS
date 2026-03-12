@@ -3,7 +3,7 @@
  * 
  * USO:
  * 1. Primero habilita Firestore en Firebase Console
- * 2. Luego ejecuta: node scripts/crear-usuario-firestore.js
+ * 2. Luego ejecuta: node scripts/ops/crear-usuario-firestore.js
  */
 
 const https = require('https');

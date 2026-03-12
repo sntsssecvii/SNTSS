@@ -3,13 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "setup": "npm install",
+    "typecheck": "tsc --noEmit",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check": "npm run typecheck && npm run lint",
+    "positions:test": "node --import tsx scripts/tests/test-position-regression.ts",
+    "pdf:test": "tsx scripts/tests/test-parsers.ts",
+    "pdf:test:nuevo-ingreso": "tsx scripts/tests/test-nuevo-ingreso.ts"
   },
   "dependencies": {
+    "@adobe/pdfservices-node-sdk": "^4.1.0",
     "@hookform/resolvers": "^3.9.1",
+    "@ilovepdf/ilovepdf-nodejs": "^0.3.1",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dropdown-menu": "^2.1.1",
     "@radix-ui/react-label": "^2.1.0",
@@ -51,6 +59,7 @@
     "eslint-config-next": "14.2.15",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.20.5",
     "typescript": "^5"
   }
 }

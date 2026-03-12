@@ -54,7 +54,7 @@ echo -e "${MAGENTA}📊 PASO 1: Diagnóstico Inicial${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-run_command "./scripts/diagnostico-completo.sh"
+run_command "./scripts/ops/diagnostico-completo.sh"
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -78,7 +78,7 @@ echo ""
 
 echo "Voy a abrir Firebase Console en tu navegador..."
 echo ""
-run_command "./scripts/abrir-firebase-console.sh"
+run_command "./scripts/ops/abrir-firebase-console.sh"
 
 echo ""
 echo -e "${YELLOW}📋 INSTRUCCIONES:${NC}"
@@ -104,7 +104,7 @@ echo ""
 echo "Ahora voy a crear el documento del usuario en Firestore..."
 echo ""
 
-run_command "node scripts/crear-usuario-firestore.js"
+run_command "node scripts/ops/crear-usuario-firestore.js"
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -118,7 +118,7 @@ else
     echo "   - Las reglas de seguridad están bloqueando la escritura"
     echo ""
     echo "Puedes:"
-    echo "   a) Esperar un minuto y ejecutar: node scripts/crear-usuario-firestore.js"
+    echo "   a) Esperar un minuto y ejecutar: node scripts/ops/crear-usuario-firestore.js"
     echo "   b) Crear el documento manualmente en Firebase Console"
     echo ""
     wait_for_user
@@ -166,7 +166,7 @@ echo ""
 echo "Ejecutando diagnóstico final..."
 echo ""
 
-run_command "./scripts/diagnostico-completo.sh"
+run_command "./scripts/ops/diagnostico-completo.sh"
 
 if [ $? -eq 0 ]; then
     echo ""

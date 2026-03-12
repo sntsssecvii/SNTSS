@@ -1,48 +1,98 @@
 # SNTSS
 
-Sistema de gestión SNTSS con autenticación y redirección basado en roles.
+Aplicacion web en Next.js para flujos internos de SNTSS. El proyecto incluye autenticacion con Firebase, panel administrativo y herramientas para procesar PDF/Excel del modulo de bolsa de trabajo.
 
-## Configuración
+## Estado del proyecto
 
-1. Instalar dependencias:
+El repositorio contiene dos capas de trabajo:
+
+- App principal: autenticacion, paneles, rutas publicas y API routes.
+- Laboratorio operativo: scripts y utilidades para diagnostico, parsing y pruebas de extraccion.
+
+La prioridad operativa es mantener estable la app mientras evoluciona el flujo de procesamiento documental.
+
+## Requisitos
+
+- Node.js 20+
+- npm 10+
+
+## Inicio rapido
+
+1. Instala dependencias:
+
 ```bash
 npm install
 ```
 
-2. Configurar variables de entorno:
+2. Crea tu archivo de entorno local:
+
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-Edita el archivo `.env` con tus credenciales de Firebase.
+3. Completa las variables necesarias de Firebase y proveedores externos.
 
-3. Ejecutar en desarrollo:
+4. Inicia el entorno de desarrollo:
+
 ```bash
 npm run dev
 ```
 
-## Estructura del Proyecto
+## Comandos principales
 
-- `src/app/` - Páginas y layouts de Next.js
-- `src/components/` - Componentes React reutilizables
-- `src/contexts/` - Contextos de React (AuthContext)
-- `src/lib/` - Utilidades y configuración de Firebase
-- `src/types/` - Tipos TypeScript
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run typecheck
+npm run check
+npm run pdf:test
+```
 
-## Autenticación
+Tambien puedes usar `make check`, `make dev` o `make pdf-test`.
 
-El sistema incluye:
-- Login con Firebase Authentication
-- Redirección automática basada en roles
-- Protección de rutas
-- Contexto de autenticación global
+## Estructura clave
 
-## Roles
+- `src/app/`: rutas App Router, vistas publicas, admin y endpoints
+- `src/components/`: componentes reutilizables y UI
+- `src/contexts/`: contexto de autenticacion
+- `src/lib/firebase/`: configuracion cliente y admin de Firebase
+- `src/lib/pdf/`: extraccion, parsing y puentes con servicios/Python
+- `src/lib/excel/`: conversion y parsing de Excel
+- `src/types/`: tipos de dominio compartidos
+- `scripts/ops/`: soporte operativo y Firebase
+- `scripts/tests/`: pruebas manuales y regresion
+- `scripts/debug/`: investigacion y debugging
+- `artifacts/`: salidas generadas por pruebas, debugging y comparativas locales
 
-Los roles actuales son:
-- `ADMIN` - Redirige a `/admin`
-- `USER` - Redirige a `/dashboard`
+## Variables de entorno
 
-Puedes modificar los roles y rutas en:
-- `src/types/roles.ts` - Definición de roles
-- `src/components/LoginForm.tsx` - Mapeo de roles a rutas
+Las variables necesarias estan documentadas en `.env.example`. Las mas importantes son:
+
+- `NEXT_PUBLIC_FIREBASE_*`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+- `ADOBE_CLIENT_ID`
+- `ADOBE_CLIENT_SECRET`
+- `ILOVEPDF_PUBLIC_KEY`
+- `ILOVEPDF_SECRET_KEY`
+- `RESEND_API_KEY`
+
+## Documentacion relacionada
+
+- `SETUP.md`
+- `README-DEPLOY.md`
+- `DEPLOY-VERCEL.md`
+- `FIRESTORE_CHECKLIST.md`
+- `PROYECTO_EXTRACCION_PDF.md`
+- `docs/bolsa-de-trabajo/motor-posiciones.md`
+- `docs/bolsa-de-trabajo/backlog-tecnico-motor-posiciones.md`
+- `AGENTS.md`
+
+## Forma recomendada de trabajar
+
+- Ejecuta `npm run check` antes de cerrar cambios.
+- Si tocas parsing o extraccion, corre `npm run pdf:test`.
+- Mantén scripts temporales y artefactos fuera de la raiz del repo.
+- Las salidas generadas por pruebas deben ir a `artifacts/`, no a `scripts/`.
+- No subas secretos a Git.

@@ -5,16 +5,16 @@
  *   - Que los campos clave estén presentes en cada registro
  *   - Resumen de confianza y errores
  *
- * Uso: npx tsx scripts/test-parsers.ts
+ * Uso: npx tsx scripts/tests/test-parsers.ts
  */
 
 import fs from 'fs'
 import path from 'path'
-import { parsePDF } from '../src/lib/pdf/parser'
-import { SCHEMAS, validateRegistro } from '../src/lib/pdf/schemas'
-import type { TipoBolsaDeTrabajo, BolsaDeTrabajoRegistro } from '../src/types/bolsa-de-trabajo'
+import { parsePDF } from '../../src/lib/pdf/parser'
+import { SCHEMAS, validateRegistro } from '../../src/lib/pdf/schemas'
+import type { TipoBolsaDeTrabajo, BolsaDeTrabajoRegistro } from '../../src/types/bolsa-de-trabajo'
 
-const PDF_DIR = path.join(__dirname, '..', 'src', 'assets', 'PDFs')
+const PDF_DIR = path.join(__dirname, '..', '..', 'src', 'assets', 'PDFs')
 
 interface TestConfig {
   file: string

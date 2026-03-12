@@ -61,7 +61,7 @@ Ejecuta el script automatizado:
 
 ```bash
 cd /Users/gerardoarroyo/Desktop/SNTSS
-node scripts/crear-usuario-firestore.js
+node scripts/ops/crear-usuario-firestore.js
 ```
 
 O créalo manualmente:

@@ -1,15 +1,18 @@
 
-import { parsePDF } from '../src/lib/pdf/parser';
+import { parsePDF } from '../../src/lib/pdf/parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
 async function main() {
     const filePath = path.join(process.cwd(), 'src/assets/PDFs/NUEVO INGRESO.pdf');
+    const outputDir = path.join(process.cwd(), 'artifacts', 'pdf-tests');
 
     if (!fs.existsSync(filePath)) {
         console.error('El archivo PDF no existe:', filePath);
         process.exit(1);
     }
+
+    fs.mkdirSync(outputDir, { recursive: true });
 
     console.log('Leyendo PDF:', filePath);
     const buffer = fs.readFileSync(filePath);
@@ -26,10 +29,14 @@ Primeros 3 errores:
 ${JSON.stringify(result.errores.slice(0, 3), null, 2)}
 `;
 
-    fs.writeFileSync('scripts/summary.txt', summary);
-    fs.writeFileSync('scripts/results.json', JSON.stringify(result, null, 2));
+    const summaryPath = path.join(outputDir, 'nuevo-ingreso-summary.txt');
+    const resultsPath = path.join(outputDir, 'nuevo-ingreso-results.json');
 
-    console.log('Summary written to scripts/summary.txt');
+    fs.writeFileSync(summaryPath, summary);
+    fs.writeFileSync(resultsPath, JSON.stringify(result, null, 2));
+
+    console.log(`Summary written to ${summaryPath}`);
+    console.log(`Results written to ${resultsPath}`);
 }
 
 main().catch(console.error);

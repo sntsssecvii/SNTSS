@@ -92,14 +92,14 @@ elif echo "$FIRESTORE_RESPONSE" | grep -q "NOT_FOUND"; then
         echo "   5. Haz clic en 'Habilitar'"
         echo ""
         echo -e "${BLUE}   Luego ejecuta:${NC}"
-        echo "   node scripts/crear-usuario-firestore.js"
+        echo "   node scripts/ops/crear-usuario-firestore.js"
         exit 1
     else
         echo -e "${YELLOW}   ⚠️  Firestore habilitado pero documento no existe${NC}"
         echo "   Documento faltante: usuarios/$USER_UID"
         echo ""
         echo -e "${BLUE}   Para crear el documento:${NC}"
-        echo "   node scripts/crear-usuario-firestore.js"
+        echo "   node scripts/ops/crear-usuario-firestore.js"
         exit 1
     fi
 elif echo "$FIRESTORE_RESPONSE" | grep -q "PERMISSION_DENIED"; then
