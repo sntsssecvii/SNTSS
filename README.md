@@ -87,6 +87,10 @@ Las variables necesarias estan documentadas en `.env.example`. Las mas important
 - `PROYECTO_EXTRACCION_PDF.md`
 - `docs/bolsa-de-trabajo/motor-posiciones.md`
 - `docs/bolsa-de-trabajo/backlog-tecnico-motor-posiciones.md`
+- `docs/bolsa-de-trabajo/rediseno-admin-quincenas.md`
+- `docs/bolsa-de-trabajo/backlog-rediseno-admin.md`
+- `docs/portal-trabajador/modelo-acceso-y-privacidad.md`
+- `docs/portal-trabajador/migracion-consulta-publica-a-portal-privado.md`
 - `docs/git-workflow.md`
 - `docs/agents/mcp-policy.md`
 - `.codex/skills/sntss/`
