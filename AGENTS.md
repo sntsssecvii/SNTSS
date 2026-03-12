@@ -43,5 +43,6 @@ Mantener una base estable para SNTSS mientras se sigue desarrollando el flujo de
 
 ## Convenciones recomendadas
 - Usa commits pequenos con Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`).
+- Usa ramas por intencion (`feat/*`, `fix/*`, `chore/*`, `docs/*`) y evita trabajar directo en `main` para cambios medianos o grandes.
 - Si agregas scripts temporales, nombrarlos claramente y documentar si son diagnostico, fixture o prueba manual.
 - Los artefactos temporales deben ir a `tmp/` o `artifacts/`, no a `scripts/` ni a la raiz del repo.
