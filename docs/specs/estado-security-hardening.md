@@ -21,6 +21,9 @@ El hardening ya avanzó sobre cinco frentes:
 - `354e099` `fix: move worker portal reads behind private api`
 - `dfde9fa` `fix: harden storage rules and upload validation`
 - `7103754` `feat: add rate limiting and admin audit logs`
+- `4365713` `fix: make admin routes safe for production build`
+- `ea3f9d9` `fix: read firebase public envs safely in client build`
+- `912b93f` `fix: remove duplicate root app page`
 
 ## Qué ya quedó resuelto
 
@@ -97,6 +100,29 @@ Actualmente se registra auditoría en:
 - importar registros
 - extraer archivo
 
+### 7. Despliegue y estabilidad de producción
+
+Durante esta sesión también quedó resuelto el bloqueo de despliegue en Vercel.
+
+Problemas corregidos:
+
+- lectura dinámica de variables `NEXT_PUBLIC_FIREBASE_*` en cliente
+- inicialización temprana de Firebase Admin durante build
+- conflicto estructural por tener dos páginas resolviendo `/`
+
+Correcciones aplicadas:
+
+- `src/lib/firebase/config.ts`
+- `src/lib/firebase/admin.ts`
+- rutas API marcadas como dinámicas
+- eliminación de `src/app/(main)/page.tsx`
+
+Resultado:
+
+- `npm run build` quedó verde
+- el despliegue de producción pasó correctamente
+- la aplicación quedó publicada y operativa en Vercel
+
 ## Qué falta
 
 ### 1. Operaciones admin aún directas desde cliente
@@ -128,6 +154,13 @@ Validaciones técnicas recientes:
 
 - `npm run typecheck`: verde
 - `npm run lint`: verde
+- `npm run build`: verde
+
+Estado operativo:
+
+- producción desplegada correctamente
+- smoke test básico en producción reportado como estable
+- bolsa de trabajo y portal del trabajador operativos en su flujo principal
 
 ## Recomendación para la siguiente sesión
 
@@ -137,3 +170,12 @@ Continuar con:
 2. ampliar auditoría a más acciones críticas
 3. revisar colecciones y listeners admin residuales
 4. cerrar la spec con una checklist manual final de seguridad
+
+## Punto de reanudación sugerido
+
+Si se retoma la conversación después de archivar este chat, el mejor punto de entrada es:
+
+1. asumir que el deploy ya está resuelto y producción está arriba
+2. asumir que el hardening base ya quedó bastante avanzado
+3. continuar con migración de operaciones admin directas a server-side
+4. después retomar validación fina del motor de posiciones y QA por tipo
