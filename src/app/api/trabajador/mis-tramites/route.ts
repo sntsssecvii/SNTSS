@@ -6,6 +6,8 @@ import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
+export const dynamic = 'force-dynamic'
+
 interface DocumentoEncontrado {
   docId: string
   tipoDocumento: TipoBolsaDeTrabajo

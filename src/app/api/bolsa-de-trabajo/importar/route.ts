@@ -6,6 +6,8 @@ import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 import * as XLSX from 'xlsx'
 
+export const dynamic = 'force-dynamic'
+
 export interface ImportarRequest {
   tipoDocumento: TipoBolsaDeTrabajo
   nombreArchivo: string

@@ -5,6 +5,8 @@ import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const matricula = searchParams.get('matricula')

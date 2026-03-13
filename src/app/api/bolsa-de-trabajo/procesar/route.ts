@@ -13,6 +13,8 @@ import { writeAdminAuditLog } from '@/lib/firebase/admin-audit'
 import { requireAdminRequest } from '@/lib/firebase/server-auth'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 
+export const dynamic = 'force-dynamic'
+
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
 const PDF_MIME = 'application/pdf'
 const EXCEL_MIME_TYPES = [

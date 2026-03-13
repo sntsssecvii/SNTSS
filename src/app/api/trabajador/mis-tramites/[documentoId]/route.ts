@@ -6,6 +6,8 @@ import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
+export const dynamic = 'force-dynamic'
+
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) return null

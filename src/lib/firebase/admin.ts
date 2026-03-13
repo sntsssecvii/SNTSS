@@ -24,6 +24,16 @@ export function getAdminApp() {
     return admin.apps[0]!;
 }
 
-export const adminDb = admin.firestore(getAdminApp());
-export const adminStorage = admin.storage(getAdminApp());
-export const adminAuth = admin.auth(getAdminApp());
+function createLazyAdminAccessor<T extends object>(factory: () => T): T {
+    return new Proxy({} as T, {
+        get(_target, prop) {
+            const instance = factory() as any
+            const value = instance[prop]
+            return typeof value === 'function' ? value.bind(instance) : value
+        },
+    })
+}
+
+export const adminDb = createLazyAdminAccessor(() => admin.firestore(getAdminApp()));
+export const adminStorage = createLazyAdminAccessor(() => admin.storage(getAdminApp()));
+export const adminAuth = createLazyAdminAccessor(() => admin.auth(getAdminApp()));

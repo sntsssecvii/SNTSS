@@ -5,6 +5,8 @@ import { requireAdminRequest } from '@/lib/firebase/server-auth'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import * as XLSX from 'xlsx'
 
+export const dynamic = 'force-dynamic'
+
 export interface FilaCruda {
   id: string
   lineaOriginal: string
