@@ -25,12 +25,14 @@ Endurecer la seguridad del sistema en las superficies con más riesgo real: ruta
 - Las rutas administrativas deben exigir token válido de Firebase.
 - Las rutas administrativas deben validar rol antes de procesar cargas, importaciones o extracciones.
 - Ningún dato sensible de terceros debe quedar accesible desde consultas manuales o reglas laxas.
+- Las rutas sensibles deben tener rate limiting razonable para reducir abuso o automatización agresiva.
 - Firestore debe permitir:
   - al trabajador: acceso sólo a lo suyo
   - al admin: acceso operativo donde aplique
   - a nadie más: lectura o escritura por defecto
 - Storage debe seguir una lógica equivalente.
 - Los archivos críticos deben validar tipo y tamaño tanto en cliente como en servidor.
+- Las operaciones administrativas críticas deben dejar bitácora mínima de auditoría.
 - Si faltan credenciales o variables críticas, el sistema debe fallar explícitamente y no caer a defaults inseguros.
 
 ## Cambios propuestos
@@ -40,6 +42,8 @@ Endurecer la seguridad del sistema en las superficies con más riesgo real: ruta
 - endurecer `firestore.rules` por colección en vez de confiar en permisos amplios para autenticados
 - revisar `storage.rules` para mantener acceso mínimo necesario
 - validar tipo y tamaño de archivo en flujos críticos de carga y registro
+- agregar rate limiting a rutas API sensibles
+- registrar auditoría mínima de operaciones admin críticas
 - eliminar defaults hardcodeados de Firebase config
 - reducir logs y mensajes que revelan demasiada información en frontend
 - documentar el nuevo modelo de seguridad
@@ -59,6 +63,8 @@ Endurecer la seguridad del sistema en las superficies con más riesgo real: ruta
 - el trabajador autenticado sólo puede consultar su propia información
 - el admin sigue pudiendo operar bolsa de trabajo
 - el sistema ya no depende de defaults hardcodeados para Firebase client config
+- las rutas sensibles responden `429` ante abuso básico
+- las operaciones admin críticas dejan rastro mínimo en auditoría
 - `typecheck` y `lint` siguen verdes
 - existe validación manual mínima como admin y como user
 

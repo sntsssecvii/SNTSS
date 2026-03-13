@@ -37,6 +37,12 @@ Implementar la spec `docs/specs/security-hardening-bolsa.md` en fases pequeñas,
 - actualizar checklist de validación
 - registrar riesgos o decisiones pendientes
 
+### Fase 6
+
+- agregar rate limiting a rutas API sensibles
+- registrar auditoría mínima para operaciones admin de bolsa de trabajo
+- validar que admin y portal del trabajador sigan operando con los nuevos límites
+
 ## Validaciones por fase
 
 - fase 1:
@@ -57,12 +63,18 @@ Implementar la spec `docs/specs/security-hardening-bolsa.md` en fases pequeñas,
 - fase 5:
   - revisión documental
   - confirmación de criterio de salida
+- fase 6:
+  - `npm run typecheck`
+  - `npm run lint`
+  - prueba manual de carga/admin y consulta de trabajador
+  - prueba negativa básica de `429`
 
 ## Riesgos abiertos
 
 - romper operación admin por endurecer autorización demasiado pronto
 - bloquear lecturas necesarias del portal del trabajador
 - dejar scripts operativos fuera del nuevo modelo de seguridad
+- dejar acciones admin directas por cliente sin auditoría hasta migrarlas a server-side
 
 ## Cierre esperado
 
@@ -70,3 +82,5 @@ Implementar la spec `docs/specs/security-hardening-bolsa.md` en fases pequeñas,
 - reglas más estrictas en Firestore/Storage
 - configuración Firebase sin defaults inseguros
 - documentación suficiente para continuar endureciendo seguridad sin improvisar
+- rutas sensibles con rate limiting básico
+- operaciones admin críticas con bitácora mínima

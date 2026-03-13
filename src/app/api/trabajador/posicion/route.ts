@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
+import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export async function GET(request: NextRequest) {
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+        enforceRateLimit(request, { bucket: 'api:trabajador:posicion-publica', limit: 20, windowMs: 60_000 })
         // 1. Obtener la sincronización activa (Fuente de Verdad)
         const syncSnap = await adminDb
             .collection('sincronizaciones')
@@ -98,6 +100,13 @@ export async function GET(request: NextRequest) {
 
     } catch (error: any) {
         console.error('Error en consulta de posición:', error)
+
+        if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
+            return NextResponse.json(
+                { error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' },
+                { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds || 60) } }
+            )
+        }
         return NextResponse.json({ error: 'Error interno del servidor', details: error.message }, { status: 500 })
     }
 }

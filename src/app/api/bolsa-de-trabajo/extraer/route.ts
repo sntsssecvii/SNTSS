@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { detectarTipoDocumento } from '@/lib/pdf/parser'
+import { writeAdminAuditLog } from '@/lib/firebase/admin-audit'
 import { requireAdminRequest } from '@/lib/firebase/server-auth'
+import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import * as XLSX from 'xlsx'
 
 export interface FilaCruda {
@@ -251,8 +253,10 @@ function generarExcelBase64(filas: FilaCruda[], tipoDocumento: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  let adminUser: Awaited<ReturnType<typeof requireAdminRequest>> | null = null
   try {
-    await requireAdminRequest(request)
+    enforceRateLimit(request, { bucket: 'api:bolsa:extraer', limit: 8, windowMs: 60_000 })
+    adminUser = await requireAdminRequest(request)
     const formData = await request.formData()
     const file = formData.get('file') as File
     const incluirExcel = formData.get('incluirExcel') === 'true'
@@ -292,9 +296,49 @@ export async function POST(request: NextRequest) {
       response.excelBase64 = generarExcelBase64(filas, tipoDocumento)
     }
 
+    await writeAdminAuditLog({
+      action: 'BOLSA_EXTRAER_ARCHIVO',
+      actorUid: adminUser.uid,
+      actorEmail: adminUser.email || '',
+      targetType: 'bolsa_extraccion',
+      status: 'SUCCESS',
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+      userAgent: request.headers.get('user-agent') || undefined,
+      metadata: {
+        nombreArchivo: file.name,
+        tipoDocumento,
+        incluirExcel,
+        registrosEncontrados: response.registrosEncontrados,
+      },
+    })
+
     return NextResponse.json(response)
   } catch (error: any) {
     console.error('Error extrayendo datos:', error)
+
+    if (adminUser) {
+      await writeAdminAuditLog({
+        action: 'BOLSA_EXTRAER_ARCHIVO',
+        actorUid: adminUser.uid,
+        actorEmail: adminUser.email || '',
+        targetType: 'bolsa_extraccion',
+        status: 'ERROR',
+        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        userAgent: request.headers.get('user-agent') || undefined,
+        metadata: {
+          error: error?.message || 'Error desconocido',
+        },
+      }).catch((auditError) => {
+        console.error('Error escribiendo auditoría admin:', auditError)
+      })
+    }
+
+    if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' },
+        { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds || 60) } }
+      )
+    }
 
     if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') {
       return NextResponse.json({ error: 'La sesión expiró. Vuelve a iniciar sesión.' }, { status: 401 })

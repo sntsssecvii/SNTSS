@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createBolsaDeTrabajoDocumento, guardarRegistrosEnSubcoleccion, updateBolsaDeTrabajoDocumento } from '@/lib/firebase/bolsa-de-trabajo'
+import { writeAdminAuditLog } from '@/lib/firebase/admin-audit'
 import { requireAdminRequest } from '@/lib/firebase/server-auth'
+import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 import * as XLSX from 'xlsx'
 
@@ -71,8 +73,10 @@ function mapearFilaARegistro(fila: FilaValidada, tipo: TipoBolsaDeTrabajo): Bols
 }
 
 export async function POST(request: NextRequest) {
+  let adminUser: Awaited<ReturnType<typeof requireAdminRequest>> | null = null
   try {
-    const adminUser = await requireAdminRequest(request)
+    enforceRateLimit(request, { bucket: 'api:bolsa:importar', limit: 10, windowMs: 60_000 })
+    adminUser = await requireAdminRequest(request)
     const contentType = request.headers.get('content-type') || ''
 
     let body: ImportarRequest
@@ -206,9 +210,50 @@ export async function POST(request: NextRequest) {
       errores: []
     }
 
+    await writeAdminAuditLog({
+      action: 'BOLSA_IMPORTAR_REGISTROS',
+      actorUid: adminUser.uid,
+      actorEmail: adminUser.email || '',
+      targetType: 'bolsa_documento',
+      targetId: documentoId,
+      status: 'SUCCESS',
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+      userAgent: request.headers.get('user-agent') || undefined,
+      metadata: {
+        tipoDocumento,
+        nombreArchivo: nombreArchivo || 'importado.xlsx',
+        totalRegistros: registros.length,
+        registrosValidados: response.registrosValidados,
+      },
+    })
+
     return NextResponse.json(response)
   } catch (error: any) {
     console.error('Error importando datos:', error)
+
+    if (adminUser) {
+      await writeAdminAuditLog({
+        action: 'BOLSA_IMPORTAR_REGISTROS',
+        actorUid: adminUser.uid,
+        actorEmail: adminUser.email || '',
+        targetType: 'bolsa_documento',
+        status: 'ERROR',
+        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        userAgent: request.headers.get('user-agent') || undefined,
+        metadata: {
+          error: error?.message || 'Error desconocido',
+        },
+      }).catch((auditError) => {
+        console.error('Error escribiendo auditoría admin:', auditError)
+      })
+    }
+
+    if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' },
+        { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds || 60) } }
+      )
+    }
 
     if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') {
       return NextResponse.json({ error: 'La sesión expiró. Vuelve a iniciar sesión.' }, { status: 401 })

@@ -3,6 +3,7 @@ import { getFuenteVerdad } from '@/lib/firebase/sincronizaciones'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
+import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 function getBearerToken(request: NextRequest) {
@@ -16,6 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ documentoId: string }> }
 ) {
   try {
+    enforceRateLimit(request, { bucket: 'api:trabajador:mi-tramite-detalle', limit: 90, windowMs: 60_000 })
     const idToken = getBearerToken(request)
     if (!idToken) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
@@ -99,6 +101,13 @@ export async function GET(
     })
   } catch (error: any) {
     console.error('Error en detalle de tramite:', error)
+
+    if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' },
+        { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds || 60) } }
+      )
+    }
 
     if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') {
       return NextResponse.json({ error: 'La sesión expiró. Vuelve a iniciar sesión.' }, { status: 401 })

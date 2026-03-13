@@ -9,7 +9,9 @@ import {
   reemplazarRegistrosEnSubcoleccion,
   getBolsaDeTrabajoDocumentoBySyncAndTipo,
 } from '@/lib/firebase/bolsa-de-trabajo'
+import { writeAdminAuditLog } from '@/lib/firebase/admin-audit'
 import { requireAdminRequest } from '@/lib/firebase/server-auth'
+import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
 const PDF_MIME = 'application/pdf'
@@ -19,8 +21,10 @@ const EXCEL_MIME_TYPES = [
 ]
 
 export async function POST(request: NextRequest) {
+  let adminUser: Awaited<ReturnType<typeof requireAdminRequest>> | null = null
   try {
-    const adminUser = await requireAdminRequest(request)
+    enforceRateLimit(request, { bucket: 'api:bolsa:procesar', limit: 12, windowMs: 60_000 })
+    adminUser = await requireAdminRequest(request)
 
     // Obtener datos del formulario
     const formData = await request.formData()
@@ -245,6 +249,24 @@ export async function POST(request: NextRequest) {
       registrosConErrores,
     })
 
+    await writeAdminAuditLog({
+      action: 'BOLSA_PROCESAR_ARCHIVO',
+      actorUid: adminUser.uid,
+      actorEmail: adminUser.email || '',
+      targetType: 'bolsa_documento',
+      targetId: documentoId,
+      status: 'SUCCESS',
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+      userAgent: request.headers.get('user-agent') || undefined,
+      metadata: {
+        tipoDocumento,
+        syncId: syncId || null,
+        nombreArchivo: file.name,
+        reemplazado: Boolean(documentoExistente?.id),
+        totalRegistros: resultadoParse.registros.length,
+      },
+    })
+
     return NextResponse.json({
       success: true,
       documentoId,
@@ -257,6 +279,30 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error en procesamiento:', error)
     console.error('Stack trace:', error.stack)
+
+    if (adminUser) {
+      await writeAdminAuditLog({
+        action: 'BOLSA_PROCESAR_ARCHIVO',
+        actorUid: adminUser.uid,
+        actorEmail: adminUser.email || '',
+        targetType: 'bolsa_documento',
+        status: 'ERROR',
+        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        userAgent: request.headers.get('user-agent') || undefined,
+        metadata: {
+          error: error?.message || 'Error desconocido',
+        },
+      }).catch((auditError) => {
+        console.error('Error escribiendo auditoría admin:', auditError)
+      })
+    }
+
+    if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' },
+        { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds || 60) } }
+      )
+    }
 
     if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') {
       return NextResponse.json({ error: 'La sesión expiró. Vuelve a iniciar sesión.' }, { status: 401 })
