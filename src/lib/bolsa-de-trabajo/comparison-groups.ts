@@ -1,25 +1,34 @@
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
+function normalizeLabel(value?: string): string {
+  return (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase()
+}
+
 function buildGroupKey(record: BolsaDeTrabajoRegistro, tipo: TipoBolsaDeTrabajo) {
-  let key = `${record.categoria || ''}-${record.zona || ''}`
+  let key = `${record.categoria || ''}-${record.subcategoria || ''}-${record.zona || ''}`
 
   if (tipo === 'NUEVO_INGRESO') {
     return `${record.categoria || ''}-${record.zona || ''}-${record.subcategoria || ''}`
   }
 
   if (tipo === 'AMPLIACIONES_JORNADA') {
-    return `${record.jornadaNueva || ''}-${record.adscripcionNueva || ''}-${record.turnoNuevo || ''}`
+    return `${record.categoria || ''}-${record.subcategoria || ''}-${record.adscripcionNueva || ''}-${record.turnoNuevo || ''}`
+  }
+
+  if (tipo === 'CAMBIOS_RESIDENCIA_ORIGEN' || tipo === 'CAMBIOS_RESIDENCIA_DESTINO') {
+    return `${record.zona || ''}-${record.categoria || ''}-${record.subcategoria || ''}-${record.turnoNuevo || ''}`
   }
 
   if (tipo === 'CAMBIOS_RAMA') {
-    return `${record.categoria || ''}`
+    return `${record.categoria || ''}-${record.subcategoria || ''}`
   }
 
   if (tipo === 'CAMBIOS_TURNO_ADSCRIPCION') {
-    key += `-${record.registro || ''}-${record.adscripcionNueva || ''}`
-    if (record.registro === 'CAT') {
-      key += `-${record.turnoNuevo || ''}`
-    }
+    key += `-${normalizeLabel(record.registro)}-${record.adscripcionNueva || ''}-${record.turnoNuevo || ''}`
   }
 
   return key
@@ -34,7 +43,9 @@ export function getComparisonRecordsForWorker(
     tipo !== 'NUEVO_INGRESO' &&
     tipo !== 'AMPLIACIONES_JORNADA' &&
     tipo !== 'CAMBIOS_TURNO_ADSCRIPCION' &&
-    tipo !== 'CAMBIOS_RAMA'
+    tipo !== 'CAMBIOS_RAMA' &&
+    tipo !== 'CAMBIOS_RESIDENCIA_ORIGEN' &&
+    tipo !== 'CAMBIOS_RESIDENCIA_DESTINO'
   ) {
     return registros
   }

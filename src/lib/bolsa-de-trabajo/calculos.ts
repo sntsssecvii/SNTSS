@@ -1,7 +1,8 @@
 import { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 import type { PositionResult } from '@/lib/bolsa-de-trabajo/position-contracts'
-import { runPositionEngine } from '@/lib/bolsa-de-trabajo/position-engine'
+import { dedupePositionRecords, normalizePositionRecords } from '@/lib/bolsa-de-trabajo/position-engine'
 import { buildStrategyResult, positionStrategies } from '@/lib/bolsa-de-trabajo/position-strategies'
+import { runPositionEngine } from '@/lib/bolsa-de-trabajo/position-engine'
 
 export type CalculoPosicion = PositionResult
 
@@ -25,4 +26,48 @@ export function calcularPosiciones(
             ? (context) => buildStrategyResult(context, strategy)
             : undefined,
     })
+}
+
+export interface TrabajadorAnterior {
+    posicionBase: number
+    registro: BolsaDeTrabajoRegistro
+}
+
+export function getTrabajadoresAntes(
+    registros: BolsaDeTrabajoRegistro[],
+    matriculaBuscada: string,
+    tipoDocumento: TipoBolsaDeTrabajo
+): TrabajadorAnterior[] {
+    const strategy = positionStrategies[tipoDocumento]
+    const normalizedRecords = normalizePositionRecords(registros)
+    const orderedRecords = [...normalizedRecords].sort((a, b) => {
+        const sortA = strategy ? strategy.getSortValue(a) : a.numeroProg
+        const sortB = strategy ? strategy.getSortValue(b) : b.numeroProg
+        return sortA - sortB
+    })
+
+    const target = orderedRecords.find((record) => record.matricula === matriculaBuscada)
+    if (!target) return []
+
+    let comparableRecords = strategy?.selectComparableRecords
+        ? strategy.selectComparableRecords(orderedRecords, target)
+        : strategy
+            ? orderedRecords.filter((record) => strategy.buildGroupKey(record) === strategy.buildGroupKey(target))
+            : orderedRecords
+
+    if (strategy?.applyPriorityRules) {
+        comparableRecords = strategy.applyPriorityRules(comparableRecords, target)
+    }
+
+    const uniqueRecords = strategy && !strategy.shouldDeduplicateByMatricula()
+        ? comparableRecords
+        : dedupePositionRecords(comparableRecords)
+
+    const posicionTarget = uniqueRecords.findIndex((record) => record.matricula === matriculaBuscada)
+    if (posicionTarget <= 0) return []
+
+    return uniqueRecords.slice(0, posicionTarget).map((record, index) => ({
+        posicionBase: index + 1,
+        registro: record.source,
+    }))
 }

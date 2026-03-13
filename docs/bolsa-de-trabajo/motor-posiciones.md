@@ -66,19 +66,25 @@ En todos los tipos, la base del cálculo es el orden oficial del listado.
 
 ### 2. CAMBIOS_TURNO_ADSCRIPCION
 
-- Grupo comparable base: `zona + categoria + registro + adscripcion`
-- Si `registro === CAT`, agregar `turno`
+- Grupo comparable base: `zona + categoria + subcategoria + registro + adscripcion` cuando exista `subcategoria`
+- Si existe `turno` solicitado, agregar `turno`
 - Orden: `consecutivo`
 - Regla especial:
   - `CAT` y `CAD` no compiten juntos
-  - si es `CAT`, el turno solicitado forma parte del grupo
+  - cuando el registro trae `turno` solicitado, ese turno forma parte del grupo comparable aunque el tipo sea `CAD`
 - Salida esperada:
   - `posicionBase`
   - `totalEnGrupo`
 
+#### Nota de validación pendiente
+
+- Por ahora el sistema está considerando `turno solicitado` también en `CAD` cuando el documento lo trae informado.
+- Esta decisión salió de validación operativa con datos reales porque, sin ese filtro, se mezclaban solicitudes de la misma adscripción con turnos distintos.
+- Queda pendiente confirmar con negocio/sindicato si esta regla debe mantenerse exactamente así o si `CAD` debería ignorar turno en algunos escenarios.
+
 ### 3. CAMBIOS_RAMA
 
-- Grupo comparable base: `zona + categoria`
+- Grupo comparable base: `zona + categoria + subcategoria` cuando exista `subcategoria`
 - Orden: `consecutivo`
 - Regla especial:
   - existe la `zona incondicional`
@@ -92,7 +98,7 @@ En todos los tipos, la base del cálculo es el orden oficial del listado.
 
 ### 4. CAMBIOS_RESIDENCIA_ORIGEN
 
-- Grupo comparable: `zona + turno`
+- Grupo comparable: `zona + categoria + subcategoria + turno` cuando exista `subcategoria`
 - Orden: `consecutivo`
 - Salida esperada:
   - `posicionBase`
@@ -100,7 +106,7 @@ En todos los tipos, la base del cálculo es el orden oficial del listado.
 
 ### 5. CAMBIOS_RESIDENCIA_DESTINO
 
-- Grupo comparable: `zona + turno`
+- Grupo comparable: `zona + categoria + subcategoria + turno` cuando exista `subcategoria`
 - Orden: `consecutivo`
 - Salida esperada:
   - `posicionBase`
@@ -108,7 +114,7 @@ En todos los tipos, la base del cálculo es el orden oficial del listado.
 
 ### 6. AMPLIACIONES_JORNADA
 
-- Grupo comparable: `jornadaNueva + adscripcionNueva + turnoNuevo`
+- Grupo comparable: `categoria + subcategoria + adscripcionNueva + turnoNuevo` cuando exista `subcategoria`
 - Orden: `consecutivo`
 - Aclaración funcional:
   - la jornada usada para agrupar es la solicitada, no la actual

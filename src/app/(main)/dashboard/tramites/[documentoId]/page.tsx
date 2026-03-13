@@ -44,6 +44,19 @@ interface Periodo {
   quincena: number
 }
 
+function getTurnoLabel(turno?: string) {
+  switch ((turno || '').toUpperCase()) {
+    case 'MAT':
+      return 'Turno matutino'
+    case 'VES':
+      return 'Turno vespertino'
+    case 'NOC':
+      return 'Turno nocturno'
+    default:
+      return turno || ''
+  }
+}
+
 function getMainMetric(data: TramiteDetail) {
   if (data.tipoDocumento === 'NUEVO_INGRESO' && data.tipoContratacion === '8' && data.posicionInterinato) {
     return {
@@ -63,9 +76,9 @@ function getMainMetric(data: TramiteDetail) {
 function getDescription(data: TramiteDetail) {
   switch (data.tipoDocumento) {
     case 'CAMBIOS_TURNO_ADSCRIPCION':
-      return `Tu posición en el grupo que solicitó ${data.registro === 'CAT' ? 'cambio de turno' : 'cambio de adscripción'}${data.adscripcionNueva ? ` para ${data.adscripcionNueva}` : ''}${data.turnoNuevo ? ` en ${data.turnoNuevo}` : ''}.`
+      return `Tu posición en el grupo que solicitó ${data.registro === 'CAT' ? 'cambio de turno' : 'cambio de adscripción'}${data.adscripcionNueva ? ` para ${data.adscripcionNueva}` : ''}${data.turnoNuevo ? ` en ${getTurnoLabel(data.turnoNuevo)}` : ''}.`
     case 'AMPLIACIONES_JORNADA':
-      return `Tu posición en la solicitud de ampliación de jornada${data.adscripcionNueva ? ` para ${data.adscripcionNueva}` : ''}${data.turnoNuevo ? ` en ${data.turnoNuevo}` : ''}.`
+      return `Tu posición en la solicitud de ampliación de jornada${data.adscripcionNueva ? ` para ${data.adscripcionNueva}` : ''}${data.turnoNuevo ? ` en ${getTurnoLabel(data.turnoNuevo)}` : ''}.`
     case 'CAMBIOS_AREA':
       return `Tu posición vigente dentro del listado de cambios de área para tu categoría y zona.`
     case 'CAMBIOS_RAMA':
@@ -279,16 +292,16 @@ export default function TramiteDetailPage() {
 
               {(data.turnoNuevo || data.registro) && (
                 <div className="rounded-2xl bg-muted/50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Contexto</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Detalle de tu solicitud</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-sm font-semibold">
                     {data.registro && (
                       <span className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-1">
                         <Repeat className="h-4 w-4 text-primary" />
-                        {data.registro}
+                        {data.registro === 'CAT' ? 'Cambio de turno' : data.registro === 'CAD' ? 'Cambio de adscripción' : data.registro}
                       </span>
                     )}
                     {data.turnoNuevo && (
-                      <span className="rounded-full bg-background px-3 py-1 uppercase">{data.turnoNuevo}</span>
+                      <span className="rounded-full bg-background px-3 py-1">{getTurnoLabel(data.turnoNuevo)}</span>
                     )}
                   </div>
                 </div>

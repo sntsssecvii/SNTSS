@@ -66,16 +66,19 @@ export const nuevoIngresoStrategy: PositionStrategy = {
 export const cambiosTurnoAdscripcionStrategy: PositionStrategy = {
   tipo: 'CAMBIOS_TURNO_ADSCRIPCION',
   buildGroupKey(record) {
-    const turno = record.registro === 'CAT' ? record.turnoNuevo || '' : ''
-    return `${record.zona || ''}::${record.categoria || ''}::${record.registro || ''}::${record.adscripcionNueva || ''}::${turno}`
+    const tipoCambio = normalizeLabel(record.registro)
+    const turno = record.turnoNuevo || ''
+    return `${record.zona || ''}::${record.categoria || ''}::${record.subcategoria || ''}::${tipoCambio}::${record.adscripcionNueva || ''}::${turno}`
   },
   buildGroupInfo(record) {
+    const tipoCambio = normalizeLabel(record.registro)
     return {
       zona: record.zona,
       categoria: record.categoria,
-      registro: record.registro,
+      subcategoria: record.subcategoria,
+      registro: tipoCambio || record.registro,
       adscripcionNueva: record.adscripcionNueva,
-      turnoNuevo: record.registro === 'CAT' ? record.turnoNuevo : undefined,
+      turnoNuevo: record.turnoNuevo,
     }
   },
   getSortValue(record) {
@@ -85,11 +88,12 @@ export const cambiosTurnoAdscripcionStrategy: PositionStrategy = {
     return true
   },
   explain(result, target) {
-    if (target.registro === 'CAT') {
-      return `Posicion calculada por consecutivo oficial dentro del grupo ${target.categoria || 'categoria'} / ${target.zona || 'zona'} / CAT / ${target.adscripcionNueva || 'adscripcion'} / ${target.turnoNuevo || 'turno'}.`
+    const tipoCambio = normalizeLabel(target.registro)
+    if (target.turnoNuevo) {
+      return `Posicion calculada por consecutivo oficial dentro del grupo ${target.categoria || 'categoria'} / ${target.zona || 'zona'} / ${tipoCambio || target.registro || 'registro'} / ${target.adscripcionNueva || 'adscripcion'} / ${target.turnoNuevo || 'turno'}.`
     }
 
-    return `Posicion calculada por consecutivo oficial dentro del grupo ${target.categoria || 'categoria'} / ${target.zona || 'zona'} / ${target.registro || 'registro'} / ${target.adscripcionNueva || 'adscripcion'}.`
+    return `Posicion calculada por consecutivo oficial dentro del grupo ${target.categoria || 'categoria'} / ${target.zona || 'zona'} / ${tipoCambio || target.registro || 'registro'} / ${target.adscripcionNueva || 'adscripcion'}.`
   },
 }
 
@@ -97,12 +101,13 @@ function buildSimpleZoneCategoryStrategy(tipo: TipoBolsaDeTrabajo, descripcion: 
   return {
     tipo,
     buildGroupKey(record) {
-      return `${record.zona || ''}::${record.categoria || ''}`
+      return `${record.zona || ''}::${record.categoria || ''}::${record.subcategoria || ''}`
     },
     buildGroupInfo(record) {
       return {
         zona: record.zona,
         categoria: record.categoria,
+        subcategoria: record.subcategoria,
       }
     },
     getSortValue(record) {
@@ -112,7 +117,10 @@ function buildSimpleZoneCategoryStrategy(tipo: TipoBolsaDeTrabajo, descripcion: 
       return true
     },
     explain(_result, target) {
-      return `Posicion calculada por consecutivo oficial dentro de ${descripcion} para ${target.categoria || 'la categoria'} en ${target.zona || 'la zona'}.`
+      const scope = target.subcategoria
+        ? `${target.categoria || 'la categoria'} / ${target.subcategoria}`
+        : `${target.categoria || 'la categoria'}`
+      return `Posicion calculada por consecutivo oficial dentro de ${descripcion} para ${scope} en ${target.zona || 'la zona'}.`
     },
   }
 }
@@ -121,11 +129,13 @@ function buildSimpleZoneTurnStrategy(tipo: TipoBolsaDeTrabajo, descripcion: stri
   return {
     tipo,
     buildGroupKey(record) {
-      return `${record.zona || ''}::${record.turnoNuevo || ''}`
+      return `${record.zona || ''}::${record.categoria || ''}::${record.subcategoria || ''}::${record.turnoNuevo || ''}`
     },
     buildGroupInfo(record) {
       return {
         zona: record.zona,
+        categoria: record.categoria,
+        subcategoria: record.subcategoria,
         turnoNuevo: record.turnoNuevo,
       }
     },
@@ -136,7 +146,11 @@ function buildSimpleZoneTurnStrategy(tipo: TipoBolsaDeTrabajo, descripcion: stri
       return true
     },
     explain(_result, target) {
-      return `Posicion calculada por consecutivo oficial dentro de ${descripcion} para ${target.zona || 'la zona'} y turno ${target.turnoNuevo || 'sin turno'}.`
+      const scope = target.subcategoria
+        ? `${target.categoria || 'la categoria'} / ${target.subcategoria}`
+        : `${target.categoria || 'la categoria'}`
+
+      return `Posicion calculada por consecutivo oficial dentro de ${descripcion} para ${scope} en ${target.zona || 'la zona'} y turno ${target.turnoNuevo || 'sin turno'}.`
     },
   }
 }
@@ -164,11 +178,12 @@ export const cambiosResidenciaDestinoStrategy = buildSimpleZoneTurnStrategy(
 export const ampliacionesJornadaStrategy: PositionStrategy = {
   tipo: 'AMPLIACIONES_JORNADA',
   buildGroupKey(record) {
-    return `${record.jornadaNueva || ''}::${record.adscripcionNueva || ''}::${record.turnoNuevo || ''}`
+    return `${record.categoria || ''}::${record.subcategoria || ''}::${record.adscripcionNueva || ''}::${record.turnoNuevo || ''}`
   },
   buildGroupInfo(record) {
     return {
-      jornadaNueva: record.jornadaNueva,
+      categoria: record.categoria,
+      subcategoria: record.subcategoria,
       adscripcionNueva: record.adscripcionNueva,
       turnoNuevo: record.turnoNuevo,
     }
@@ -180,18 +195,22 @@ export const ampliacionesJornadaStrategy: PositionStrategy = {
     return true
   },
   explain(_result, target) {
-    return `Posicion calculada por consecutivo oficial dentro del grupo ${target.jornadaNueva || 'jornada'} / ${target.adscripcionNueva || 'adscripcion'} / ${target.turnoNuevo || 'turno'}.`
+    const scope = target.subcategoria
+      ? `${target.categoria || 'categoria'} / ${target.subcategoria}`
+      : `${target.categoria || 'categoria'}`
+    return `Posicion calculada por consecutivo oficial dentro del grupo ${scope} / ${target.adscripcionNueva || 'adscripcion'} / ${target.turnoNuevo || 'turno'}.`
   },
 }
 
 export const cambiosRamaStrategy: PositionStrategy = {
   tipo: 'CAMBIOS_RAMA',
   buildGroupKey(record) {
-    return `${record.categoria || ''}`
+    return `${record.categoria || ''}::${record.subcategoria || ''}`
   },
   buildGroupInfo(record) {
     return {
       categoria: record.categoria,
+      subcategoria: record.subcategoria,
       zona: record.zona,
     }
   },
@@ -202,7 +221,10 @@ export const cambiosRamaStrategy: PositionStrategy = {
     return true
   },
   selectComparableRecords(records, target) {
-    const mismaCategoria = records.filter((record) => record.categoria === target.categoria)
+    const mismaCategoria = records.filter((record) =>
+      record.categoria === target.categoria &&
+      (record.subcategoria || '') === (target.subcategoria || '')
+    )
 
     if (isZonaIncondicional(target.zona)) {
       return mismaCategoria.filter((record) => isZonaIncondicional(record.zona))

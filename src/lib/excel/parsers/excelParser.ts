@@ -253,6 +253,7 @@ function parseCambiosTurnoExcel(workbook: XLSX.WorkBook): ExcelParseResult {
 
     let zonaActual = '';
     let categoriaActual = '';
+    let subcategoriaActual = '';
 
     workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
@@ -322,6 +323,7 @@ function parseCambiosTurnoExcel(workbook: XLSX.WorkBook): ExcelParseResult {
                         jornadaActual: String(row[17] || '').trim(),
                         zona: zonaActual,
                         categoria: categoriaActual,
+                        subcategoria: subcategoriaActual || undefined,
                         filaOriginal: index + 1,
                         confianza: 1.0,
                         necesitaValidacion: false,
@@ -342,6 +344,12 @@ function parseCambiosTurnoExcel(workbook: XLSX.WorkBook): ExcelParseResult {
             // 3. Detectar CATEGORÍA
             if (/^\d{5,6}\s*-\s*\S/.test(firstColRaw) && !col1 && !col2) {
                 categoriaActual = firstColRaw;
+                subcategoriaActual = '';
+                return;
+            }
+
+            if (/^\d{1,3}\s+[A-ZÁÉÍÓÚÑ]/.test(firstColRaw) && !col1 && !col2 && !firstColRaw.includes('/')) {
+                subcategoriaActual = firstColRaw;
                 return;
             }
         });
@@ -384,6 +392,7 @@ function parseAmpliacionesJornadaExcel(workbook: XLSX.WorkBook): ExcelParseResul
     const schema = SCHEMAS.AMPLIACIONES_JORNADA;
     let zonaActual = '';
     let categoriaActual = '';
+    let subcategoriaActual = '';
 
     // Layout confirmado:
     // 0:NoProg  1:JorNueva(hrs)  2:AdscNuevaClave  3:TurnoNuevo
@@ -436,6 +445,7 @@ function parseAmpliacionesJornadaExcel(workbook: XLSX.WorkBook): ExcelParseResul
                         turnoAnterior: String(row[14] || '').trim() || undefined,
                         zona: zonaActual,
                         categoria: categoriaActual,
+                        subcategoria: subcategoriaActual || undefined,
                         filaOriginal: index + 1,
                         confianza: 1.0,
                         necesitaValidacion: false,
@@ -453,7 +463,14 @@ function parseAmpliacionesJornadaExcel(workbook: XLSX.WorkBook): ExcelParseResul
 
             // Categoría: código 5-6 dígitos + guión + texto, cols siguientes vacías
             if (/^\d{5,6}\s*-\s*\S/.test(col0) && !col1 && !col2) {
-                categoriaActual = col0; return;
+                categoriaActual = col0;
+                subcategoriaActual = '';
+                return;
+            }
+
+            if (/^\d{1,3}\s+[A-ZÁÉÍÓÚÑ]/.test(col0) && !col1 && !col2 && !col0.includes('/')) {
+                subcategoriaActual = col0;
+                return;
             }
         });
     });
@@ -474,6 +491,7 @@ function parseCambiosAreaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
     const schema = SCHEMAS.CAMBIOS_AREA;
     let zonaActual = '';
     let categoriaActual = '';
+    let subcategoriaActual = '';
 
     workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
@@ -520,6 +538,7 @@ function parseCambiosAreaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
                         turnoAnterior: String(row[15] || '').trim() || undefined,
                         zona: zonaActual,
                         categoria: categoriaActual,
+                        subcategoria: subcategoriaActual || undefined,
                         filaOriginal: index + 1,
                         confianza: 1.0,
                         necesitaValidacion: false,
@@ -536,7 +555,14 @@ function parseCambiosAreaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
             }
 
             if (/^\d{5,6}\s*-\s*\S/.test(col0) && !col1 && !col2) {
-                categoriaActual = col0; return;
+                categoriaActual = col0;
+                subcategoriaActual = '';
+                return;
+            }
+
+            if (/^\d{1,3}\s+[A-ZÁÉÍÓÚÑ]/.test(col0) && !col1 && !col2 && !col0.includes('/')) {
+                subcategoriaActual = col0;
+                return;
             }
         });
     });
@@ -557,6 +583,7 @@ function parseCambiosRamaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
     const schema = SCHEMAS.CAMBIOS_RAMA;
     let zonaActual = '';
     let categoriaActual = '';
+    let subcategoriaActual = '';
 
     workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
@@ -601,6 +628,7 @@ function parseCambiosRamaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
                         turnoAnterior: String(row[16] || '').trim() || undefined,
                         zona: zonaActual,
                         categoria: categoriaActual,
+                        subcategoria: subcategoriaActual || undefined,
                         filaOriginal: index + 1,
                         confianza: 1.0,
                         necesitaValidacion: false,
@@ -617,7 +645,14 @@ function parseCambiosRamaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
             }
 
             if (/^\d{5,6}\s*-\s*\S/.test(col0) && !col1 && !col2) {
-                categoriaActual = col0; return;
+                categoriaActual = col0;
+                subcategoriaActual = '';
+                return;
+            }
+
+            if (/^\d{1,3}\s+[A-ZÁÉÍÓÚÑ]/.test(col0) && !col1 && !col2 && !col0.includes('/')) {
+                subcategoriaActual = col0;
+                return;
             }
         });
     });
@@ -638,6 +673,7 @@ function parseCambiosResidenciaExcel(workbook: XLSX.WorkBook, tipo: 'CAMBIOS_RES
     const schema = SCHEMAS[tipo];
     let zonaActual = '';
     let categoriaActual = '';
+    let subcategoriaActual = '';
 
     workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
@@ -683,6 +719,7 @@ function parseCambiosResidenciaExcel(workbook: XLSX.WorkBook, tipo: 'CAMBIOS_RES
                         turnoAnterior: String(row[16] || '').trim() || undefined,
                         zona: zonaActual,
                         categoria: categoriaActual,
+                        subcategoria: subcategoriaActual || undefined,
                         filaOriginal: index + 1,
                         confianza: 1.0,
                         necesitaValidacion: false,
@@ -699,7 +736,14 @@ function parseCambiosResidenciaExcel(workbook: XLSX.WorkBook, tipo: 'CAMBIOS_RES
             }
 
             if (/^\d{5,6}\s*-\s*\S/.test(col0) && !col1 && !col2) {
-                categoriaActual = col0; return;
+                categoriaActual = col0;
+                subcategoriaActual = '';
+                return;
+            }
+
+            if (/^\d{1,3}\s+[A-ZÁÉÍÓÚÑ]/.test(col0) && !col1 && !col2 && !col0.includes('/')) {
+                subcategoriaActual = col0;
+                return;
             }
         });
     });
@@ -720,6 +764,7 @@ function parseCambiosTipoPlazaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
     const schema = SCHEMAS.CAMBIOS_TIPO_PLAZA;
     let zonaActual = '';
     let categoriaActual = '';
+    let subcategoriaActual = '';
 
     workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
@@ -765,6 +810,7 @@ function parseCambiosTipoPlazaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
                         turnoAnterior: String(row[15] || '').trim() || undefined,
                         zona: zonaActual,
                         categoria: categoriaActual,
+                        subcategoria: subcategoriaActual || undefined,
                         filaOriginal: index + 1,
                         confianza: 1.0,
                         necesitaValidacion: false,
@@ -781,7 +827,14 @@ function parseCambiosTipoPlazaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
             }
 
             if (/^\d{5,6}\s*-\s*\S/.test(col0) && !col1 && !col2) {
-                categoriaActual = col0; return;
+                categoriaActual = col0;
+                subcategoriaActual = '';
+                return;
+            }
+
+            if (/^\d{1,3}\s+[A-ZÁÉÍÓÚÑ]/.test(col0) && !col1 && !col2 && !col0.includes('/')) {
+                subcategoriaActual = col0;
+                return;
             }
         });
     });

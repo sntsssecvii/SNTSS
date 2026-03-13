@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { EstadoBadgeBolsaDeTrabajo } from '@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
+import { calcularPosiciones, getTrabajadoresAntes } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
@@ -55,6 +55,7 @@ export default function DetalleBolsaDeTrabajoPage() {
   // Modal de detalles
   const [registroSeleccionado, setRegistroSeleccionado] = useState<BolsaDeTrabajoRegistro | null>(null)
   const [modalAbierto, setModalAbierto] = useState(false)
+  const [mostrarAnteriores, setMostrarAnteriores] = useState(false)
 
   const cargarDocumento = useCallback(async (id: string) => {
     try {
@@ -185,6 +186,7 @@ export default function DetalleBolsaDeTrabajoPage() {
 
   const abrirModalDetalle = (reg: BolsaDeTrabajoRegistro) => {
     setRegistroSeleccionado(reg)
+    setMostrarAnteriores(false)
     setModalAbierto(true)
   }
 
@@ -244,6 +246,11 @@ export default function DetalleBolsaDeTrabajoPage() {
   const rutaReemplazo = documento?.metadata?.anio && documento?.metadata?.mes && documento?.metadata?.quincena
     ? `/admin/bolsa-de-trabajo/cargar?anio=${documento.metadata.anio}&mes=${documento.metadata.mes}&quincena=${documento.metadata.quincena}&tipo=${documento.tipo}`
     : '/admin/bolsa-de-trabajo/cargar'
+
+  const trabajadoresAntes = useMemo(() => {
+    if (!documento || !registroSeleccionado?.matricula) return []
+    return getTrabajadoresAntes(documento.registros, registroSeleccionado.matricula, documento.tipo)
+  }, [documento, registroSeleccionado])
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-[#020617] space-y-4">
@@ -882,6 +889,68 @@ export default function DetalleBolsaDeTrabajoPage() {
                       </div>
                     </div>
                   )}
+
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-950">
+                    <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Validación de posición</p>
+                        <h3 className="text-base font-black text-slate-900 dark:text-white">
+                          Personas antes que este trabajador
+                        </h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {trabajadoresAntes.length === 0
+                            ? 'No hay personas antes en el grupo comparable actual.'
+                            : `Hay ${trabajadoresAntes.length} persona(s) arriba dentro del mismo grupo comparable.`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setMostrarAnteriores((value) => !value)}
+                        className="rounded-xl font-black"
+                      >
+                        {mostrarAnteriores ? 'Ocultar lista' : 'Ver posiciones'}
+                      </Button>
+                    </div>
+
+                    {mostrarAnteriores && (
+                      <div className="border-t border-slate-200 dark:border-slate-800">
+                        {trabajadoresAntes.length === 0 ? (
+                          <div className="p-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+                            Este trabajador ya aparece en la primera posición del grupo comparable.
+                          </div>
+                        ) : (
+                          <div className="max-h-[320px] overflow-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Posición</TableHead>
+                                  <TableHead>Nombre</TableHead>
+                                  <TableHead>Matrícula</TableHead>
+                                  <TableHead>Categoría</TableHead>
+                                  <TableHead>Turno</TableHead>
+                                  <TableHead>Referencia</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {trabajadoresAntes.map(({ posicionBase, registro }) => (
+                                  <TableRow key={`${registro.id}-${posicionBase}`}>
+                                    <TableCell className="font-black text-primary">{posicionBase}</TableCell>
+                                    <TableCell className="font-semibold">{registro.nombre || '---'}</TableCell>
+                                    <TableCell>{registro.matricula || '---'}</TableCell>
+                                    <TableCell className="max-w-[220px] truncate">{registro.subcategoria || registro.categoria || '---'}</TableCell>
+                                    <TableCell>{registro.turnoNuevo || '---'}</TableCell>
+                                    <TableCell className="max-w-[240px] truncate text-slate-500">
+                                      {registro.adscripcionNueva || registro.turnoNuevo || registro.zona || '---'}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

@@ -42,15 +42,28 @@ interface Periodo {
   quincena: number
 }
 
+function getTurnoLabel(turno?: string) {
+  switch ((turno || '').toUpperCase()) {
+    case 'MAT':
+      return 'Turno matutino'
+    case 'VES':
+      return 'Turno vespertino'
+    case 'NOC':
+      return 'Turno nocturno'
+    default:
+      return turno || ''
+  }
+}
+
 function getTramiteSubtitle(item: TramiteData) {
   switch (item.tipoDocumento) {
     case 'CAMBIOS_TURNO_ADSCRIPCION':
       return item.adscripcionNueva
-        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${item.turnoNuevo}` : ''}`
+        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${getTurnoLabel(item.turnoNuevo)}` : ''}`
         : 'Trámite vigente'
     case 'AMPLIACIONES_JORNADA':
       return item.adscripcionNueva
-        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${item.turnoNuevo}` : ''}`
+        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${getTurnoLabel(item.turnoNuevo)}` : ''}`
         : 'Solicitud vigente'
     default:
       return `${item.categoria} • ${item.zona}`
@@ -282,13 +295,13 @@ export default function DashboardPage() {
 
                     {(item.adscripcionNueva || item.turnoNuevo) && (
                       <div className="rounded-2xl border border-border/60 p-4">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Contexto del trámite</p>
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Detalle de tu solicitud</p>
                         <div className="mt-2 flex flex-wrap gap-2 text-sm font-semibold">
                           {item.adscripcionNueva && (
-                            <span className="rounded-full bg-muted px-3 py-1">{item.adscripcionNueva}</span>
+                            <span className="rounded-full bg-muted px-3 py-1">Adscripción: {item.adscripcionNueva}</span>
                           )}
                           {item.turnoNuevo && (
-                            <span className="rounded-full bg-muted px-3 py-1 uppercase">{item.turnoNuevo}</span>
+                            <span className="rounded-full bg-muted px-3 py-1">{getTurnoLabel(item.turnoNuevo)}</span>
                           )}
                         </div>
                       </div>

@@ -21,6 +21,16 @@ export interface PositionEngineContext {
 export function normalizePositionRecord(record: BolsaDeTrabajoRegistro): NormalizedPositionRecord | null {
   if (!record.matricula) return null
 
+  const turnoRaw =
+    record.turnoNuevo ||
+    record.turnoNueva ||
+    (
+      (record.tipoDocumento === 'CAMBIOS_RESIDENCIA_ORIGEN' || record.tipoDocumento === 'CAMBIOS_RESIDENCIA_DESTINO')
+        ? record.cambioSolicitado
+        : undefined
+    )
+  const turnoNormalizado = turnoRaw ? turnoRaw.toUpperCase() : undefined
+
   return {
     id: record.id,
     tipoDocumento: record.tipoDocumento,
@@ -33,7 +43,7 @@ export function normalizePositionRecord(record: BolsaDeTrabajoRegistro): Normali
     grupo: record.grupo,
     registro: record.registro,
     adscripcionNueva: record.adscripcionNueva,
-    turnoNuevo: record.turnoNuevo || record.turnoNueva,
+    turnoNuevo: turnoNormalizado,
     jornadaNueva: record.jornadaNueva,
     tipoContratacion: record.tipoContratacion,
     source: record,

@@ -160,6 +160,98 @@ function testCambiosTurnoAdscripcionDeduplica() {
   console.log('OK CAMBIOS_TURNO_ADSCRIPCION deduplica por matricula y conserva primer consecutivo')
 }
 
+function testCambiosTurnoAdscripcionFiltraPorSubcategoria() {
+  const registros: BolsaDeTrabajoRegistro[] = [
+    registro({
+      tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
+      numeroProg: '1',
+      matricula: 'CTA001',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+      zona: 'Z1',
+      registro: 'CAT',
+      adscripcionNueva: 'UMF1',
+      turnoNuevo: 'MAT',
+    }),
+    registro({
+      tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
+      numeroProg: '2',
+      matricula: 'CTA002',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '14 CARDIOLOGIA',
+      zona: 'Z1',
+      registro: 'CAT',
+      adscripcionNueva: 'UMF1',
+      turnoNuevo: 'MAT',
+    }),
+    registro({
+      tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
+      numeroProg: '3',
+      matricula: 'CTA003',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+      zona: 'Z1',
+      registro: 'CAT',
+      adscripcionNueva: 'UMF1',
+      turnoNuevo: 'MAT',
+    }),
+  ]
+
+  const resultado = calcularPosiciones(registros, 'CTA003', 'CAMBIOS_TURNO_ADSCRIPCION')
+  assert.ok(resultado)
+  assert.equal(resultado.posicionBase, 2)
+  assert.equal(resultado.totalEnCategoria, 2)
+  assert.equal(resultado.grupoComparable?.subcategoria, '11 ANGIOLOGIA Y CIRUGIA VASCULAR')
+
+  console.log('OK CAMBIOS_TURNO_ADSCRIPCION separa por subcategoria cuando existe')
+}
+
+function testCambiosTurnoAdscripcionFiltraPorTurnoEnCad() {
+  const registros: BolsaDeTrabajoRegistro[] = [
+    registro({
+      tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
+      numeroProg: '1',
+      matricula: 'CTACAD001',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '32 PEDIATRIA',
+      zona: 'Z1',
+      registro: 'CAD',
+      adscripcionNueva: '02HA200000',
+      turnoNuevo: 'MAT',
+    }),
+    registro({
+      tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
+      numeroProg: '2',
+      matricula: 'CTACAD002',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '32 PEDIATRIA',
+      zona: 'Z1',
+      registro: 'CAD',
+      adscripcionNueva: '02HA200000',
+      turnoNuevo: 'JACUM',
+    }),
+    registro({
+      tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
+      numeroProg: '3',
+      matricula: 'CTACAD003',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '32 PEDIATRIA',
+      zona: 'Z1',
+      registro: 'CAD',
+      adscripcionNueva: '02HA200000',
+      turnoNuevo: 'JACUM',
+    }),
+  ]
+
+  const resultado = calcularPosiciones(registros, 'CTACAD003', 'CAMBIOS_TURNO_ADSCRIPCION')
+  assert.ok(resultado)
+  assert.equal(resultado.posicionBase, 2)
+  assert.equal(resultado.totalEnCategoria, 2)
+  assert.equal(resultado.grupoComparable?.turnoNuevo, 'JACUM')
+
+  console.log('OK CAMBIOS_TURNO_ADSCRIPCION separa por turno cuando CAD trae turno solicitado')
+}
+
 function testMatriculaInexistente() {
   const registros: BolsaDeTrabajoRegistro[] = [
     registro({ tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '1', matricula: 'A1', categoria: 'MED', zona: 'Z1' }),
@@ -182,7 +274,8 @@ function testCambiosArea() {
   assert.ok(segundo)
   assert.equal(segundo.posicionBase, 2)
   assert.equal(segundo.totalEnCategoria, 3)
-  assert.deepEqual(segundo.grupoComparable, { zona: 'Z3', categoria: 'ENF' })
+  assert.equal(segundo.grupoComparable?.zona, 'Z3')
+  assert.equal(segundo.grupoComparable?.categoria, 'ENF')
 
   console.log('OK CAMBIOS_AREA usa zona + categoria y ordena por consecutivo')
 }
@@ -197,56 +290,109 @@ function testCambiosTipoPlaza() {
   assert.ok(segundo)
   assert.equal(segundo.posicionBase, 2)
   assert.equal(segundo.totalEnCategoria, 2)
-  assert.deepEqual(segundo.grupoComparable, { zona: 'Z4', categoria: 'LAB' })
+  assert.equal(segundo.grupoComparable?.zona, 'Z4')
+  assert.equal(segundo.grupoComparable?.categoria, 'LAB')
 
   console.log('OK CAMBIOS_TIPO_PLAZA usa zona + categoria y ordena por consecutivo')
 }
 
 function testCambiosResidenciaOrigen() {
   const registros: BolsaDeTrabajoRegistro[] = [
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '8', matricula: 'R003', nombre: 'Tercero', zona: 'Z5', turnoNuevo: 'MAT' }),
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '2', matricula: 'R001', nombre: 'Primero', zona: 'Z5', turnoNuevo: 'MAT' }),
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '5', matricula: 'R002', nombre: 'Segundo', zona: 'Z5', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '8', matricula: 'R003', nombre: 'Tercero', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '2', matricula: 'R001', nombre: 'Primero', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '5', matricula: 'R002', nombre: 'Segundo', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'MAT' }),
   ]
 
   const segundo = calcularPosiciones(registros, 'R002', 'CAMBIOS_RESIDENCIA_ORIGEN')
   assert.ok(segundo)
   assert.equal(segundo.posicionBase, 2)
   assert.equal(segundo.totalEnCategoria, 3)
-  assert.deepEqual(segundo.grupoComparable, { zona: 'Z5', turnoNuevo: 'MAT' })
+  assert.equal(segundo.grupoComparable?.zona, 'Z5')
+  assert.equal(segundo.grupoComparable?.categoria, 'ENF')
+  assert.equal(segundo.grupoComparable?.turnoNuevo, 'MAT')
 
-  console.log('OK CAMBIOS_RESIDENCIA_ORIGEN usa zona + turno y ordena por consecutivo')
+  console.log('OK CAMBIOS_RESIDENCIA_ORIGEN usa zona + categoria + turno y ordena por consecutivo')
 }
 
 function testCambiosResidenciaDestino() {
   const registros: BolsaDeTrabajoRegistro[] = [
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '6', matricula: 'D002', nombre: 'Segundo', zona: 'Z6', turnoNuevo: 'VES' }),
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '1', matricula: 'D001', nombre: 'Primero', zona: 'Z6', turnoNuevo: 'VES' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '6', matricula: 'D002', nombre: 'Segundo', zona: 'Z6', categoria: 'ENF', turnoNuevo: 'VES' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '1', matricula: 'D001', nombre: 'Primero', zona: 'Z6', categoria: 'ENF', turnoNuevo: 'VES' }),
   ]
 
   const segundo = calcularPosiciones(registros, 'D002', 'CAMBIOS_RESIDENCIA_DESTINO')
   assert.ok(segundo)
   assert.equal(segundo.posicionBase, 2)
   assert.equal(segundo.totalEnCategoria, 2)
-  assert.deepEqual(segundo.grupoComparable, { zona: 'Z6', turnoNuevo: 'VES' })
+  assert.equal(segundo.grupoComparable?.zona, 'Z6')
+  assert.equal(segundo.grupoComparable?.categoria, 'ENF')
+  assert.equal(segundo.grupoComparable?.turnoNuevo, 'VES')
 
-  console.log('OK CAMBIOS_RESIDENCIA_DESTINO usa zona + turno y ordena por consecutivo')
+  console.log('OK CAMBIOS_RESIDENCIA_DESTINO usa zona + categoria + turno y ordena por consecutivo')
+}
+
+function testCambiosResidenciaFiltraPorSubcategoria() {
+  const registros: BolsaDeTrabajoRegistro[] = [
+    registro({
+      tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO',
+      numeroProg: '1',
+      matricula: 'RD001',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+      zona: 'Z1',
+      cambioSolicitado: 'Mat',
+    }),
+    registro({
+      tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO',
+      numeroProg: '2',
+      matricula: 'RD002',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '14 CARDIOLOGIA',
+      zona: 'Z1',
+      cambioSolicitado: 'Mat',
+    }),
+    registro({
+      tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO',
+      numeroProg: '3',
+      matricula: 'RD003',
+      categoria: '203601 - MEDICO NO FAMILIAR',
+      subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+      zona: 'Z1',
+      cambioSolicitado: 'Mat',
+    }),
+  ]
+
+  const resultado = calcularPosiciones(registros, 'RD003', 'CAMBIOS_RESIDENCIA_DESTINO')
+  assert.ok(resultado)
+  assert.equal(resultado.posicionBase, 2)
+  assert.equal(resultado.totalEnCategoria, 2)
+  assert.deepEqual(resultado.grupoComparable, {
+    zona: 'Z1',
+    categoria: '203601 - MEDICO NO FAMILIAR',
+    subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
+    turnoNuevo: 'MAT',
+  })
+
+  console.log('OK CAMBIOS_RESIDENCIA separa por subcategoria cuando existe')
 }
 
 function testAmpliacionesJornada() {
   const registros: BolsaDeTrabajoRegistro[] = [
-    registro({ tipoDocumento: 'AMPLIACIONES_JORNADA', numeroProg: '9', matricula: 'J003', nombre: 'Tercero', jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' }),
-    registro({ tipoDocumento: 'AMPLIACIONES_JORNADA', numeroProg: '2', matricula: 'J001', nombre: 'Primero', jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' }),
-    registro({ tipoDocumento: 'AMPLIACIONES_JORNADA', numeroProg: '5', matricula: 'J002', nombre: 'Segundo', jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'AMPLIACIONES_JORNADA', numeroProg: '9', matricula: 'J003', nombre: 'Tercero', categoria: 'ENF', jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'AMPLIACIONES_JORNADA', numeroProg: '2', matricula: 'J001', nombre: 'Primero', categoria: 'ENF', jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'AMPLIACIONES_JORNADA', numeroProg: '5', matricula: 'J002', nombre: 'Segundo', categoria: 'ENF', jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'AMPLIACIONES_JORNADA', numeroProg: '1', matricula: 'J004', nombre: 'Otra categoria', categoria: 'MED', jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' }),
   ]
 
   const segundo = calcularPosiciones(registros, 'J002', 'AMPLIACIONES_JORNADA')
   assert.ok(segundo)
   assert.equal(segundo.posicionBase, 2)
   assert.equal(segundo.totalEnCategoria, 3)
-  assert.deepEqual(segundo.grupoComparable, { jornadaNueva: '8', adscripcionNueva: 'UMF10', turnoNuevo: 'MAT' })
+  assert.equal(segundo.grupoComparable?.categoria, 'ENF')
+  assert.equal(segundo.grupoComparable?.adscripcionNueva, 'UMF10')
+  assert.equal(segundo.grupoComparable?.turnoNuevo, 'MAT')
 
-  console.log('OK AMPLIACIONES_JORNADA usa jornada solicitada + adscripcion + turno y ordena por consecutivo')
+  console.log('OK AMPLIACIONES_JORNADA usa categoria + adscripcion solicitada + turno y ordena por consecutivo')
 }
 
 function testCambiosRamaPriorizaIncondicional() {
@@ -275,11 +421,14 @@ function main() {
   testNuevoIngresoDeduplicaPorMatricula()
   testNuevoIngresoFiltraPorSubcategoria()
   testCambiosTurnoAdscripcion()
-  testCambiosTurnoAdscripcionDeduplica()
-  testCambiosArea()
+testCambiosTurnoAdscripcionDeduplica()
+testCambiosTurnoAdscripcionFiltraPorSubcategoria()
+testCambiosTurnoAdscripcionFiltraPorTurnoEnCad()
+testCambiosArea()
   testCambiosTipoPlaza()
   testCambiosResidenciaOrigen()
   testCambiosResidenciaDestino()
+  testCambiosResidenciaFiltraPorSubcategoria()
   testAmpliacionesJornada()
   testCambiosRamaPriorizaIncondicional()
   testMatriculaInexistente()
