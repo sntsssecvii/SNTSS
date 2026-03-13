@@ -11,6 +11,13 @@ import {
 } from '@/lib/firebase/bolsa-de-trabajo'
 import { requireAdminRequest } from '@/lib/firebase/server-auth'
 
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
+const PDF_MIME = 'application/pdf'
+const EXCEL_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]
+
 export async function POST(request: NextRequest) {
   try {
     const adminUser = await requireAdminRequest(request)
@@ -31,13 +38,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (file.size <= 0) {
+      return NextResponse.json(
+        { error: 'El archivo está vacío.' },
+        { status: 400 }
+      )
+    }
+
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: 'El archivo excede el tamaño máximo permitido de 25 MB.' },
+        { status: 400 }
+      )
+    }
+
     // Validar que sea un PDF o Excel
-    const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf')
-    const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel' || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+    const normalizedName = file.name.toLowerCase()
+    const isPDF = file.type === PDF_MIME || normalizedName.endsWith('.pdf')
+    const isExcel = EXCEL_MIME_TYPES.includes(file.type) || normalizedName.endsWith('.xlsx') || normalizedName.endsWith('.xls')
 
     if (!isPDF && !isExcel) {
       return NextResponse.json(
-        { error: 'El archivo debe ser un PDF o un Excel (.xlsx)' },
+        { error: 'El archivo debe ser un PDF o un Excel (.xlsx o .xls).' },
         { status: 400 }
       )
     }

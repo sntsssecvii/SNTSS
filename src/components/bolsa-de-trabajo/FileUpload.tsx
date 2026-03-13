@@ -16,6 +16,12 @@ interface FileUploadProps {
   onUploadSuccess?: (documentoId: string) => void
 }
 
+const MAX_BOLSA_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
+const EXCEL_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]
+
 export function FileUpload({ onUploadSuccess }: FileUploadProps) {
   const [file, setFile] = useState<File | null>(null)
   const [tipo, setTipo] = useState<TipoBolsaDeTrabajo | ''>('')
@@ -44,15 +50,16 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
     setIsDragging(false)
 
     const droppedFile = e.dataTransfer.files[0]
-    const isPDF = droppedFile && droppedFile.type === 'application/pdf'
-    const isExcel = droppedFile && (droppedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || droppedFile.name.endsWith('.xlsx'))
+    const normalizedName = droppedFile?.name.toLowerCase() || ''
+    const isPDF = droppedFile && (droppedFile.type === 'application/pdf' || normalizedName.endsWith('.pdf'))
+    const isExcel = droppedFile && (EXCEL_MIME_TYPES.includes(droppedFile.type) || normalizedName.endsWith('.xlsx') || normalizedName.endsWith('.xls'))
 
-    if (droppedFile && (isPDF || isExcel)) {
+    if (droppedFile && droppedFile.size > 0 && droppedFile.size <= MAX_BOLSA_UPLOAD_SIZE_BYTES && (isPDF || isExcel)) {
       setFile(droppedFile)
     } else {
       toast({
         title: 'Error',
-        description: 'Por favor, selecciona un archivo PDF o Excel (.xlsx)',
+        description: 'Por favor, selecciona un archivo PDF o Excel (.xlsx o .xls) de hasta 25 MB.',
         variant: 'destructive',
       })
     }
@@ -60,15 +67,16 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
-    const isPDF = selectedFile && selectedFile.type === 'application/pdf'
-    const isExcel = selectedFile && (selectedFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || selectedFile.name.endsWith('.xlsx'))
+    const normalizedName = selectedFile?.name.toLowerCase() || ''
+    const isPDF = selectedFile && (selectedFile.type === 'application/pdf' || normalizedName.endsWith('.pdf'))
+    const isExcel = selectedFile && (EXCEL_MIME_TYPES.includes(selectedFile.type) || normalizedName.endsWith('.xlsx') || normalizedName.endsWith('.xls'))
 
-    if (selectedFile && (isPDF || isExcel)) {
+    if (selectedFile && selectedFile.size > 0 && selectedFile.size <= MAX_BOLSA_UPLOAD_SIZE_BYTES && (isPDF || isExcel)) {
       setFile(selectedFile)
     } else {
       toast({
         title: 'Error',
-        description: 'Por favor, selecciona un archivo PDF o Excel (.xlsx)',
+        description: 'Por favor, selecciona un archivo PDF o Excel (.xlsx o .xls) de hasta 25 MB.',
         variant: 'destructive',
       })
     }

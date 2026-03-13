@@ -26,6 +26,12 @@ interface FileItem {
     willReplace?: boolean
 }
 
+const MAX_BOLSA_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
+const EXCEL_MIME_TYPES = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+]
+
 export function BulkFileUpload() {
     const searchParams = useSearchParams()
     const [files, setFiles] = useState<FileItem[]>([])
@@ -93,17 +99,18 @@ export function BulkFileUpload() {
     }, [])
 
     const addFiles = useCallback((newFiles: File[]) => {
-        const validFiles = newFiles.filter(f =>
-            f.type === 'application/pdf' ||
-            f.name.endsWith('.xlsx') ||
-            f.name.endsWith('.xls')
-        )
+        const validFiles = newFiles.filter((f) => {
+            const normalizedName = f.name.toLowerCase()
+            const isPDF = f.type === 'application/pdf' || normalizedName.endsWith('.pdf')
+            const isExcel = EXCEL_MIME_TYPES.includes(f.type) || normalizedName.endsWith('.xlsx') || normalizedName.endsWith('.xls')
+            return (isPDF || isExcel) && f.size > 0 && f.size <= MAX_BOLSA_UPLOAD_SIZE_BYTES
+        })
 
         const invalidCount = newFiles.length - validFiles.length
         if (invalidCount > 0) {
             toast({
                 title: 'Archivos ignorados',
-                description: 'Solo se aceptan PDFs o Excels del corte quincenal.',
+                description: 'Solo se aceptan PDFs o Excels del corte quincenal de hasta 25 MB.',
                 variant: 'destructive'
             })
         }

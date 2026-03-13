@@ -30,6 +30,7 @@ Endurecer la seguridad del sistema en las superficies con más riesgo real: ruta
   - al admin: acceso operativo donde aplique
   - a nadie más: lectura o escritura por defecto
 - Storage debe seguir una lógica equivalente.
+- Los archivos críticos deben validar tipo y tamaño tanto en cliente como en servidor.
 - Si faltan credenciales o variables críticas, el sistema debe fallar explícitamente y no caer a defaults inseguros.
 
 ## Cambios propuestos
@@ -38,6 +39,7 @@ Endurecer la seguridad del sistema en las superficies con más riesgo real: ruta
 - quitar confianza en `userId` y `userEmail` enviados desde cliente
 - endurecer `firestore.rules` por colección en vez de confiar en permisos amplios para autenticados
 - revisar `storage.rules` para mantener acceso mínimo necesario
+- validar tipo y tamaño de archivo en flujos críticos de carga y registro
 - eliminar defaults hardcodeados de Firebase config
 - reducir logs y mensajes que revelan demasiada información en frontend
 - documentar el nuevo modelo de seguridad

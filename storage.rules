@@ -7,19 +7,30 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // Pendiente: Definir bien quién es admin en tu sistema
-    // Por ahora, asumimos que si tiene claim de admin o está en una lista
-    // function isAdmin() {
-    //   return request.auth.token.admin == true;
-    // }
+    function isAdmin() {
+      return isAuthenticated() &&
+             firestore.get(
+               /databases/(default)/documents/users/$(request.auth.uid)
+             ).data.role == 'ADMIN';
+    }
 
+    function isAllowedRegistrationFile() {
+      return request.resource != null &&
+             request.resource.size < 5 * 1024 * 1024 &&
+             (
+               request.resource.contentType.matches('image/jpeg') ||
+               request.resource.contentType.matches('image/png') ||
+               request.resource.contentType.matches('image/webp') ||
+               request.resource.contentType.matches('application/pdf')
+             );
+    }
+    
     // Uploads de Registro SNTSS
     // Ruta: uploads/{userId}/{filename}
     match /uploads/{userId}/{allPaths=**} {
-      // Solo el dueño puede leer/escribir en su carpeta
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
-      // Admin también debería poder leer (para validación)
-      // allow read: if isAdmin();
+      // El dueño puede subir sus archivos de registro; admin puede revisarlos
+      allow read: if (isAuthenticated() && request.auth.uid == userId) || isAdmin();
+      allow write: if isAuthenticated() && request.auth.uid == userId && isAllowedRegistrationFile();
     }
     
     // Regla por defecto (bloqueo)
