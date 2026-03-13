@@ -97,6 +97,7 @@ Las variables necesarias estan documentadas en `.env.example`. Las mas important
 - `docs/specs/templates/`
 - `docs/specs/security-hardening-bolsa.md`
 - `docs/specs/security-hardening-bolsa-backlog.md`
+- `docs/specs/estado-security-hardening.md`
 - `docs/testing/qa-bolsa-de-trabajo.md`
 - `docs/git-workflow.md`
 - `docs/agents/mcp-policy.md`
