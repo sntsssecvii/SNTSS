@@ -44,42 +44,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuthListener();
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('🔄 AuthContext: Cambio de estado detectado', {
-        email: firebaseUser?.email,
-        uid: firebaseUser?.uid,
-        isAuthenticated: !!firebaseUser,
-      });
-
       if (getCreatingUserState()) {
-        console.log('⏳ Creación de usuario en proceso, ignorando cambio de estado');
         return;
       }
 
       if (!firebaseUser) {
-        console.log('👤 No hay usuario autenticado, limpiando estado');
         setUser(null);
         setUserData(null);
         setLoading(false);
         return;
       }
 
-      console.log('👤 Usuario autenticado encontrado:', {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-      });
-
       try {
-        console.log('🔄 Iniciando carga de datos del usuario...');
-
         // Verificar que Firebase esté configurado antes de intentar obtener datos
         const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-        console.log('🔑 Verificando configuración de Firebase:', {
-          hasApiKey: !!apiKey,
-          apiKeyLength: apiKey?.length || 0,
-        });
 
         if (!apiKey) {
-          console.warn('⚠️ Firebase no está configurado - NEXT_PUBLIC_FIREBASE_API_KEY no existe');
           setUser(null);
           setUserData(null);
           setLoading(false);
@@ -87,8 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // Obtener datos del usuario directamente
-        console.log('📄 Leyendo documento:', `users/${firebaseUser.uid}`);
-
         const userDocRef = doc(db, 'users', firebaseUser.uid);
 
         // Intentar lectura con timeout de 8 segundos
@@ -100,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]) as any;
 
         if (!userDoc.exists()) {
-          console.warn('⚠️ Documento no existe en Firestore para el UID:', firebaseUser.uid);
           // No lanzamos error ni cerramos sesión aquí, solo dejamos userData como null
           // Esto permite que el flujo de registro termine de crear el documento
           setUser({
@@ -116,19 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // GUARDIA DE STATUS: Si el usuario es 'pending', no le dejamos entrar
         if (userDataFromFirestore.status === 'pending') {
-          console.log('⏳ Usuario con estatus PENDIENTE, cerrando sesión...');
           await signOut(auth);
           setUser(null);
           setUserData(null);
           setLoading(false);
           return;
         }
-
-        console.log('✅ Datos de usuario cargados exitosamente:', {
-          email: userDataFromFirestore.email,
-          role: userDataFromFirestore.role,
-          nombre: userDataFromFirestore.nombre
-        });
 
         setUser({
           uid: firebaseUser.uid,
@@ -139,8 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // La redirección se manejará en el componente LoginForm cuando detecte userData
       } catch (error: any) {
-        console.error('❌ Error en AuthContext:', error);
-        console.error('❌ Stack trace:', error.stack);
+        console.error('Error en AuthContext:', error);
 
         // Mensajes de error más específicos
         let errorMessage = 'Error al cargar datos del usuario';
@@ -166,7 +135,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Error al cerrar sesión:', e);
         }
       } finally {
-        console.log('🏁 Finalizando carga de datos del usuario');
         setLoading(false);
       }
     });
