@@ -91,6 +91,9 @@ Las variables necesarias estan documentadas en `.env.example`. Las mas important
 - `docs/bolsa-de-trabajo/backlog-rediseno-admin.md`
 - `docs/portal-trabajador/modelo-acceso-y-privacidad.md`
 - `docs/portal-trabajador/migracion-consulta-publica-a-portal-privado.md`
+- `docs/benchmark/seccion-v.md`
+- `docs/portal/home-sntss-propuesta.md`
+- `docs/portal/estado-landing-auth.md`
 - `docs/testing/qa-bolsa-de-trabajo.md`
 - `docs/git-workflow.md`
 - `docs/agents/mcp-policy.md`
