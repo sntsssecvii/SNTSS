@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createBolsaDeTrabajoDocumento, guardarRegistrosEnSubcoleccion, updateBolsaDeTrabajoDocumento } from '@/lib/firebase/bolsa-de-trabajo'
+import { requireAdminRequest } from '@/lib/firebase/server-auth'
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 import * as XLSX from 'xlsx'
 
 export interface ImportarRequest {
   tipoDocumento: TipoBolsaDeTrabajo
   nombreArchivo: string
-  userId: string
-  userEmail: string
   registros: FilaValidada[]
   validarTodos?: boolean
 }
@@ -73,6 +72,7 @@ function mapearFilaARegistro(fila: FilaValidada, tipo: TipoBolsaDeTrabajo): Bols
 
 export async function POST(request: NextRequest) {
   try {
+    const adminUser = await requireAdminRequest(request)
     const contentType = request.headers.get('content-type') || ''
 
     let body: ImportarRequest
@@ -136,14 +136,10 @@ export async function POST(request: NextRequest) {
         
         const tipo = formData.get('tipoDocumento') as TipoBolsaDeTrabajo
         const nombreArchivo = formData.get('nombreArchivo') as string || file.name
-        const userId = formData.get('userId') as string || 'sistema'
-        const userEmail = formData.get('userEmail') as string || 'sistema@sntss.gob.mx'
         
         body = {
           tipoDocumento: tipo || 'NUEVO_INGRESO',
           nombreArchivo,
-          userId,
-          userEmail,
           registros
         }
       } else {
@@ -159,7 +155,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { tipoDocumento, nombreArchivo, userId, userEmail, registros, validarTodos } = body
+    const { tipoDocumento, nombreArchivo, registros, validarTodos } = body
 
     if (!registros || registros.length === 0) {
       return NextResponse.json(
@@ -174,8 +170,8 @@ export async function POST(request: NextRequest) {
       tipo: tipoDocumento,
       fechaActualizacion: ahora,
       fechaCarga: ahora,
-      subidoPor: userId,
-      subidoPorEmail: userEmail,
+      subidoPor: adminUser.uid,
+      subidoPorEmail: adminUser.email || '',
       estado: 'COMPLETADO',
       urlArchivo: '',
       nombreArchivo: nombreArchivo || 'importado.xlsx',
@@ -213,6 +209,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response)
   } catch (error: any) {
     console.error('Error importando datos:', error)
+
+    if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') {
+      return NextResponse.json({ error: 'La sesión expiró. Vuelve a iniciar sesión.' }, { status: 401 })
+    }
+
+    if (error?.code === 'auth/invalid-id-token') {
+      return NextResponse.json({ error: 'La sesión no es válida. Vuelve a iniciar sesión.' }, { status: 401 })
+    }
+
+    if (error?.message === 'AUTH_REQUIRED') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    if (error?.message === 'PROFILE_NOT_FOUND') {
+      return NextResponse.json({ error: 'Perfil de usuario no encontrado.' }, { status: 404 })
+    }
+
+    if (error?.message === 'ACCOUNT_INACTIVE') {
+      return NextResponse.json({ error: 'La cuenta no está activa para operar bolsa de trabajo.' }, { status: 403 })
+    }
+
+    if (error?.message === 'ADMIN_REQUIRED') {
+      return NextResponse.json({ error: 'No tienes permisos para importar información.' }, { status: 403 })
+    }
+
     return NextResponse.json(
       { 
         error: `Error interno: ${error.message}`,
@@ -229,30 +250,25 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     message: 'API de importación de datos validados a Firebase',
+    seguridad: 'Requiere token válido de Firebase y rol ADMIN',
     metodos: {
       POST: {
         descripcion: 'Importar registros validados desde JSON o Excel',
         json: {
           tipoDocumento: 'Tipo de documento (NUEVO_INGRESO, AMPLIACIONES_JORNADA, etc.)',
           nombreArchivo: 'Nombre del archivo original',
-          userId: 'ID del usuario que importa',
-          userEmail: 'Email del usuario',
           registros: 'Array de registros validados'
         },
         formData: {
           file: 'Archivo Excel (.xlsx) con los datos validados',
           tipoDocumento: 'Tipo de documento (opcional)',
-          nombreArchivo: 'Nombre del archivo (opcional)',
-          userId: 'ID del usuario (opcional)',
-          userEmail: 'Email del usuario (opcional)'
+          nombreArchivo: 'Nombre del archivo (opcional)'
         }
       }
     },
     ejemploJson: {
       tipoDocumento: 'NUEVO_INGRESO',
       nombreArchivo: 'validado.xlsx',
-      userId: 'user123',
-      userEmail: 'user@sntss.gob.mx',
       registros: [
         {
           numeroProg: '1',

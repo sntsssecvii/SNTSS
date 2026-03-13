@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { detectarTipoDocumento } from '@/lib/pdf/parser'
+import { requireAdminRequest } from '@/lib/firebase/server-auth'
 import * as XLSX from 'xlsx'
 
 export interface FilaCruda {
@@ -251,6 +252,7 @@ function generarExcelBase64(filas: FilaCruda[], tipoDocumento: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    await requireAdminRequest(request)
     const formData = await request.formData()
     const file = formData.get('file') as File
     const incluirExcel = formData.get('incluirExcel') === 'true'
@@ -293,6 +295,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response)
   } catch (error: any) {
     console.error('Error extrayendo datos:', error)
+
+    if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') {
+      return NextResponse.json({ error: 'La sesión expiró. Vuelve a iniciar sesión.' }, { status: 401 })
+    }
+
+    if (error?.code === 'auth/invalid-id-token') {
+      return NextResponse.json({ error: 'La sesión no es válida. Vuelve a iniciar sesión.' }, { status: 401 })
+    }
+
+    if (error?.message === 'AUTH_REQUIRED') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    if (error?.message === 'PROFILE_NOT_FOUND') {
+      return NextResponse.json({ error: 'Perfil de usuario no encontrado.' }, { status: 404 })
+    }
+
+    if (error?.message === 'ACCOUNT_INACTIVE') {
+      return NextResponse.json({ error: 'La cuenta no está activa para operar bolsa de trabajo.' }, { status: 403 })
+    }
+
+    if (error?.message === 'ADMIN_REQUIRED') {
+      return NextResponse.json({ error: 'No tienes permisos para extraer información.' }, { status: 403 })
+    }
+
     return NextResponse.json(
       { error: `Error interno: ${error.message}` },
       { status: 500 }
@@ -303,6 +330,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     message: 'API de extracción cruda de documentos PDF',
+    seguridad: 'Requiere token válido de Firebase y rol ADMIN',
     uso: 'POST con archivo PDF en formData',
     parametros: {
       file: 'Archivo PDF (requerido)',

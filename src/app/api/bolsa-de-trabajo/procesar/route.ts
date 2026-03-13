@@ -9,32 +9,20 @@ import {
   reemplazarRegistrosEnSubcoleccion,
   getBolsaDeTrabajoDocumentoBySyncAndTipo,
 } from '@/lib/firebase/bolsa-de-trabajo'
-import { Timestamp } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { app, storage } from '@/lib/firebase/server-config'
+import { requireAdminRequest } from '@/lib/firebase/server-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const adminUser = await requireAdminRequest(request)
+
     // Obtener datos del formulario
     const formData = await request.formData()
     const file = formData.get('file') as File
     const tipo = formData.get('tipo') as string
-    const userId = formData.get('userId') as string
-    const userEmail = formData.get('userEmail') as string
     const anio = parseInt(formData.get('anio') as string || new Date().getFullYear().toString())
     const mes = parseInt(formData.get('mes') as string || (new Date().getMonth() + 1).toString())
     const quincena = parseInt(formData.get('quincena') as string || (new Date().getDate() <= 15 ? 1 : 2).toString()) as 1 | 2
     const syncId = formData.get('syncId') as string || undefined
-
-    // Verificar autenticación básica
-    // Nota: En producción, implementar verificación de token JWT de Firebase
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader && !userId) {
-      return NextResponse.json(
-        { error: 'No autorizado' },
-        { status: 401 }
-      )
-    }
 
     if (!file) {
       return NextResponse.json(
@@ -95,8 +83,8 @@ export async function POST(request: NextRequest) {
       syncId,
       fechaActualizacion: ahora,
       fechaCarga: ahora,
-      subidoPor: userId,
-      subidoPorEmail: userEmail,
+      subidoPor: adminUser.uid,
+      subidoPorEmail: adminUser.email || '',
       estado: 'PROCESANDO',
       urlArchivo: '', // Se actualizará después
       nombreArchivo: file.name,
@@ -117,8 +105,8 @@ export async function POST(request: NextRequest) {
       await updateBolsaDeTrabajoDocumento(documentoId, {
         fechaActualizacion: ahora,
         fechaCarga: ahora,
-        subidoPor: userId,
-        subidoPorEmail: userEmail,
+        subidoPor: adminUser.uid,
+        subidoPorEmail: adminUser.email || '',
         estado: 'PROCESANDO',
         urlArchivo: '',
         nombreArchivo: file.name,
@@ -247,6 +235,31 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error en procesamiento:', error)
     console.error('Stack trace:', error.stack)
+
+    if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') {
+      return NextResponse.json({ error: 'La sesión expiró. Vuelve a iniciar sesión.' }, { status: 401 })
+    }
+
+    if (error?.code === 'auth/invalid-id-token') {
+      return NextResponse.json({ error: 'La sesión no es válida. Vuelve a iniciar sesión.' }, { status: 401 })
+    }
+
+    if (error?.message === 'AUTH_REQUIRED') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    if (error?.message === 'PROFILE_NOT_FOUND') {
+      return NextResponse.json({ error: 'Perfil de usuario no encontrado.' }, { status: 404 })
+    }
+
+    if (error?.message === 'ACCOUNT_INACTIVE') {
+      return NextResponse.json({ error: 'La cuenta no está activa para operar bolsa de trabajo.' }, { status: 403 })
+    }
+
+    if (error?.message === 'ADMIN_REQUIRED') {
+      return NextResponse.json({ error: 'No tienes permisos para operar bolsa de trabajo.' }, { status: 403 })
+    }
+
     return NextResponse.json(
       {
         error: `Error interno del servidor: ${error.message}`,

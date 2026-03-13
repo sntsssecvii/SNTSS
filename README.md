@@ -94,6 +94,9 @@ Las variables necesarias estan documentadas en `.env.example`. Las mas important
 - `docs/benchmark/seccion-v.md`
 - `docs/portal/home-sntss-propuesta.md`
 - `docs/portal/estado-landing-auth.md`
+- `docs/specs/templates/`
+- `docs/specs/security-hardening-bolsa.md`
+- `docs/specs/security-hardening-bolsa-backlog.md`
 - `docs/testing/qa-bolsa-de-trabajo.md`
 - `docs/git-workflow.md`
 - `docs/agents/mcp-policy.md`
