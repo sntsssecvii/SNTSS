@@ -1,9 +1,5 @@
-import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore'
-import { db } from '@/lib/firebase/firebase-client'
-import { getFuenteVerdad } from '@/lib/firebase/sincronizaciones'
-import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
-import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
-import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import { auth } from '@/lib/firebase/firebase-client'
+import type { TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export interface TrabajadorPeriodo {
   anio: number
@@ -28,137 +24,71 @@ export interface TramitePortalResult {
   totalEventualesEnCategoria?: number
 }
 
-async function getActiveSyncPeriod() {
-  const syncActiva = await getFuenteVerdad()
-  if (!syncActiva) {
-    throw new Error('No hay información oficial activa en este momento.')
-  }
-
-  return syncActiva
+interface MisTramitesResponse {
+  success: boolean
+  matricula: string
+  data: TramitePortalResult[]
+  periodo: TrabajadorPeriodo
 }
 
-export async function getMisTramitesCliente(matricula: string): Promise<{
+interface MiTramiteDetalleResponse {
+  success: boolean
+  data: TramitePortalResult
+  periodo: TrabajadorPeriodo
+}
+
+async function getAuthHeaders() {
+  const currentUser = auth.currentUser
+  if (!currentUser) {
+    throw new Error('No se pudo validar la sesión del usuario.')
+  }
+
+  const idToken = await currentUser.getIdToken()
+  return {
+    Authorization: `Bearer ${idToken}`,
+  }
+}
+
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const payload = await response.json()
+
+  if (!response.ok) {
+    throw new Error(payload?.error || 'Error al consultar información del trabajador.')
+  }
+
+  return payload as T
+}
+
+export async function getMisTramitesCliente(): Promise<{
   data: TramitePortalResult[]
   periodo: TrabajadorPeriodo
 }> {
-  const normalizedMatricula = matricula.trim().toUpperCase()
-  if (!normalizedMatricula) {
-    throw new Error('El usuario autenticado no tiene matrícula vinculada.')
-  }
+  const headers = await getAuthHeaders()
+  const response = await fetch('/api/trabajador/mis-tramites', {
+    method: 'GET',
+    headers,
+  })
 
-  const syncActiva = await getActiveSyncPeriod()
-  const docsSnap = await getDocs(query(
-    collection(db, 'bolsa_de_trabajo_documentos'),
-    where('syncId', '==', syncActiva.id)
-  ))
-
-  if (docsSnap.empty) {
-    throw new Error('No se encontraron listados para esta quincena.')
-  }
-
-  const tramites: TramitePortalResult[] = []
-
-  for (const docSnap of docsSnap.docs) {
-    const tipoDocumento = docSnap.data().tipo as TipoBolsaDeTrabajo
-    const registrosRef = collection(db, 'bolsa_de_trabajo_documentos', docSnap.id, 'registros')
-    const registroSnap = await getDocs(query(
-      registrosRef,
-      where('matricula', '==', normalizedMatricula),
-      limit(1)
-    ))
-
-    if (registroSnap.empty) continue
-
-    const allRegistrosSnap = await getDocs(registrosRef)
-    const registros = allRegistrosSnap.docs.map((registroDoc) => ({
-      id: registroDoc.id,
-      ...registroDoc.data(),
-    })) as BolsaDeTrabajoRegistro[]
-
-    const targetRegistro = registroSnap.docs[0]
-    const workerRecord = {
-      id: targetRegistro.id,
-      ...targetRegistro.data(),
-    } as BolsaDeTrabajoRegistro
-    const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
-    const resultado = calcularPosiciones(comparisonRecords, normalizedMatricula, tipoDocumento)
-    if (!resultado) continue
-
-    tramites.push({
-      ...resultado,
-      tipoDocumento,
-      documentoId: docSnap.id,
-    })
-  }
-
+  const payload = await parseJsonResponse<MisTramitesResponse>(response)
   return {
-    data: tramites.sort((a, b) => a.tipoDocumento.localeCompare(b.tipoDocumento)),
-    periodo: {
-      anio: syncActiva.anio,
-      mes: syncActiva.mes,
-      quincena: syncActiva.quincena,
-    },
+    data: payload.data || [],
+    periodo: payload.periodo,
   }
 }
 
-export async function getMiTramiteDetalleCliente(matricula: string, documentoId: string): Promise<{
+export async function getMiTramiteDetalleCliente(documentoId: string): Promise<{
   data: TramitePortalResult
   periodo: TrabajadorPeriodo
 }> {
-  const normalizedMatricula = matricula.trim().toUpperCase()
-  if (!normalizedMatricula) {
-    throw new Error('El usuario autenticado no tiene matrícula vinculada.')
-  }
+  const headers = await getAuthHeaders()
+  const response = await fetch(`/api/trabajador/mis-tramites/${documentoId}`, {
+    method: 'GET',
+    headers,
+  })
 
-  const syncActiva = await getActiveSyncPeriod()
-  const documentoSnap = await getDoc(doc(db, 'bolsa_de_trabajo_documentos', documentoId))
-
-  if (!documentoSnap.exists()) {
-    throw new Error('Trámite no encontrado.')
-  }
-
-  if (documentoSnap.data().syncId !== syncActiva.id) {
-    throw new Error('El trámite no pertenece al corte oficial vigente.')
-  }
-
-  const tipoDocumento = documentoSnap.data().tipo as TipoBolsaDeTrabajo
-  const registrosRef = collection(db, 'bolsa_de_trabajo_documentos', documentoId, 'registros')
-  const registroSnap = await getDocs(query(
-    registrosRef,
-    where('matricula', '==', normalizedMatricula),
-    limit(1)
-  ))
-
-  if (registroSnap.empty) {
-    throw new Error('El trámite solicitado no pertenece al usuario autenticado.')
-  }
-
-  const allRegistrosSnap = await getDocs(registrosRef)
-  const registros = allRegistrosSnap.docs.map((registroDoc) => ({
-    id: registroDoc.id,
-    ...registroDoc.data(),
-  })) as BolsaDeTrabajoRegistro[]
-
-  const workerRecord = {
-    id: registroSnap.docs[0].id,
-    ...registroSnap.docs[0].data(),
-  } as BolsaDeTrabajoRegistro
-  const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
-  const resultado = calcularPosiciones(comparisonRecords, normalizedMatricula, tipoDocumento)
-  if (!resultado) {
-    throw new Error('No se pudo calcular el detalle del trámite.')
-  }
-
+  const payload = await parseJsonResponse<MiTramiteDetalleResponse>(response)
   return {
-    data: {
-      ...resultado,
-      tipoDocumento,
-      documentoId,
-    },
-    periodo: {
-      anio: syncActiva.anio,
-      mes: syncActiva.mes,
-      quincena: syncActiva.quincena,
-    },
+    data: payload.data,
+    periodo: payload.periodo,
   }
 }

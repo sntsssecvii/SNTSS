@@ -78,4 +78,4 @@ Endurecer la seguridad del sistema en las superficies con más riesgo real: ruta
 - definir si la consulta pública manual por matrícula debe seguir viva, limitarse más o retirarse
 - revisar si algunas colecciones históricas deben migrarse a reglas más finas por `owner/admin`
 - decidir si se implementará rate limiting en esta fase o en una fase posterior
-- mientras el portal del trabajador siga leyendo `bolsa_de_trabajo_documentos` y `registros` desde cliente, esas colecciones no pueden cerrarse todavía a `owner-only`; mover esa lectura a server/API sería la siguiente fase natural
+- el portal del trabajador ya fue movido a rutas privadas server-side; a partir de esto, `sincronizaciones`, `bolsa_de_trabajo_documentos` y `registros` pueden mantenerse cerradas a `ADMIN` en reglas y seguir expuestas solo mediante rutas controladas

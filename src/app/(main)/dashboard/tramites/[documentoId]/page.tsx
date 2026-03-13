@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { auth } from '@/lib/firebase/firebase-client'
 import { getMiTramiteDetalleCliente } from '@/lib/firebase/trabajador-portal'
 import { NOMBRES_TIPOS, type TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 import {
@@ -121,15 +120,11 @@ export default function TramiteDetailPage() {
         setError(null)
         setErrorStatus(null)
 
-        if (!auth.currentUser) {
-          throw new Error('No se pudo validar la sesión del usuario.')
-        }
-
         if (!userData?.matricula?.trim()) {
           throw new Error('El usuario autenticado no tiene matrícula vinculada.')
         }
 
-        const result = await getMiTramiteDetalleCliente(userData.matricula, documentoId)
+        const result = await getMiTramiteDetalleCliente(documentoId)
         setData(result.data)
         setPeriodo(result.periodo || null)
       } catch (err: any) {

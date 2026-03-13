@@ -75,18 +75,15 @@ service cloud.firestore {
 
     // Sincronizaciones de cortes de bolsa de trabajo
     match /sincronizaciones/{syncId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // Documentos de bolsa de trabajo
     match /bolsa_de_trabajo_documentos/{documentoId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
 
       match /registros/{registroId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+        allow read, write: if isAdmin();
       }
     }
     

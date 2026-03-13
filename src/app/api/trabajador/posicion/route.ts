@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFuenteVerdad } from '@/lib/firebase/sincronizaciones'
-import { db } from '@/lib/firebase/server-config'
-import { collection, query, where, getDocs, limit } from 'firebase/firestore'
+import { adminDb } from '@/lib/firebase/admin'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
 import { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
@@ -16,18 +14,27 @@ export async function GET(request: NextRequest) {
 
     try {
         // 1. Obtener la sincronización activa (Fuente de Verdad)
-        const syncActiva = await getFuenteVerdad()
-        if (!syncActiva) {
+        const syncSnap = await adminDb
+            .collection('sincronizaciones')
+            .where('esFuenteVerdad', '==', true)
+            .limit(1)
+            .get()
+
+        if (syncSnap.empty) {
             return NextResponse.json({ error: 'No hay información oficial activa en este momento.' }, { status: 404 })
         }
 
+        const syncDoc = syncSnap.docs[0]
+        const syncActiva = {
+            id: syncDoc.id,
+            ...syncDoc.data(),
+        } as { id: string; anio: number; mes: number; quincena: number }
+
         // 2. Obtener todos los documentos de esa sincronización
-        const docsRef = collection(db, 'bolsa_de_trabajo_documentos')
-        const qDocs = query(
-            docsRef,
-            where('syncId', '==', syncActiva.id)
-        )
-        const snapDocs = await getDocs(qDocs)
+        const snapDocs = await adminDb
+            .collection('bolsa_de_trabajo_documentos')
+            .where('syncId', '==', syncActiva.id)
+            .get()
 
         if (snapDocs.empty) {
             return NextResponse.json({ error: 'No se encontraron listados para esta quincena.' }, { status: 404 })
@@ -39,9 +46,11 @@ export async function GET(request: NextRequest) {
         let tipoDocumento: TipoBolsaDeTrabajo | null = null
 
         for (const docSnap of snapDocs.docs) {
-            const registrosRef = collection(db, 'bolsa_de_trabajo_documentos', docSnap.id, 'registros')
-            const qTrabajador = query(registrosRef, where('matricula', '==', matricula), limit(1))
-            const snapTrabajador = await getDocs(qTrabajador)
+            const snapTrabajador = await docSnap.ref
+                .collection('registros')
+                .where('matricula', '==', matricula)
+                .limit(1)
+                .get()
 
             if (!snapTrabajador.empty) {
                 dataTrabajador = { id: snapTrabajador.docs[0].id, ...snapTrabajador.docs[0].data() } as BolsaDeTrabajoRegistro
@@ -59,8 +68,11 @@ export async function GET(request: NextRequest) {
         }
 
         // 4. Obtener todos los registros del documento encontrado y derivar el grupo comparable
-        const registrosRef = collection(db, 'bolsa_de_trabajo_documentos', docIdEncontrado, 'registros')
-        const snapComparacion = await getDocs(registrosRef)
+        const snapComparacion = await adminDb
+            .collection('bolsa_de_trabajo_documentos')
+            .doc(docIdEncontrado)
+            .collection('registros')
+            .get()
         const registros = snapComparacion.docs.map(doc => ({ id: doc.id, ...doc.data() })) as BolsaDeTrabajoRegistro[]
         const comparisonRecords = getComparisonRecordsForWorker(registros, dataTrabajador, tipoDocumento)
 
