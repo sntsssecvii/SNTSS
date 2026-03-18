@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Download, Search, ChevronLeft, ChevronRight,
   XCircle, Eye, FileText, Filter, CheckCircle2, Clock, AlertCircle, Edit2, Trash2, X
@@ -9,7 +10,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { getBolsaDeTrabajoDocumentoById, updateBolsaDeTrabajoDocumento, deleteBolsaDeTrabajoDocumento } from '@/lib/firebase/bolsa-de-trabajo'
+import {
+  getBolsaDeTrabajoDocumentoHead,
+  getRegistrosBolsaDeTrabajo,
+  updateBolsaDeTrabajoDocumento,
+  deleteBolsaDeTrabajoDocumento
+} from '@/lib/firebase/bolsa-de-trabajo'
 import type { BolsaDeTrabajoDocumento, BolsaDeTrabajoRegistro } from '@/types/bolsa-de-trabajo'
 import { NOMBRES_TIPOS } from '@/types/bolsa-de-trabajo'
 import { useToast } from '@/components/ui/use-toast'
@@ -17,10 +23,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { EstadoBadgeBolsaDeTrabajo } from '@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { calcularPosiciones, getTrabajadoresAntes } from '@/lib/bolsa-de-trabajo/calculos'
-import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
+import { normalizePositionRecord } from '@/lib/bolsa-de-trabajo/position-engine'
+import { positionStrategies } from '@/lib/bolsa-de-trabajo/position-strategies'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Select } from '@/components/ui/select'
 
@@ -32,7 +40,9 @@ export default function DetalleBolsaDeTrabajoPage() {
 
   const [documento, setDocumento] = useState<BolsaDeTrabajoDocumento | null>(null)
   const [loading, setLoading] = useState(true)
+  const [streaming, setStreaming] = useState(false)
   const [busqueda, setBusqueda] = useState('')
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [filtroValidacion, setFiltroValidacion] = useState<'all' | 'pendientes'>('all')
   const [filtroCategoria, setFiltroCategoria] = useState<string>('all')
   const [filtroZona, setFiltroZona] = useState<string>('all')
@@ -60,17 +70,39 @@ export default function DetalleBolsaDeTrabajoPage() {
   const cargarDocumento = useCallback(async (id: string) => {
     try {
       setLoading(true)
-      const doc = await getBolsaDeTrabajoDocumentoById(id)
-      setDocumento(doc)
-      if (doc) setNuevoNombre(doc.nombreArchivo || '')
+      
+      // 1. Carga ultra-rápida del encabezado
+      const head = await getBolsaDeTrabajoDocumentoHead(id)
+      if (!head) {
+        toast({ title: 'Error', description: 'No se pudo cargar el documento', variant: 'destructive' })
+        setLoading(false)
+        return
+      }
+      
+      // Ya podemos mostrar la estructura de la página
+      setDocumento(head)
+      setNuevoNombre(head.nombreArchivo || '')
+      setLoading(false) // <--- Quitamos el spinner global aquí
+      
+      // 2. Carga de registros en segundo plano (streaming)
+      setStreaming(true)
+      try {
+        const regs = await getRegistrosBolsaDeTrabajo(id)
+        setDocumento(prev => prev ? { ...prev, registros: regs } : null)
+      } catch (err) {
+        console.error('Error cargando registros:', err)
+        toast({ title: 'Error parcial', description: 'No se pudieron cargar los detalles de los registros', variant: 'destructive' })
+      } finally {
+        setStreaming(false)
+      }
+      
     } catch (error: any) {
-      console.error('Error cargando documento:', error)
+      console.error('Error general cargando documento:', error)
       toast({
         title: 'Error',
-        description: 'No se pudo cargar el documento',
+        description: 'Error en la conexión con el servidor',
         variant: 'destructive',
       })
-    } finally {
       setLoading(false)
     }
   }, [toast])
@@ -80,6 +112,14 @@ export default function DetalleBolsaDeTrabajoPage() {
       cargarDocumento(params.id as string)
     }
   }, [params.id, cargarDocumento])
+
+  // Debounce para la búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBusquedaDebounced(busqueda)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [busqueda])
 
   // Normalización para categorías
   const normalizarString = (str: string | undefined): string => {
@@ -108,6 +148,25 @@ export default function DetalleBolsaDeTrabajoPage() {
     return categoriasUnicas.filter(c => c.toLowerCase().includes(lower))
   }, [categoriasUnicas, busquedaCategoria])
 
+  // Obtener conteos de registros por categoría y zona (para evitar O(N*M) en el render)
+  const stats = useMemo(() => {
+    if (!documento) return { categorias: {}, zonas: {} }
+    const catStats: Record<string, number> = {}
+    const zonaStats: Record<string, number> = {}
+    
+    documento.registros.forEach(r => {
+      if (r.categoria) {
+        catStats[r.categoria] = (catStats[r.categoria] || 0) + 1
+      }
+      if (r.zona) {
+        const z = r.zona.trim()
+        zonaStats[z] = (zonaStats[z] || 0) + 1
+      }
+    })
+    
+    return { categorias: catStats, zonas: zonaStats }
+  }, [documento])
+
   // Obtener zonas únicas
   const zonasUnicas = useMemo(() => {
     if (!documento) return []
@@ -124,18 +183,57 @@ export default function DetalleBolsaDeTrabajoPage() {
     return zonasUnicas.filter(z => z.toLowerCase().includes(lower))
   }, [zonasUnicas, busquedaZona])
 
+  // Nuevo useMemo para agrupar registros por su clave de comparación
+  // Esto evita filtrar todo el array (O(N)) por cada fila que se muestra en pantalla (O(M)).
+  const registrosPorGrupo = useMemo(() => {
+    if (!documento) return new Map<string, BolsaDeTrabajoRegistro[]>()
+    
+    // Solo necesitamos agrupar para tipos que calculan posición
+    const tiposConPosicion = [
+      'NUEVO_INGRESO',
+      'AMPLIACIONES_JORNADA',
+      'CAMBIOS_TURNO_ADSCRIPCION',
+      'CAMBIOS_RAMA',
+      'CAMBIOS_AREA',
+      'CAMBIOS_TIPO_PLAZA',
+      'CAMBIOS_RESIDENCIA_DESTINO',
+      'CAMBIOS_RESIDENCIA_ORIGEN',
+    ]
+    
+    if (!tiposConPosicion.includes(documento.tipo)) return new Map<string, BolsaDeTrabajoRegistro[]>()
+    
+    const groups = new Map<string, BolsaDeTrabajoRegistro[]>()
+    const tipo = documento.tipo
+    const strategy = positionStrategies[tipo]
+    
+    documento.registros.forEach(reg => {
+      const normalized = normalizePositionRecord(reg)
+      const key = normalized && strategy
+        ? strategy.buildGroupKey(normalized)
+        : `${reg.categoria || ''}-${reg.subcategoria || ''}-${reg.zona || ''}`
+      
+      const existing = groups.get(key) || []
+      existing.push(reg)
+      groups.set(key, existing)
+    })
+    
+    return groups
+  }, [documento])
+
   // Filtrado de registros
   const registrosFiltrados = useMemo(() => {
     if (!documento) return []
+    const lowerSearch = busquedaDebounced.toLowerCase()
+    const normFiltroCat = filtroCategoria !== 'all' ? normalizarString(filtroCategoria) : ''
+    
     return documento.registros.filter(reg => {
-      // Filtro de búsqueda texto
-      if (busqueda) {
-        const lower = busqueda.toLowerCase()
+      // Filtro de búsqueda texto (usando el debounced para evitar lag)
+      if (lowerSearch) {
         const coincide =
-          reg.nombre?.toLowerCase().includes(lower) ||
-          reg.matricula?.toLowerCase().includes(lower) ||
-          reg.categoria?.toLowerCase().includes(lower) ||
-          reg.zona?.toLowerCase().includes(lower)
+          reg.nombre?.toLowerCase().includes(lowerSearch) ||
+          reg.matricula?.toLowerCase().includes(lowerSearch) ||
+          reg.categoria?.toLowerCase().includes(lowerSearch) ||
+          reg.zona?.toLowerCase().includes(lowerSearch)
         if (!coincide) return false
       }
 
@@ -143,8 +241,8 @@ export default function DetalleBolsaDeTrabajoPage() {
       if (filtroValidacion === 'pendientes' && reg.validado) return false
 
       // Filtro de categoría
-      if (filtroCategoria !== 'all') {
-        if (normalizarString(reg.categoria) !== normalizarString(filtroCategoria)) return false
+      if (normFiltroCat) {
+        if (normalizarString(reg.categoria) !== normFiltroCat) return false
       }
 
       // Filtro de zona
@@ -154,14 +252,22 @@ export default function DetalleBolsaDeTrabajoPage() {
 
       return true
     })
-  }, [documento, busqueda, filtroValidacion, filtroCategoria, filtroZona])
+  }, [documento, busquedaDebounced, filtroValidacion, filtroCategoria, filtroZona])
 
   // Pre-calcular posiciones para los registros filtrados
-  const registrosConPosiciones = useMemo(() => {
-    if (!documento) return registrosFiltrados
+  const totalPaginas = Math.ceil(registrosFiltrados.length / registrosPorPagina)
+  
+  // Obtener la página actual de registros
+  const registrosEnPagina = useMemo(() => {
+    return registrosFiltrados.slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
+  }, [registrosFiltrados, paginaActual])
+
+  // Pre-calcular posiciones SOLO para los registros de la página actual
+  const registrosPaginated = useMemo(() => {
+    if (!documento) return registrosEnPagina
     const tipo = documento.tipo
 
-    if (![
+    const tiposConPosicion = [
       'NUEVO_INGRESO',
       'AMPLIACIONES_JORNADA',
       'CAMBIOS_TURNO_ADSCRIPCION',
@@ -170,19 +276,25 @@ export default function DetalleBolsaDeTrabajoPage() {
       'CAMBIOS_TIPO_PLAZA',
       'CAMBIOS_RESIDENCIA_DESTINO',
       'CAMBIOS_RESIDENCIA_ORIGEN',
-    ].includes(tipo)) return registrosFiltrados
+    ]
 
-    return registrosFiltrados.map(reg => {
-      const grupoRegistros = getComparisonRecordsForWorker(documento.registros, reg, tipo)
+    if (!tiposConPosicion.includes(tipo)) return registrosEnPagina
+
+    const strategy = positionStrategies[tipo]
+
+    return registrosEnPagina.map(reg => {
+      const normalized = normalizePositionRecord(reg)
+      const key = normalized && strategy
+        ? strategy.buildGroupKey(normalized)
+        : `${reg.categoria || ''}-${reg.subcategoria || ''}-${reg.zona || ''}`
+      
+      const grupoRegistros = registrosPorGrupo.get(key) || [reg]
       const pos = calcularPosiciones(grupoRegistros, reg.matricula || '', tipo)
       return { ...reg, _posCalculada: pos }
     })
-  }, [documento, registrosFiltrados])
+  }, [documento, registrosEnPagina, registrosPorGrupo])
 
-  const totalPaginas = Math.ceil(registrosConPosiciones.length / registrosPorPagina)
-  const registrosPaginated = registrosConPosiciones.slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
-
-  useEffect(() => { setPaginaActual(1) }, [busqueda, filtroValidacion, filtroCategoria])
+  useEffect(() => { setPaginaActual(1) }, [busquedaDebounced, filtroValidacion, filtroCategoria, filtroZona])
 
   const abrirModalDetalle = (reg: BolsaDeTrabajoRegistro) => {
     setRegistroSeleccionado(reg)
@@ -268,7 +380,11 @@ export default function DetalleBolsaDeTrabajoPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] flex flex-col h-screen overflow-hidden">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 lg:left-64 top-14 bg-[#F8FAFC] dark:bg-[#020617] flex flex-col overflow-hidden z-20"
+    >
       {/* HEADER STICKY */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-30 shrink-0">
         <div className="px-4 py-4 sm:px-6">
@@ -285,6 +401,12 @@ export default function DetalleBolsaDeTrabajoPage() {
                   {documento.metadata?.anio && (
                     <span className="text-[10px] font-black text-slate-500 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
                       {documento.metadata.quincena}° Qna {documento.metadata.mes}/{documento.metadata.anio}
+                    </span>
+                  )}
+                  {streaming && (
+                    <span className="text-[10px] font-black text-blue-500 uppercase bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded-full animate-pulse flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Sincronizando...
                     </span>
                   )}
                 </div>
@@ -361,140 +483,199 @@ export default function DetalleBolsaDeTrabajoPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+      <div className="flex flex-1 min-h-0 overflow-hidden lg:flex-row">
         {/* SIDEBAR CATEGORIAS */}
-        <aside className="w-full border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Filtrar categorías..."
-                value={busquedaCategoria}
-                onChange={(e) => setBusquedaCategoria(e.target.value)}
-                className="pl-9 h-10 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold"
-              />
-            </div>
-          </div>
-
-          <div className="max-h-[40vh] overflow-y-auto p-3 space-y-1 custom-scrollbar lg:max-h-none lg:flex-1">
-            <button
-              onClick={() => setFiltroCategoria('all')}
-              className={cn(
-                "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center justify-between group",
-                filtroCategoria === 'all'
-                  ? "bg-primary text-white font-black shadow-lg shadow-primary/20"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 font-bold"
-              )}
-            >
-              <span className="text-xs">Todas las Categorías</span>
-              <span className={cn(
-                "text-[10px] px-2 py-0.5 rounded-full",
-                filtroCategoria === 'all' ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-500"
-              )}>
-                {documento.registros.length}
-              </span>
-            </button>
-
-            <div className="py-3 px-4 flex items-center justify-between">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Categorías</p>
-            </div>
-
-            {categoriasFiltradas.map((cat) => {
-              const active = filtroCategoria === cat
-              const count = documento.registros.filter(r => r.categoria === cat).length
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setFiltroCategoria(cat)}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center justify-between group",
-                    active
-                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black"
-                      : "text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 font-bold"
+        <motion.aside 
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="w-full border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r flex flex-col h-full overflow-hidden"
+        >
+          <Tabs defaultValue="categorias" className="flex flex-col h-full w-full">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 shrink-0">
+              <TabsList className="grid w-full grid-cols-2 bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-9">
+                <TabsTrigger value="categorias" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">
+                  Categorías
+                  {filtroCategoria !== 'all' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary ml-1.5" />
                   )}
-                >
-                  <span className="truncate text-[11px] leading-tight">{cat}</span>
-                  <span className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0 ml-2",
-                    active ? "bg-white/20 dark:bg-slate-900/10" : "bg-slate-200 dark:bg-slate-800"
-                  )}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
+                </TabsTrigger>
+                <TabsTrigger value="zonas" className="text-xs font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">
+                  Zonas
+                  {filtroZona !== 'all' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary ml-1.5" />
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            <div className="py-6 px-4">
-              <div className="h-px bg-slate-200 dark:bg-slate-800 mb-6" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Filtrar por Zona</p>
-              <div className="relative mb-3">
+            <TabsContent value="categorias" className="flex-1 overflow-hidden flex flex-col m-0 p-4 lg:p-6 pb-4 pt-2 data-[state=inactive]:hidden focus-visible:outline-none focus-visible:ring-0">
+              <div className="relative mb-3 shrink-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Buscar zona..."
-                  value={busquedaZona}
-                  onChange={(e) => setBusquedaZona(e.target.value)}
-                  className="pl-9 h-9 rounded-lg border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[10px] font-bold"
+                  placeholder="Buscar categorías..."
+                  value={busquedaCategoria}
+                  onChange={(e) => setBusquedaCategoria(e.target.value)}
+                  className="pl-9 h-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[10px] font-bold shadow-sm"
                 />
               </div>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setFiltroZona('all')}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-[11px] transition-all",
-                    filtroZona === 'all' ? "bg-primary/10 text-primary font-black" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  )}
-                >
-                  Todas las zonas
-                </button>
-                {zonasFiltradas.map(zona => (
-                  <button
-                    key={zona}
-                    onClick={() => setFiltroZona(zona)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded-lg text-[11px] transition-all truncate",
-                      filtroZona === zona ? "bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white font-black" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    )}
-                  >
-                    {zona}
-                  </button>
-                ))}
+              <div className="flex-1 relative min-h-0">
+                <div className="absolute inset-0 overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)] custom-scrollbar">
+                  <div className="p-3 space-y-1">
+                    <button
+                      onClick={() => setFiltroCategoria('all')}
+                      className={cn(
+                        "w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center justify-between group",
+                        filtroCategoria === 'all'
+                          ? "bg-primary text-white font-black shadow-md shadow-primary/20"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold"
+                      )}
+                    >
+                      <span className="text-[11px]">Todas las Categorías</span>
+                      <span className={cn(
+                        "text-[9px] px-2 py-0.5 rounded-full",
+                        filtroCategoria === 'all' ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                      )}>
+                        {documento.registros.length}
+                      </span>
+                    </button>
+
+                    <div className="py-2.5 px-3 flex items-center justify-between">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lista de Categorías</p>
+                    </div>
+
+                    {categoriasFiltradas.map((cat) => {
+                      const active = filtroCategoria === cat
+                      const count = stats.categorias[cat] || 0
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => setFiltroCategoria(cat)}
+                          className={cn(
+                            "w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center justify-between group",
+                            active
+                              ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black shadow-sm"
+                              : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 font-bold"
+                          )}
+                        >
+                          <span className="truncate text-[10px] leading-tight pr-2">{cat}</span>
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded-md flex-shrink-0",
+                            active ? "bg-white/20 dark:bg-slate-900/10" : "bg-slate-100 dark:bg-slate-800"
+                          )}>
+                            {count}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </aside>
+            </TabsContent>
+
+            <TabsContent value="zonas" className="flex-1 overflow-hidden flex flex-col m-0 p-4 lg:p-6 pb-4 pt-2 data-[state=inactive]:hidden focus-visible:outline-none focus-visible:ring-0">
+              <div className="relative mb-3 shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Buscar zonas..."
+                  value={busquedaZona}
+                  onChange={(e) => setBusquedaZona(e.target.value)}
+                  className="pl-9 h-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[10px] font-bold shadow-sm"
+                />
+              </div>
+              <div className="flex-1 relative min-h-0">
+                <div className="absolute inset-0 overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)] custom-scrollbar">
+                  <div className="p-3 space-y-1">
+                    <button
+                      onClick={() => setFiltroZona('all')}
+                      className={cn(
+                        "w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center justify-between group",
+                        filtroZona === 'all'
+                          ? "bg-primary text-white font-black shadow-md shadow-primary/20"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold"
+                      )}
+                    >
+                      <span className="text-[11px]">Todas las Zonas</span>
+                      <span className={cn(
+                        "text-[9px] px-2 py-0.5 rounded-full",
+                        filtroZona === 'all' ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                      )}>
+                        {documento.registros.length}
+                      </span>
+                    </button>
+
+                    <div className="py-2.5 px-3 flex items-center justify-between">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lista de Zonas</p>
+                    </div>
+
+                    {zonasFiltradas.map((zona) => {
+                      const active = filtroZona === zona
+                      const count = stats.zonas[zona] || 0
+                      return (
+                        <button
+                          key={zona}
+                          onClick={() => setFiltroZona(zona)}
+                          className={cn(
+                            "w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center justify-between group",
+                            active
+                              ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black shadow-sm"
+                              : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 font-bold"
+                          )}
+                        >
+                          <span className="truncate text-[10px] leading-tight pr-2">{zona}</span>
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded-md flex-shrink-0",
+                            active ? "bg-white/20 dark:bg-slate-900/10" : "bg-slate-100 dark:bg-slate-800"
+                          )}>
+                            {count}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </motion.aside>
 
         {/* MAIN DATA GRID */}
-        <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#020617]">
-          {/* TOOLBAR */}
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-3 shrink-0 xl:flex-row xl:items-center xl:justify-between">
-            <div className="w-full xl:max-w-xl relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Busca registros en esta sección..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="pl-11 h-11 border-none bg-slate-100 dark:bg-slate-800/50 rounded-2xl font-bold focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                <Button
-                  variant={filtroValidacion === 'all' ? 'secondary' : 'ghost'}
-                  size="sm" onClick={() => setFiltroValidacion('all')}
-                  className="rounded-lg h-8 px-4 text-[10px] font-black uppercase"
-                >
-                  Todos ({registrosFiltrados.length})
-                </Button>
+        <motion.main 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#020617] h-full overflow-hidden"
+        >
+          {/* TOOLBAR PREMIUM */}
+          <div className="px-4 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+              <div className="w-full xl:max-w-md relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Busca registros en esta sección..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="pl-10 h-10 border-none bg-transparent shadow-none focus-visible:ring-0 rounded-xl font-bold text-xs"
+                />
               </div>
 
               <div className="hidden h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 xl:block" />
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2 xl:px-0 xl:pb-0">
+                <Button
+                  variant={filtroValidacion === 'all' ? 'secondary' : 'ghost'}
+                  size="sm" onClick={() => setFiltroValidacion('all')}
+                  className="h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider"
+                >
+                  Todos ({registrosFiltrados.length})
+                </Button>
+
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+
                 <Select
                   value={filtroCategoria}
                   onChange={(e) => setFiltroCategoria(e.target.value)}
-                  className="h-9 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px]"
+                  className="h-10 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
                 >
                   <option value="all">Categoría: Todas</option>
                   {categoriasUnicas.map(cat => (
@@ -505,33 +686,34 @@ export default function DetalleBolsaDeTrabajoPage() {
                 <Select
                   value={filtroZona}
                   onChange={(e) => setFiltroZona(e.target.value)}
-                  className="h-9 rounded-xl border-none bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px]"
+                  className="h-10 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
                 >
                   <option value="all">Zona: Todas</option>
                   {zonasUnicas.map(zona => (
                     <option key={zona} value={zona}>{zona}</option>
                   ))}
                 </Select>
-              </div>
 
-              <div className="hidden h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 xl:block" />
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
 
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={paginaActual === 1} onClick={() => setPaginaActual(p => p - 1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="px-2 text-[10px] font-black text-slate-500 uppercase">{paginaActual} / {totalPaginas || 1}</span>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={paginaActual >= totalPaginas} onClick={() => setPaginaActual(p => p + 1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={paginaActual === 1} onClick={() => setPaginaActual(p => p - 1)}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="px-3 text-[10px] font-black text-slate-500 uppercase">{paginaActual} <span className="text-slate-300 dark:text-slate-600 mx-1">/</span> {totalPaginas || 1}</span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={paginaActual >= totalPaginas} onClick={() => setPaginaActual(p => p + 1)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
 
           {/* TABLE CONTAINER */}
-          <div className="flex-1 overflow-auto bg-white dark:bg-[#020617] relative custom-scrollbar">
-            <Table className="border-separate border-spacing-0 min-w-[1000px]">
-              <TableHeader className="sticky top-0 z-20 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm">
+          <div className="flex-1 p-4 lg:p-6 bg-slate-50/50 dark:bg-[#020617]/50 relative min-h-0">
+            <div className="absolute inset-4 lg:inset-6 overflow-auto bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)] custom-scrollbar">
+              <Table className="border-separate border-spacing-0 min-w-[1000px]">
+                <TableHeader className="sticky top-0 z-20 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                 <TableRow className="hover:bg-transparent">
                   {documento.tipo === 'NUEVO_INGRESO' ? (
                     <>
@@ -598,7 +780,9 @@ export default function DetalleBolsaDeTrabajoPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {registrosPaginated.length === 0 ? (
+                {streaming && registrosPaginated.length === 0 ? (
+                  <TableSkeleton cols={documento.tipo === 'NUEVO_INGRESO' ? 5 : 7} />
+                ) : registrosPaginated.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="py-32 text-center">
                       <div className="flex flex-col items-center gap-3">
@@ -723,9 +907,16 @@ export default function DetalleBolsaDeTrabajoPage() {
                             <div className="flex flex-col">
                               <p className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">{reg.adscripcionNueva || '---'}</p>
                               <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[180px]">{reg.adscripcionNuevaNombre}</p>
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/5 text-primary text-[9px] font-black border border-primary/10 mt-1 w-fit">
-                                {reg.jornadaNueva ? `${reg.jornadaNueva} hrs` : '---'}
-                              </span>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/5 text-primary text-[9px] font-black border border-primary/10 w-fit">
+                                  {reg.jornadaNueva ? `${reg.jornadaNueva} hrs` : '---'}
+                                </span>
+                                {reg.turnoNuevo && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[9px] font-black border border-slate-200 w-fit">
+                                    Turno: {reg.turnoNuevo}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="py-4 px-6 text-center">
@@ -800,7 +991,8 @@ export default function DetalleBolsaDeTrabajoPage() {
               </TableBody>
             </Table>
           </div>
-        </main>
+        </div>
+        </motion.main>
       </div>
 
       {/* MODAL DETALLES PREMIUM */}
@@ -983,7 +1175,7 @@ export default function DetalleBolsaDeTrabajoPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }
 
@@ -998,5 +1190,21 @@ function DetailItem({ label, value, fullWidth = false }: { label: string, value:
         {value}
       </p>
     </div>
+  )
+}
+
+function TableSkeleton({ cols }: { cols: number }) {
+  return (
+    <>
+      {[...Array(10)].map((_, i) => (
+        <TableRow key={i} className="animate-pulse border-b border-slate-100 dark:border-slate-800">
+          {[...Array(cols)].map((__, j) => (
+            <TableCell key={j} className="py-4 px-6">
+              <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
   )
 }
