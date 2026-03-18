@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getMisTramitesCliente } from '@/lib/firebase/trabajador-portal'
+import { getMisTramitesCliente, getMiTramiteDetalleCliente } from '@/lib/firebase/trabajador-portal'
 import { NOMBRES_TIPOS, type TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 import {
   AlertCircle,
@@ -17,11 +17,21 @@ import {
   UserRound,
   Sparkles,
   TrendingUp,
+  X,
+  Building2,
+  Repeat,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface TramiteData {
   documentoId: string
@@ -33,6 +43,7 @@ interface TramiteData {
   tipoDocumento: TipoBolsaDeTrabajo
   tipoContratacion?: string
   adscripcionNueva?: string
+  turnoNueva?: string // Note: Some fields might vary between list/detail
   turnoNuevo?: string
   posicionBase: number
   posicionInterinato?: number
@@ -99,6 +110,13 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [errorStatus, setErrorStatus] = useState<number | null>(null)
   const [greetingInfo, setGreetingInfo] = useState({ greeting: 'Hola', dayMessage: '' })
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [detailData, setDetailData] = useState<TramiteData | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [selectedTramiteId, setSelectedTramiteId] = useState<string | null>(null)
+  const [selectedRecordId, setSelectedRecordId] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     const userRole = userData?.role?.toUpperCase()
@@ -161,6 +179,32 @@ export default function DashboardPage() {
 
     fetchTramites()
   }, [user, userData])
+
+  const handleOpenDetail = useCallback(async (item: TramiteData) => {
+    setSelectedTramiteId(item.documentoId)
+    setSelectedRecordId(item.recordId)
+    setDetailData(item) // Set initial data from the list item to ensure consistency and avoid "1" position flickering
+    setIsModalOpen(true)
+    setDetailLoading(true)
+    
+    try {
+      const result = await getMiTramiteDetalleCliente(item.documentoId, item.recordId)
+      // Merge official detail data, prioritizing what's returned from the specialized endpoint
+      if (result && result.data) {
+        setDetailData(prev => ({ 
+          ...prev, 
+          ...result.data,
+          // If the list item has a valid position that is different from 1, and the API returns 1, 
+          // we might want to investigate, but for now we prioritize current list data if API seems suspicious.
+          // However, usually we trust API. Let's trust API but ensure field mismatch is handled.
+        }))
+      }
+    } catch (err) {
+      console.error('Error loading detail:', err)
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
 
   if (loading || pageLoading) {
     return (
@@ -310,7 +354,9 @@ export default function DashboardPage() {
 
               <div className={cn(
                 "grid gap-6",
-                tramites.length === 1 ? "grid-cols-1 max-w-3xl mx-auto" : "xl:grid-cols-2"
+                tramites.length === 1 ? "grid-cols-1 max-w-3xl mx-auto" : 
+                tramites.length === 2 ? "lg:grid-cols-2 max-w-5xl mx-auto" : 
+                "lg:grid-cols-3"
               )}>
                 {tramites.map((item, index) => {
                   const metric = getPrimaryMetric(item)
@@ -322,87 +368,61 @@ export default function DashboardPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 * index }}
                       whileHover={{ y: -5 }}
-                      className="group"
+                      className="group relative"
                     >
-                      <Card className="overflow-hidden border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 border relative">
-                        {/* Indicador de posición alta */}
-                        {metric.value <= 10 && (
-                          <div className="absolute top-0 right-10 transform -translate-y-1/2 ">
-                            <div className="bg-primary text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-primary/30 uppercase tracking-widest flex items-center gap-1.5 border-2 border-white dark:border-slate-900">
-                              <TrendingUp className="h-3 w-3" />
-                              Prioridad Alta
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="p-8 lg:p-10 space-y-8">
+                      <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm group-hover:shadow-2xl group-hover:shadow-primary/5 transition-all duration-500 border relative overflow-visible h-full flex flex-col">
+                        <div className="p-6 lg:p-7 space-y-6 flex-1 flex flex-col">
                           {/* Header de la tarjeta */}
-                          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-                            <div className="space-y-3">
-                              <div className="inline-block px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-2 min-w-0 flex-1">
+                              <div className="inline-block px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">
                                 {NOMBRES_TIPOS[item.tipoDocumento]}
                               </div>
-                              <h3 className="text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
                                 {getTramiteSubtitle(item)}
                               </h3>
                             </div>
                             
-                            <div className="rounded-[2.5rem] bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-6 lg:p-8 text-center min-w-[140px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-2">
-                                {metric.label}
+                            <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500 shrink-0">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
+                                {metric.label.split(' ').pop()}
                               </p>
                               <div className="flex items-baseline justify-center gap-1">
-                                <span className="text-5xl lg:text-6xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
+                                <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
                                   {metric.value}
                                 </span>
                               </div>
-                              <p className="text-xs font-black text-slate-400 group-hover:text-white/60 transition-colors mt-2 uppercase tracking-widest">
-                                de {metric.total} total
-                              </p>
                             </div>
                           </div>
 
-                          {/* Info Grid */}
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="relative overflow-hidden rounded-3xl bg-slate-50 dark:bg-slate-800/40 p-5 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors group/item">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Categoría</p>
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center group-hover/item:scale-110 transition-transform">
-                                  <Briefcase className="h-4 w-4 text-primary" />
-                                </div>
-                                <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight truncate">
-                                  {item.categoria}
-                                </span>
+                          {/* Info Row (Categoría y Zona compactas) */}
+                          <div className="flex flex-col gap-3 py-4 border-y border-slate-50 dark:border-slate-800/50 mt-auto">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                <Briefcase className="h-3.5 w-3.5 text-primary/70 shrink-0" />
                               </div>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                                {item.categoria}
+                              </span>
                             </div>
-
-                            <div className="relative overflow-hidden rounded-3xl bg-slate-50 dark:bg-slate-800/40 p-5 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors group/item">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Zona Operativa</p>
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center group-hover/item:scale-110 transition-transform">
-                                  <MapPin className="h-4 w-4 text-primary" />
-                                </div>
-                                <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight truncate">
-                                  {item.zona}
-                                </span>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                <MapPin className="h-3.5 w-3.5 text-primary/70 shrink-0" />
                               </div>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                                {item.zona}
+                              </span>
                             </div>
                           </div>
 
-                          {/* Footer de la tarjeta */}
-                          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center gap-3">
-                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                             <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">
-                               Matrícula verificada: <span className="text-slate-900 dark:text-white font-black">{item.matricula}</span>
-                             </p>
-                            </div>
+                          {/* Footer Acción */}
+                          <div className="pt-2">
                             <Button
-                              onClick={() => router.push(`/dashboard/tramites/${item.documentoId}${item.recordId ? `?recordId=${encodeURIComponent(item.recordId)}` : ''}`)}
-                              className="w-full sm:w-auto rounded-2xl h-12 px-8 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-all group/btn shadow-lg hover:shadow-primary/20"
+                              onClick={() => handleOpenDetail(item)}
+                              className="w-full rounded-2xl h-12 px-6 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-all group/btn shadow-md hover:shadow-primary/20 text-xs uppercase tracking-widest border-none"
                             >
-                              VER DETALLES COMPLETOS
-                              <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                              VER DETALLES
+                              <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
                             </Button>
                           </div>
                         </div>
@@ -414,6 +434,140 @@ export default function DashboardPage() {
             </motion.section>
           )}
         </AnimatePresence>
+
+        {/* PREMIUM DETAIL MODAL */}
+        <Dialog open={isModalOpen} onOpenChange={(open) => {
+          setIsModalOpen(open)
+          if (!open) setDetailData(null)
+        }}>
+          <DialogContent className="max-w-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2.5rem] p-0 overflow-hidden shadow-2xl transition-all duration-500">
+            <div className="relative">
+              {/* Decorative Background */}
+              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
+              
+              <div className="relative p-8 lg:p-10">
+                <DialogHeader className="flex flex-row items-center justify-between mb-8">
+                  <div className="space-y-1 text-left">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary mb-2">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Detalle de Trámite
+                    </div>
+                    {detailData && (
+                      <DialogTitle className="text-2xl lg:text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
+                        {NOMBRES_TIPOS[detailData.tipoDocumento]}
+                      </DialogTitle>
+                    )}
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setIsModalOpen(false)}
+                    className="rounded-full h-10 w-10 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </DialogHeader>
+
+                <AnimatePresence mode="wait">
+                  {detailLoading ? (
+                    <motion.div 
+                      key="loading"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col items-center justify-center py-20 gap-4"
+                    >
+                      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">Obteniendo escalafón oficial...</p>
+                    </motion.div>
+                  ) : detailData ? (
+                    <motion.div 
+                      key="content"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-8"
+                    >
+                      {/* Main Rank Section */}
+                      <div className="relative overflow-hidden group rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 p-10 text-center shadow-xl shadow-slate-200/50 dark:shadow-black/20">
+                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                          <TrendingUp className="w-32 h-32" />
+                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 tracking-widest">Tu Posición Vigente</p>
+                        <div className="flex items-center justify-center gap-2">
+                           <span className="text-8xl font-black text-white tracking-tighter leading-none">
+                             {getPrimaryMetric(detailData).value}
+                           </span>
+                        </div>
+                      </div>
+
+                      {/* Info Sections */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Categoría Oficial</p>
+                          <div className="flex items-start gap-3">
+                            <Briefcase className="h-4 w-4 text-primary mt-1 shrink-0" />
+                            <span className="text-base font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
+                              {detailData.categoria}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Zona Operativa</p>
+                          <div className="flex items-start gap-3">
+                            <MapPin className="h-4 w-4 text-primary mt-1 shrink-0" />
+                            <span className="text-base font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
+                              {detailData.zona}
+                            </span>
+                          </div>
+                        </div>
+
+                        {detailData.adscripcionNueva && (
+                          <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 md:col-span-2 space-y-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Detalle de Solicitud</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <Building2 className="h-4 w-4 text-primary mt-1 shrink-0" />
+                                <span className="text-base font-black text-slate-900 dark:text-white uppercase leading-tight">
+                                  {detailData.adscripcionNueva}
+                                </span>
+                              </div>
+                              {(detailData.turnoNuevo || detailData.turnoNueva) && (
+                                <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm self-start sm:self-auto border border-primary/20">
+                                  {getTurnoLabel(detailData.turnoNuevo || detailData.turnoNueva)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Official Statement */}
+                      <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-500/5 border border-emerald-500/10">
+                        <ShieldCheck className="h-5 w-5 text-emerald-600 mt-1" />
+                        <div className="text-left">
+                          <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-tight mb-1">Información Verificada</p>
+                          <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
+                            Este ranking es calculado según el corte quincenal oficial. Cualquier duda contacta a tu representante sindical de la Sección VII.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-4">
+                        <Button
+                          onClick={() => setIsModalOpen(false)}
+                          className="w-full rounded-2xl h-14 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-xl"
+                        >
+                          CERRAR VENTANA
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </main>
   )
