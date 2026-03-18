@@ -133,7 +133,10 @@ export async function parsePDF(
   }
 }
 
-import { MAPEO_TIPOS_ARCHIVO } from '@/types/bolsa-de-trabajo'
+import {
+  detectarTipoDocumentoPorNombre,
+  normalizarNombreDocumentoBolsa,
+} from '@/types/bolsa-de-trabajo'
 
 /**
  * Detectar el tipo de documento basado en el nombre del archivo o contenido
@@ -143,81 +146,52 @@ export function detectarTipoDocumento(
   contenido?: string
 ): TipoBolsaDeTrabajo | null {
   if (nombreArchivo) {
-    const nombreUpper = nombreArchivo.normalize('NFC').toUpperCase()
-
-    // 1. Intentar con el mapeo exacto
-    for (const [key, value] of Object.entries(MAPEO_TIPOS_ARCHIVO)) {
-      if (nombreUpper.includes(key.normalize('NFC').toUpperCase())) {
-        return value
-      }
-    }
-
-    // 2. Fallbacks flexibles (por si el nombre no es exacto)
-    if (nombreUpper.includes('AMPLIACIONES') && nombreUpper.includes('JORNADA')) {
-      return 'AMPLIACIONES_JORNADA'
-    }
-    if (nombreUpper.includes('CAMBIOS') && nombreUpper.includes('ÁREA')) {
-      return 'CAMBIOS_AREA'
-    }
-    if (nombreUpper.includes('CAMBIOS') && nombreUpper.includes('RAMA')) {
-      return 'CAMBIOS_RAMA'
-    }
-    if (nombreUpper.includes('CAMBIOS') && nombreUpper.includes('RESIDENCIA') && nombreUpper.includes('DESTINO')) {
-      return 'CAMBIOS_RESIDENCIA_DESTINO'
-    }
-    if (nombreUpper.includes('CAMBIOS') && nombreUpper.includes('RESIDENCIA') && nombreUpper.includes('ORIGEN')) {
-      return 'CAMBIOS_RESIDENCIA_ORIGEN'
-    }
-    if (nombreUpper.includes('CAMBIOS') && nombreUpper.includes('TIPO') && nombreUpper.includes('PLAZA')) {
-      return 'CAMBIOS_TIPO_PLAZA'
-    }
-    if (nombreUpper.includes('CAMBIOS') && (nombreUpper.includes('TURNO') || nombreUpper.includes('ADSCRIPCIÓN'))) {
-      return 'CAMBIOS_TURNO_ADSCRIPCION'
-    }
-    if (nombreUpper.includes('NUEVO') && nombreUpper.includes('INGRESO')) {
-      return 'NUEVO_INGRESO'
+    const detectedByName = detectarTipoDocumentoPorNombre(nombreArchivo)
+    if (detectedByName) {
+      return detectedByName
     }
   }
 
   // Intentar detectar por contenido si no se pudo por nombre
   if (contenido) {
-    const contenidoNorm = contenido.normalize('NFC')
-    const contenidoUpper = contenidoNorm.toUpperCase()
-    const primerasLineas = contenidoNorm.split('\n').slice(0, 30).join(' ').toUpperCase()
+    const contenidoNormalizado = normalizarNombreDocumentoBolsa(contenido)
+    const primerasLineas = normalizarNombreDocumentoBolsa(
+      contenido.split('\n').slice(0, 30).join(' ')
+    )
 
     // Detectar NUEVO INGRESO por el formato característico de columnas
     // Buscar patrones como "No. Prog", "Nombre", "Matrícula", "Fecha de Registro"
     if (
-      (primerasLineas.includes('NO. PROG') || primerasLineas.includes('NO PROG')) &&
+      primerasLineas.includes('NO PROG') &&
       primerasLineas.includes('NOMBRE') &&
-      primerasLineas.includes('MATRÍCULA') &&
+      primerasLineas.includes('MATRICULA') &&
       (primerasLineas.includes('FECHA DE REGISTRO') || primerasLineas.includes('FECHA'))
     ) {
       return 'NUEVO_INGRESO'
     }
 
-    if (contenidoUpper.includes('LISTADO DE AMPLIACIONES DE JORNADA')) {
+    if (contenidoNormalizado.includes('LISTADO DE AMPLIACIONES DE JORNADA')) {
       return 'AMPLIACIONES_JORNADA'
     }
-    if (contenidoUpper.includes('LISTADO DE CAMBIOS DE ÁREA')) {
+    if (contenidoNormalizado.includes('LISTADO DE CAMBIOS DE AREA')) {
       return 'CAMBIOS_AREA'
     }
-    if (contenidoUpper.includes('LISTADO DE CAMBIOS DE RAMA')) {
+    if (contenidoNormalizado.includes('LISTADO DE CAMBIOS DE RAMA')) {
       return 'CAMBIOS_RAMA'
     }
-    if (contenidoUpper.includes('LISTADO DE CAMBIOS DE RESIDENCIA') && contenidoUpper.includes('DESTINO')) {
+    if (contenidoNormalizado.includes('LISTADO DE CAMBIOS DE RESIDENCIA') && contenidoNormalizado.includes('DESTINO')) {
       return 'CAMBIOS_RESIDENCIA_DESTINO'
     }
-    if (contenidoUpper.includes('LISTADO DE CAMBIOS DE RESIDENCIA') && contenidoUpper.includes('ORIGEN')) {
+    if (contenidoNormalizado.includes('LISTADO DE CAMBIOS DE RESIDENCIA') && contenidoNormalizado.includes('ORIGEN')) {
       return 'CAMBIOS_RESIDENCIA_ORIGEN'
     }
-    if (contenidoUpper.includes('LISTADO DE CAMBIOS DE TIPO DE PLAZA')) {
+    if (contenidoNormalizado.includes('LISTADO DE CAMBIOS DE TIPO DE PLAZA')) {
       return 'CAMBIOS_TIPO_PLAZA'
     }
-    if (contenidoUpper.includes('LISTADO DE CAMBIOS DE TURNO') || contenidoUpper.includes('ADSCRIPCIÓN')) {
+    if (contenidoNormalizado.includes('LISTADO DE CAMBIOS DE TURNO') || contenidoNormalizado.includes('ADSCRIPCION')) {
       return 'CAMBIOS_TURNO_ADSCRIPCION'
     }
-    if (contenidoUpper.includes('LISTADO DE CANDIDATOS DE NUEVO INGRESO') || contenidoUpper.includes('NUEVO INGRESO')) {
+    if (contenidoNormalizado.includes('LISTADO DE CANDIDATOS DE NUEVO INGRESO') || contenidoNormalizado.includes('NUEVO INGRESO')) {
       return 'NUEVO_INGRESO'
     }
   }

@@ -1,26 +1,121 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parsePDF, detectarTipoDocumento } from '@/lib/pdf/parser'
 import { parseExcel } from '@/lib/excel/parsers/excelParser'
-import {
-  createBolsaDeTrabajoDocumento,
-  updateBolsaDeTrabajoDocumento,
-  updateEstadoDocumento,
-  guardarRegistrosEnSubcoleccion,
-  reemplazarRegistrosEnSubcoleccion,
-  getBolsaDeTrabajoDocumentoBySyncAndTipo,
-} from '@/lib/firebase/bolsa-de-trabajo'
 import { writeAdminAuditLog } from '@/lib/firebase/admin-audit'
+import { adminDb } from '@/lib/firebase/admin'
 import { requireAdminRequest } from '@/lib/firebase/server-auth'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
+import type { BolsaDeTrabajoDocumento, BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import { Timestamp } from 'firebase-admin/firestore'
 
 export const dynamic = 'force-dynamic'
 
 const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
 const PDF_MIME = 'application/pdf'
+const COLECCION = 'bolsa_de_trabajo_documentos'
+const SUBCOLECCION_REGISTROS = 'registros'
 const EXCEL_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.ms-excel',
 ]
+
+function toAdminTimestamp(value: Date | unknown) {
+  return value instanceof Date ? Timestamp.fromDate(value) : value
+}
+
+async function getDocumentoExistentePorSyncYTipo(
+  syncId: string,
+  tipo: TipoBolsaDeTrabajo
+): Promise<BolsaDeTrabajoDocumento | null> {
+  const snapshot = await adminDb
+    .collection(COLECCION)
+    .where('syncId', '==', syncId)
+    .where('tipo', '==', tipo)
+    .limit(1)
+    .get()
+
+  if (snapshot.empty) {
+    return null
+  }
+
+  const doc = snapshot.docs[0]
+  const data = doc.data() as BolsaDeTrabajoDocumento
+  return {
+    ...data,
+    id: doc.id,
+    registros: [],
+  }
+}
+
+async function createDocumentoAdmin(documento: Omit<BolsaDeTrabajoDocumento, 'id'>): Promise<string> {
+  const docRef = await adminDb.collection(COLECCION).add({
+    ...documento,
+    fechaCarga: toAdminTimestamp(documento.fechaCarga),
+    fechaActualizacion: toAdminTimestamp(documento.fechaActualizacion),
+  })
+
+  return docRef.id
+}
+
+async function updateDocumentoAdmin(
+  id: string,
+  actualizaciones: Partial<Omit<BolsaDeTrabajoDocumento, 'registros'>>
+): Promise<void> {
+  const datosActualizados: Record<string, unknown> = { ...actualizaciones }
+
+  if (actualizaciones.fechaCarga instanceof Date) {
+    datosActualizados.fechaCarga = Timestamp.fromDate(actualizaciones.fechaCarga)
+  }
+  if (actualizaciones.fechaActualizacion instanceof Date) {
+    datosActualizados.fechaActualizacion = Timestamp.fromDate(actualizaciones.fechaActualizacion)
+  }
+
+  delete datosActualizados.id
+  delete datosActualizados.registros
+
+  await adminDb.collection(COLECCION).doc(id).update(datosActualizados)
+}
+
+async function updateEstadoDocumentoAdmin(id: string, estado: BolsaDeTrabajoDocumento['estado']): Promise<void> {
+  await updateDocumentoAdmin(id, { estado })
+}
+
+async function guardarRegistrosAdmin(documentoId: string, registros: BolsaDeTrabajoRegistro[]): Promise<void> {
+  const BATCH_SIZE = 500
+  const registrosRef = adminDb.collection(COLECCION).doc(documentoId).collection(SUBCOLECCION_REGISTROS)
+
+  for (let i = 0; i < registros.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch()
+    const lote = registros.slice(i, i + BATCH_SIZE)
+
+    lote.forEach((registro) => {
+      const registroLimpio = Object.fromEntries(
+        Object.entries(registro).filter(([, value]) => value !== undefined)
+      )
+      batch.set(registrosRef.doc(registro.id), registroLimpio)
+    })
+
+    await batch.commit()
+  }
+}
+
+async function reemplazarRegistrosAdmin(documentoId: string, registros: BolsaDeTrabajoRegistro[]): Promise<void> {
+  const registrosRef = adminDb.collection(COLECCION).doc(documentoId).collection(SUBCOLECCION_REGISTROS)
+  const existentes = await registrosRef.get()
+
+  if (!existentes.empty) {
+    const BATCH_SIZE = 500
+    const docs = existentes.docs
+
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const batch = adminDb.batch()
+      docs.slice(i, i + BATCH_SIZE).forEach((docSnap) => batch.delete(docSnap.ref))
+      await batch.commit()
+    }
+  }
+
+  await guardarRegistrosAdmin(documentoId, registros)
+}
 
 export async function POST(request: NextRequest) {
   let adminUser: Awaited<ReturnType<typeof requireAdminRequest>> | null = null
@@ -103,10 +198,10 @@ export async function POST(request: NextRequest) {
     // Crear o reutilizar documento inicial con estado PROCESANDO
     const ahora = new Date()
     const documentoExistente = syncId
-      ? await getBolsaDeTrabajoDocumentoBySyncAndTipo(syncId, tipoDocumento)
+      ? await getDocumentoExistentePorSyncYTipo(syncId, tipoDocumento)
       : null
 
-    const documentoId = documentoExistente?.id || await createBolsaDeTrabajoDocumento({
+    const documentoId = documentoExistente?.id || await createDocumentoAdmin({
       tipo: tipoDocumento,
       syncId,
       fechaActualizacion: ahora,
@@ -130,7 +225,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (documentoExistente?.id) {
-      await updateBolsaDeTrabajoDocumento(documentoId, {
+      await updateDocumentoAdmin(documentoId, {
         fechaActualizacion: ahora,
         fechaCarga: ahora,
         subidoPor: adminUser.uid,
@@ -205,7 +300,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (error: any) {
       console.error('Error parseando archivo:', error)
-      await updateEstadoDocumento(documentoId, 'ERROR')
+      await updateEstadoDocumentoAdmin(documentoId, 'ERROR')
       return NextResponse.json(
         { error: `Error procesando archivo: ${error.message}` },
         { status: 500 }
@@ -231,13 +326,13 @@ export async function POST(request: NextRequest) {
 
     // Guardar o reemplazar registros en subcolección (evita límite de tamaño)
     if (documentoExistente?.id) {
-      await reemplazarRegistrosEnSubcoleccion(documentoId, resultadoParse.registros)
+      await reemplazarRegistrosAdmin(documentoId, resultadoParse.registros)
     } else {
-      await guardarRegistrosEnSubcoleccion(documentoId, resultadoParse.registros)
+      await guardarRegistrosAdmin(documentoId, resultadoParse.registros)
     }
 
     // Actualizar documento principal (sin registros)
-    await updateBolsaDeTrabajoDocumento(documentoId, {
+    await updateDocumentoAdmin(documentoId, {
       urlArchivo: urlArchivo || '',
       estado: resultadoParse.registros.length > 0 ? 'COMPLETADO' : 'VALIDANDO',
       metadata: {

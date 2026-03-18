@@ -139,6 +139,13 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => a.tipoDocumento.localeCompare(b.tipoDocumento))
 
+    if (tramites.length === 0) {
+      return NextResponse.json({
+        error: 'No se encontraron trámites vigentes para la matrícula autenticada.',
+        matricula,
+      }, { status: 404 })
+    }
+
     return NextResponse.json({
       success: true,
       matricula,

@@ -47,6 +47,7 @@ const convertirDocumento = (doc: any, incluirRegistros: boolean = false): BolsaD
   const data = doc.data()
   return {
     id: doc.id,
+    syncId: data.syncId,
     tipo: data.tipo,
     fechaActualizacion: convertirTimestamp(data.fechaActualizacion),
     fechaCarga: convertirTimestamp(data.fechaCarga),
@@ -211,7 +212,19 @@ export const getBolsaDeTrabajoDocumentoById = async (
 export const getBolsaDeTrabajoDocumentoHead = async (
   id: string
 ): Promise<BolsaDeTrabajoDocumento | null> => {
-  return getBolsaDeTrabajoDocumentoById(id, false)
+  try {
+    const docRef = doc(db, COLECCION, id)
+    const docSnap = await getDoc(docRef)
+
+    if (!docSnap.exists()) {
+      return null
+    }
+
+    return convertirDocumento(docSnap, false)
+  } catch (error) {
+    console.error('Error obteniendo encabezado de documento:', error)
+    throw error
+  }
 }
 
 // Obtener todos los documentos con filtros opcionales
@@ -292,6 +305,34 @@ export const getBolsaDeTrabajoDocumentosBySyncId = async (
     return querySnapshot.docs.map(doc => convertirDocumento(doc))
   } catch (error) {
     console.error('Error obteniendo documentos por sincronización:', error)
+    throw error
+  }
+}
+
+export const getBolsaDeTrabajoDocumentosBySyncIds = async (
+  syncIds: string[]
+): Promise<BolsaDeTrabajoDocumento[]> => {
+  if (syncIds.length === 0) return []
+  try {
+    // Firestore 'in' limit is 10 items. We process in chunks of 10.
+    const CHUNK_SIZE = 10
+    const results: BolsaDeTrabajoDocumento[] = []
+    
+    for (let i = 0; i < syncIds.length; i += CHUNK_SIZE) {
+      const chunk = syncIds.slice(i, i + CHUNK_SIZE)
+      const q = query(
+        collection(db, COLECCION),
+        where('syncId', 'in', chunk),
+        orderBy('fechaCarga', 'desc')
+      )
+      const querySnapshot = await getDocs(q)
+      const chunkDocs = querySnapshot.docs.map(doc => convertirDocumento(doc))
+      results.push(...chunkDocs)
+    }
+    
+    return results
+  } catch (error) {
+    console.error('Error obteniendo documentos por múltiples sincronizaciones:', error)
     throw error
   }
 }

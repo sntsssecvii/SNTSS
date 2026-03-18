@@ -87,7 +87,7 @@ function getSummaryNote(data: PosicionData) {
         case 'CAMBIOS_RESIDENCIA_DESTINO':
             return `Se encontraron ${data.totalEnCategoria} registros comparables para tu zona${data.turnoNuevo ? ` y turno ${data.turnoNuevo}` : ''}.`
         case 'AMPLIACIONES_JORNADA':
-            return `Se encontraron ${data.totalEnCategoria} solicitudes comparables para la jornada y adscripción solicitadas.`
+            return `Se encontraron ${data.totalEnCategoria} solicitudes comparables para la jornada${data.turnoNuevo ? `, turno ${data.turnoNuevo}` : ''} y adscripción solicitadas.`
         case 'CAMBIOS_TURNO_ADSCRIPCION':
             return `Se encontraron ${data.totalEnCategoria} solicitudes similares en tu grupo comparable.`
         default:

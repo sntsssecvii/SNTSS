@@ -71,6 +71,8 @@ export async function GET(
       return NextResponse.json({ error: 'El trámite no pertenece al corte oficial vigente.' }, { status: 404 })
     }
 
+    const tipoDocumento = documentoSnap.get('tipo') as TipoBolsaDeTrabajo
+
     const posiciones = (await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula))
       .filter((item) => item.recordId?.trim())
     const resultado = posiciones.find((item) =>
@@ -78,7 +80,6 @@ export async function GET(
     )
 
     if (!resultado) {
-      const tipoDocumento = documentoSnap.get('tipo') as TipoBolsaDeTrabajo
       const registrosWorkerSnap = await documentoRef
         .collection('registros')
         .where('matricula', '==', matricula)
@@ -136,6 +137,7 @@ export async function GET(
       success: true,
       data: {
         ...resultado,
+        tipoDocumento,
         documentoId,
         registro: resultado.grupoComparable?.registro,
       },
