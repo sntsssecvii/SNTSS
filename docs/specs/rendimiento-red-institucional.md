@@ -98,3 +98,86 @@ Reducir el tiempo de carga percibido y la sensibilidad a una red institucional l
   - paginación por cursor
   - filtros server-side
   - realtime sólo donde aporte valor operativo real
+
+## Clasificacion inicial de vistas y rutas
+
+### Prioridad alta
+
+- [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/trabajador/posicion/route.ts)
+  - riesgo: muy alto
+  - patrón actual: busca sync activa, escanea documentos de la sync, hace búsquedas por matrícula y carga subcolección completa para cálculo
+  - motivo: consulta pública sensible a latencia y con patrón de scans
+- [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/trabajador/mis-tramites/route.ts)
+  - riesgo: alto
+  - patrón actual: ya usa materializados, pero conserva fallback caro que escanea documentos y subcolecciones si faltan lookups
+  - motivo: portal trabajador es de alto impacto y uso frecuente
+- [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/trabajador/mis-tramites/[documentoId]/route.ts)
+  - riesgo: alto
+  - patrón actual: lookup materializado con fallback costoso por documento
+  - motivo: detalle puntual del trabajador y dependencia de materialización consistente
+- [analytics.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/lib/firebase/analytics.ts)
+  - riesgo: muy alto
+  - patrón actual: múltiples `getDocs()` completos, ciclos por mes/estado y conteos reconstruidos en cliente
+  - motivo: dashboards y métricas pueden explotar latencia y lecturas
+- [DashboardChips.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/admin/DashboardChips.tsx)
+  - riesgo: alto
+  - patrón actual: consultas cliente directas a Firestore para conteos al entrar al admin
+  - motivo: admin landing debe cargar rápido y hoy depende de lecturas remotas
+
+### Prioridad media
+
+- [Sidebar.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/Sidebar.tsx)
+  - riesgo: medio-alto
+  - patrón actual: `onSnapshot` para pendientes
+  - motivo: listener persistente en navegación global
+- [AdminValidacion.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/admin/AdminValidacion.tsx)
+  - riesgo: medio-alto
+  - patrón actual: `onSnapshot` y filtros cliente sobre colección de usuarios
+  - motivo: pantalla crítica de admin, pero no tan frecuente como dashboard trabajador
+- [validaciones/page.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/app/(main)/admin/validaciones/page.tsx)
+  - riesgo: medio-alto
+  - patrón actual: varios listeners para contadores por estado
+  - motivo: puede degradar mucho en red institucional con conexiones largas
+- [bolsa-de-trabajo.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/lib/firebase/bolsa-de-trabajo.ts)
+  - riesgo: medio-alto
+  - patrón actual: listados y filtros cliente con `getDocs()`, lecturas de subcolección y agregación en cliente
+  - motivo: tablas grandes y carga administrativa
+- [page.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/app/(main)/admin/page.tsx)
+  - riesgo: medio
+  - patrón actual: depende de componentes hijo que leen métricas y grids en cliente
+  - motivo: landing admin con posibilidad de mejora rápida vía endpoint agregado
+
+### Prioridad baja
+
+- [page.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/app/(auth)/registro/page.tsx)
+  - riesgo: bajo tras ajustes recientes
+  - patrón actual: costo visual reducido y sin validación pesada de CURP
+  - motivo: problema principal era render, no lecturas de datos masivos
+- [page.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/app/(main)/dashboard/page.tsx)
+  - riesgo: bajo-medio
+  - patrón actual: depende de API propia y modal de detalle
+  - motivo: el riesgo quedó más concentrado en sus endpoints que en la vista
+- [page.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/app/(public)/bolsa-de-trabajo/resultado/[matricula]/page.tsx)
+  - riesgo: medio por endpoint asociado, no por render propio
+  - motivo: el problema real vive en la API pública de posición
+
+## Avance implementado
+
+### Fase 2 parcial completada
+
+- Portal trabajador:
+  - [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/trabajador/posicion/route.ts) ahora prioriza lookup materializado por matrícula y sólo cae al camino legacy cuando no hay materializados válidos.
+  - [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/trabajador/mis-tramites/route.ts) y [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/trabajador/mis-tramites/[documentoId]/route.ts) dejaron de hacer fallback caro; ahora fallan rápido si la sync oficial aún no está materializada.
+- Admin dashboard:
+  - [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/admin/dashboard-chips/route.ts) centraliza chips del landing admin en una sola API protegida.
+  - [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/admin/estadisticas/resumen/route.ts) concentra métricas y gráficos en backend para evitar múltiples lecturas desde cliente.
+  - [DashboardChips.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/admin/DashboardChips.tsx), [DashboardStats.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/admin/estadisticas/DashboardStats.tsx) y [DashboardCharts.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/admin/estadisticas/DashboardCharts.tsx) ya consumen endpoints backend en vez de Firestore cliente.
+- Validaciones admin:
+  - [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/admin/validaciones/resumen/route.ts), [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/admin/validaciones/solicitudes/route.ts) y [route.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/app/api/admin/validaciones/solicitudes/[uid]/route.ts) sustituyen listeners y escrituras directas desde navegador.
+  - [Sidebar.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/Sidebar.tsx), [AdminValidacion.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/components/admin/AdminValidacion.tsx) y [page.tsx](/Users/gerardoarroyo/Desktop/SNTSS/src/app/(main)/admin/validaciones/page.tsx) ahora usan fetch autenticado con polling controlado.
+
+### Pendientes abiertos de la fase
+
+- Revisar si [analytics.ts](/Users/gerardoarroyo/Desktop/SNTSS/src/lib/firebase/analytics.ts) todavía conserva caminos cliente no cubiertos por los nuevos endpoints admin.
+- Confirmar si tablas grandes de bolsa requieren ya paginación server-side o si pueden esperar a la siguiente fase.
+- Medir en uso real de Firebase si la caída de listeners/lecturas en admin y portal se refleja en la red institucional objetivo.

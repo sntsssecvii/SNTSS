@@ -99,3 +99,13 @@ export async function getBolsaPosicionesMaterializadasPorMatricula(
 
   return snapshot.docs.map((doc) => doc.data() as BolsaPosicionMaterializada)
 }
+
+export async function hasBolsaPosicionesMaterializadasForSync(syncId: string): Promise<boolean> {
+  const snapshot = await adminDb
+    .collection(POSITION_LOOKUP_COLLECTION)
+    .where('syncId', '==', syncId)
+    .limit(1)
+    .get()
+
+  return !snapshot.empty
+}

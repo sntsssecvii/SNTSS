@@ -1,12 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { auth } from '@/lib/firebase/firebase-client'
 import { motion } from 'framer-motion'
 import { BarChart3, PieChart, TrendingUp, Calendar } from 'lucide-react'
-import {
-  getPropuestasPorMes,
-  getDistribucionPorEstado,
-} from '@/lib/firebase/analytics'
 import { EstadoPropuesta } from '@/types/workflow'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -19,6 +16,16 @@ interface ChartData {
 interface BarChartItem {
   month: string
   cantidad: number
+}
+
+interface EstadisticasResumenChartsResponse {
+  success: boolean
+  data: {
+    charts: {
+      propuestasPorMes: Array<{ mes: string; cantidad: number }>
+      distribucionPorEstado: Record<string, number>
+    }
+  }
 }
 
 const ESTADO_COLORS: Record<EstadoPropuesta, string> = {
@@ -48,12 +55,27 @@ export default function DashboardCharts() {
     const cargarDatos = async () => {
       try {
         setLoading(true)
-        
-        // Cargar datos en paralelo
-        const [mesData, distribucion] = await Promise.all([
-          getPropuestasPorMes(),
-          getDistribucionPorEstado(),
-        ])
+        const currentUser = auth.currentUser
+        if (!currentUser) {
+          throw new Error('No se pudo validar la sesión del administrador.')
+        }
+
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch('/api/admin/estadisticas/resumen', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        })
+
+        const payload = await response.json() as EstadisticasResumenChartsResponse & { error?: string }
+
+        if (!response.ok || !payload?.data?.charts) {
+          throw new Error(payload?.error || 'No se pudieron cargar los gráficos.')
+        }
+
+        const mesData = payload.data.charts.propuestasPorMes
+        const distribucion = payload.data.charts.distribucionPorEstado
 
         // Formatear datos de barras
         setBarData(mesData.map(item => ({ month: item.mes, cantidad: item.cantidad })))

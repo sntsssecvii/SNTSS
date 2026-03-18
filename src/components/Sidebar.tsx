@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import Image from 'next/image'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
-import { db } from '@/lib/firebase/firebase-client'
 import {
   LayoutDashboard,
   FileText,
@@ -124,14 +122,44 @@ export function Sidebar() {
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
-    if (userData?.role?.toUpperCase() !== 'ADMIN') return
+    if (userData?.role?.toUpperCase() !== 'ADMIN') {
+      setPendingCount(0)
+      return
+    }
 
-    const q = query(collection(db, 'users'), where('status', '==', 'pending'))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setPendingCount(snapshot.size)
-    })
+    let cancelled = false
 
-    return () => unsubscribe()
+    const loadPendingCount = async () => {
+      try {
+        const currentUser = auth.currentUser
+        if (!currentUser) return
+
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch('/api/admin/validaciones/resumen', {
+          headers: { Authorization: `Bearer ${idToken}` },
+          cache: 'no-store',
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP_${response.status}`)
+        }
+
+        const payload = await response.json()
+        if (!cancelled) {
+          setPendingCount(payload?.data?.pending ?? 0)
+        }
+      } catch (error) {
+        console.error('Error obteniendo badge de validaciones:', error)
+      }
+    }
+
+    loadPendingCount()
+    const intervalId = window.setInterval(loadPendingCount, 60_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
   }, [userData])
 
   const handleLogout = async () => {

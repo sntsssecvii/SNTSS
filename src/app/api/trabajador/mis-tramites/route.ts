@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
-import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
-import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
-import { getBolsaPosicionesMaterializadasPorMatricula } from '@/lib/firebase/bolsa-posiciones-materializadas'
+import {
+  getBolsaPosicionesMaterializadasPorMatricula,
+  hasBolsaPosicionesMaterializadasForSync,
+} from '@/lib/firebase/bolsa-posiciones-materializadas'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
-import type { BolsaDeTrabajoRegistro, Sincronizacion, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import type { Sincronizacion } from '@/types/bolsa-de-trabajo'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,72 +65,18 @@ export async function GET(request: NextRequest) {
       .filter(hasUsableMaterializedRecord)
 
     if (tramitesMaterializados.length === 0) {
-      const docsSnap = await adminDb
-        .collection('bolsa_de_trabajo_documentos')
-        .where('syncId', '==', syncActiva.id)
-        .get()
+      const syncMaterialized = await hasBolsaPosicionesMaterializadasForSync(syncActiva.id)
 
-      if (docsSnap.empty) {
-        return NextResponse.json({ error: 'No se encontraron listados para esta quincena.' }, { status: 404 })
-      }
-
-      const resultadosFallback = await Promise.all(docsSnap.docs.map(async (docSnap) => {
-        const tipoDocumento = docSnap.get('tipo') as TipoBolsaDeTrabajo
-        const registrosSnap = await docSnap.ref
-          .collection('registros')
-          .where('matricula', '==', matricula)
-          .get()
-
-        if (registrosSnap.empty) return []
-
-        const allRegistrosSnap = await docSnap.ref.collection('registros').get()
-        const registros = allRegistrosSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as BolsaDeTrabajoRegistro[]
-
-        return registrosSnap.docs
-          .map((registroDoc) => ({
-            id: registroDoc.id,
-            ...registroDoc.data(),
-          }) as BolsaDeTrabajoRegistro)
-          .map((workerRecord) => {
-            const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
-            const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento, {
-              targetRecordId: workerRecord.id,
-            })
-
-            return resultado ? {
-              ...resultado,
-              recordId: workerRecord.id,
-              tipoDocumento,
-              documentoId: docSnap.id,
-            } : null
-          })
-          .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      }))
-
-      const tramitesFallback = resultadosFallback
-        .flat()
-        .sort((a, b) => a.tipoDocumento.localeCompare(b.tipoDocumento))
-
-      if (tramitesFallback.length === 0) {
+      if (!syncMaterialized) {
         return NextResponse.json({
-          error: 'No se encontraron trámites vigentes para la matrícula autenticada.',
-          matricula,
-        }, { status: 404 })
+          error: 'La información del corte oficial todavía se está preparando. Intenta nuevamente en unos minutos.',
+        }, { status: 503 })
       }
 
       return NextResponse.json({
-        success: true,
+        error: 'No se encontraron trámites vigentes para la matrícula autenticada.',
         matricula,
-        data: tramitesFallback,
-        periodo: {
-          anio: syncActiva.anio,
-          mes: syncActiva.mes,
-          quincena: syncActiva.quincena,
-        },
-      })
+      }, { status: 404 })
     }
 
     const tramites = tramitesMaterializados
@@ -172,6 +119,10 @@ export async function GET(request: NextRequest) {
 
     if (error?.code === 'auth/invalid-id-token') {
       return NextResponse.json({ error: 'La sesión no es válida. Vuelve a iniciar sesión.' }, { status: 401 })
+    }
+
+    if (error?.code === 14 || error?.message === 'DEADLINE_EXCEEDED') {
+      return NextResponse.json({ error: 'La consulta tardó demasiado. Intenta de nuevo.' }, { status: 504 })
     }
 
     return NextResponse.json(

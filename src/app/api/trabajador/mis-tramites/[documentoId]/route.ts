@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
-import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
-import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
-import { getBolsaPosicionesMaterializadasPorMatricula } from '@/lib/firebase/bolsa-posiciones-materializadas'
+import {
+  getBolsaPosicionesMaterializadasPorMatricula,
+  hasBolsaPosicionesMaterializadasForSync,
+} from '@/lib/firebase/bolsa-posiciones-materializadas'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
-import type { BolsaDeTrabajoRegistro, Sincronizacion, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import type { Sincronizacion, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,57 +81,15 @@ export async function GET(
     )
 
     if (!resultado) {
-      const registrosWorkerSnap = await documentoRef
-        .collection('registros')
-        .where('matricula', '==', matricula)
-        .get()
+      const syncMaterialized = await hasBolsaPosicionesMaterializadasForSync(syncActiva.id)
 
-      if (registrosWorkerSnap.empty) {
-        return NextResponse.json({ error: 'El trámite solicitado no pertenece al usuario autenticado.' }, { status: 403 })
+      if (!syncMaterialized) {
+        return NextResponse.json({
+          error: 'La información del corte oficial todavía se está preparando. Intenta nuevamente en unos minutos.',
+        }, { status: 503 })
       }
 
-      const workerRecords = registrosWorkerSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as BolsaDeTrabajoRegistro[]
-
-      const workerRecord = recordId
-        ? workerRecords.find((record) => record.id === recordId) || null
-        : workerRecords[0]
-
-      if (!workerRecord) {
-        return NextResponse.json({ error: 'El trámite solicitado no pertenece al usuario autenticado.' }, { status: 403 })
-      }
-
-      const registrosSnap = await documentoRef.collection('registros').get()
-      const registros = registrosSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as BolsaDeTrabajoRegistro[]
-
-      const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
-      const resultadoFallback = calcularPosiciones(comparisonRecords, matricula, tipoDocumento, {
-        targetRecordId: workerRecord.id,
-      })
-
-      if (!resultadoFallback) {
-        return NextResponse.json({ error: 'No se pudo calcular el detalle del trámite.' }, { status: 500 })
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          ...resultadoFallback,
-          recordId: workerRecord.id,
-          tipoDocumento,
-          documentoId,
-        },
-        periodo: {
-          anio: syncActiva.anio,
-          mes: syncActiva.mes,
-          quincena: syncActiva.quincena,
-        },
-      })
+      return NextResponse.json({ error: 'El trámite solicitado no pertenece al usuario autenticado.' }, { status: 403 })
     }
 
     return NextResponse.json({

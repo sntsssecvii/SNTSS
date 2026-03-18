@@ -2,18 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
+import { getBolsaPosicionesMaterializadasPorMatricula } from '@/lib/firebase/bolsa-posiciones-materializadas'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export const dynamic = 'force-dynamic'
 
+function normalizeMatricula(value: string): string {
+    return value.trim().toUpperCase()
+}
+
+function hasUsableMaterializedRecord(record: { recordId?: string | null }) {
+    return Boolean(record.recordId?.trim())
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
-    const matricula = searchParams.get('matricula')
+    const matriculaParam = searchParams.get('matricula')
 
-    if (!matricula) {
+    if (!matriculaParam) {
         return NextResponse.json({ error: 'Matrícula requerida' }, { status: 400 })
     }
+
+    const matricula = normalizeMatricula(matriculaParam)
 
     try {
         enforceRateLimit(request, { bucket: 'api:trabajador:posicion-publica', limit: 20, windowMs: 60_000 })
@@ -33,6 +44,32 @@ export async function GET(request: NextRequest) {
             id: syncDoc.id,
             ...syncDoc.data(),
         } as { id: string; anio: number; mes: number; quincena: number }
+
+        const posicionesMaterializadas = (await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula))
+            .filter(hasUsableMaterializedRecord)
+            .sort((a, b) =>
+                a.tipoDocumento.localeCompare(b.tipoDocumento) ||
+                a.documentoId.localeCompare(b.documentoId) ||
+                (a.recordId || '').localeCompare(b.recordId || '')
+            )
+
+        if (posicionesMaterializadas.length > 0) {
+            const resultado = posicionesMaterializadas[0]
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    ...resultado,
+                    tipoDocumento: resultado.tipoDocumento,
+                    registro: resultado.grupoComparable?.registro,
+                },
+                periodo: {
+                    anio: syncActiva.anio,
+                    mes: syncActiva.mes,
+                    quincena: syncActiva.quincena
+                }
+            })
+        }
 
         // 2. Obtener todos los documentos de esa sincronización
         const snapDocs = await adminDb
