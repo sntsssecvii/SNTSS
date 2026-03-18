@@ -11,28 +11,10 @@ export default function RegistroPage() {
     return (
         <div className="min-h-screen w-full relative overflow-hidden bg-slate-50 flex flex-col selection:bg-red-100 selection:text-red-900">
 
-            {/* Premium Dynamic Background */}
+            {/* Background optimizado: evitar animaciones infinitas y blur excesivo durante escritura */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-                <motion.div
-                    animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.3, 0.5, 0.3],
-                        x: [0, 50, 0],
-                        y: [0, 30, 0]
-                    }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-[-10%] left-[-5%] w-[60%] h-[60%] bg-gradient-to-br from-red-500/10 to-orange-400/5 rounded-full blur-[140px]"
-                />
-                <motion.div
-                    animate={{
-                        scale: [1, 1.3, 1],
-                        opacity: [0.2, 0.4, 0.2],
-                        x: [0, -40, 0],
-                        y: [0, -20, 0]
-                    }}
-                    transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                    className="absolute bottom-[-15%] right-[-5%] w-[50%] h-[50%] bg-gradient-to-tr from-red-900/10 to-red-600/5 rounded-full blur-[120px]"
-                />
+                <div className="absolute top-[-10%] left-[-5%] w-[60%] h-[60%] bg-gradient-to-br from-red-500/10 to-orange-400/5 rounded-full blur-[110px]" />
+                <div className="absolute bottom-[-15%] right-[-5%] w-[50%] h-[50%] bg-gradient-to-tr from-red-900/10 to-red-600/5 rounded-full blur-[90px]" />
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
             </div>
 
@@ -102,8 +84,8 @@ export default function RegistroPage() {
                             transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
                             className="relative group"
                         >
-                            <div className="absolute -inset-2 bg-gradient-to-br from-red-500/10 via-transparent to-orange-500/10 rounded-[3rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                            <div className="relative bg-white/70 backdrop-blur-xl border border-white/60 rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] p-px">
+                            <div className="absolute -inset-2 bg-gradient-to-br from-red-500/10 via-transparent to-orange-500/10 rounded-[3rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                            <div className="relative bg-white/95 border border-white/60 rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] p-px">
                                 <div className="overflow-hidden rounded-[2.5rem]">
                                     <RegistroForm />
                                 </div>

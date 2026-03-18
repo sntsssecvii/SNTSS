@@ -10,11 +10,6 @@ export const registroBaseSchema = z.object({
         .max(10, 'La matrícula debe tener máximo 10 dígitos')
         .regex(/^\d+$/, 'La matrícula solo puede contener números'),
     email: z.string().email('Correo electrónico inválido'),
-    curp: z
-        .string()
-        .length(18, 'La CURP debe tener exactamente 18 caracteres')
-        .regex(/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/, 'Formato de CURP inválido')
-        .transform((val) => val.toUpperCase()),
     password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
     confirmPassword: z.string().min(6, 'Confirmar contraseña'),
 })

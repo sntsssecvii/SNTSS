@@ -91,7 +91,6 @@ export default function RegistroForm() {
                 apellidoMaterno: formData.apellidoMaterno,
                 matricula: formData.matricula,
                 email: formData.email,
-                curp: formData.curp,
                 role: 'user',
                 status: 'pending',
                 documents: {
