@@ -23,18 +23,17 @@ export function materializeDocumentPositions({
   periodo,
   registros,
 }: MaterializeDocumentParams): BolsaPosicionMaterializada[] {
-  const firstRecordByMatricula = new Map<string, BolsaDeTrabajoRegistro>()
+  return registros
+    .map((targetRecord) => {
+      const matricula = targetRecord.matricula?.trim().toUpperCase()
+      if (!matricula) {
+        return null
+      }
 
-  registros.forEach((record) => {
-    const matricula = record.matricula?.trim().toUpperCase()
-    if (!matricula || firstRecordByMatricula.has(matricula)) return
-    firstRecordByMatricula.set(matricula, record)
-  })
-
-  return Array.from(firstRecordByMatricula.entries())
-    .map(([matricula, targetRecord]) => {
       const comparisonRecords = getComparisonRecordsForWorker(registros, targetRecord, tipoDocumento)
-      const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
+      const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento, {
+        targetRecordId: targetRecord.id,
+      })
 
       if (!resultado) {
         return null

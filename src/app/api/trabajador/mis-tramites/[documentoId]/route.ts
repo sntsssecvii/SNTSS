@@ -26,6 +26,7 @@ export async function GET(
     }
 
     const { documentoId } = await params
+    const recordId = request.nextUrl.searchParams.get('recordId')?.trim() || null
     const decodedToken = await adminAuth.verifyIdToken(idToken)
     const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get()
 
@@ -70,25 +71,35 @@ export async function GET(
       return NextResponse.json({ error: 'El trámite no pertenece al corte oficial vigente.' }, { status: 404 })
     }
 
-    const posiciones = await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula)
-    const resultado = posiciones.find((item) => item.documentoId === documentoId)
+    const posiciones = (await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula))
+      .filter((item) => item.recordId?.trim())
+    const resultado = posiciones.find((item) =>
+      item.documentoId === documentoId && (!recordId || item.recordId === recordId)
+    )
 
     if (!resultado) {
       const tipoDocumento = documentoSnap.get('tipo') as TipoBolsaDeTrabajo
-      const registroSnap = await documentoRef
+      const registrosWorkerSnap = await documentoRef
         .collection('registros')
         .where('matricula', '==', matricula)
-        .limit(1)
         .get()
 
-      if (registroSnap.empty) {
+      if (registrosWorkerSnap.empty) {
         return NextResponse.json({ error: 'El trámite solicitado no pertenece al usuario autenticado.' }, { status: 403 })
       }
 
-      const workerRecord = {
-        id: registroSnap.docs[0].id,
-        ...registroSnap.docs[0].data(),
-      } as BolsaDeTrabajoRegistro
+      const workerRecords = registrosWorkerSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as BolsaDeTrabajoRegistro[]
+
+      const workerRecord = recordId
+        ? workerRecords.find((record) => record.id === recordId) || null
+        : workerRecords[0]
+
+      if (!workerRecord) {
+        return NextResponse.json({ error: 'El trámite solicitado no pertenece al usuario autenticado.' }, { status: 403 })
+      }
 
       const registrosSnap = await documentoRef.collection('registros').get()
       const registros = registrosSnap.docs.map((doc) => ({
@@ -97,7 +108,9 @@ export async function GET(
       })) as BolsaDeTrabajoRegistro[]
 
       const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
-      const resultadoFallback = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
+      const resultadoFallback = calcularPosiciones(comparisonRecords, matricula, tipoDocumento, {
+        targetRecordId: workerRecord.id,
+      })
 
       if (!resultadoFallback) {
         return NextResponse.json({ error: 'No se pudo calcular el detalle del trámite.' }, { status: 500 })
@@ -107,6 +120,7 @@ export async function GET(
         success: true,
         data: {
           ...resultadoFallback,
+          recordId: workerRecord.id,
           tipoDocumento,
           documentoId,
         },

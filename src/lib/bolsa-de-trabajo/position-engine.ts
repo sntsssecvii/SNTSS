@@ -4,6 +4,7 @@ import type { NormalizedPositionRecord, PositionResult, PositionStrategy } from 
 export interface PositionEngineOptions {
   tipoDocumento: TipoBolsaDeTrabajo
   matriculaBuscada: string
+  targetRecordId?: string
   buildResult?: (context: PositionEngineContext) => PositionResult
   strategy?: PositionStrategy
 }
@@ -77,6 +78,7 @@ export function buildDefaultPositionResult(context: PositionEngineContext): Posi
   const { tipoDocumento, target, uniqueRecords, posicionBase } = context
 
   return {
+    recordId: target.id,
     matricula: target.matricula,
     nombre: target.nombre || '',
     categoria: target.categoria || '',
@@ -113,7 +115,9 @@ export function runPositionEngine(
     const sortB = strategy ? strategy.getSortValue(b) : b.numeroProg
     return sortA - sortB
   })
-  const orderedTarget = orderedRecords.find((record) => record.matricula === options.matriculaBuscada)
+  const orderedTarget = options.targetRecordId
+    ? orderedRecords.find((record) => record.id === options.targetRecordId)
+    : orderedRecords.find((record) => record.matricula === options.matriculaBuscada)
   if (!orderedTarget) return null
 
   let comparableRecords = strategy?.selectComparableRecords
@@ -129,11 +133,15 @@ export function runPositionEngine(
   const uniqueRecords = strategy && !strategy.shouldDeduplicateByMatricula()
     ? comparableRecords
     : dedupePositionRecords(comparableRecords)
-  const posicionBase = uniqueRecords.findIndex((record) => record.matricula === options.matriculaBuscada) + 1
+  const posicionBase = uniqueRecords.findIndex((record) =>
+    options.targetRecordId ? record.id === options.targetRecordId : record.matricula === options.matriculaBuscada
+  ) + 1
 
   if (posicionBase === 0) return null
 
-  const target = uniqueRecords.find((record) => record.matricula === options.matriculaBuscada)
+  const target = uniqueRecords.find((record) =>
+    options.targetRecordId ? record.id === options.targetRecordId : record.matricula === options.matriculaBuscada
+  )
   if (!target) return null
 
   const context: PositionEngineContext = {

@@ -31,6 +31,7 @@ export interface NormalizedPositionRecord {
 }
 
 export interface PositionResult {
+  recordId?: string
   matricula: string
   nombre: string
   categoria: string

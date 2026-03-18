@@ -72,6 +72,7 @@ En todos los tipos, la base del cálculo es el orden oficial del listado.
 - Regla especial:
   - `CAT` y `CAD` no compiten juntos
   - cuando el registro trae `turno` solicitado, ese turno forma parte del grupo comparable aunque el tipo sea `CAD`
+  - si la misma matrícula tiene más de un trámite válido en el documento, cada registro conserva su propia posición; no debe colapsarse a una sola entrada por matrícula
 - Salida esperada:
   - `posicionBase`
   - `totalEnGrupo`
@@ -244,6 +245,7 @@ interface PositionStrategy {
 - La UI no debe recalcular lógica de negocio
 - La API pública debe devolver no sólo la posición, sino la explicación de cómo se obtuvo
 - Las reglas especiales deben vivir en estrategias, no en condicionales dispersos por la UI
+- Sólo debe deduplicarse por matrícula en tipos donde negocio lo pida explícitamente; en trámites de cambio del portal privado, varios registros de la misma matrícula deben seguir siendo trazables por separado
 
 ## Estrategia de pruebas
 

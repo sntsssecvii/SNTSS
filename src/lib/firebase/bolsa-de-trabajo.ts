@@ -208,6 +208,12 @@ export const getBolsaDeTrabajoDocumentoById = async (
   }
 }
 
+export const getBolsaDeTrabajoDocumentoHead = async (
+  id: string
+): Promise<BolsaDeTrabajoDocumento | null> => {
+  return getBolsaDeTrabajoDocumentoById(id, false)
+}
+
 // Obtener todos los documentos con filtros opcionales
 export const getBolsaDeTrabajoDocumentos = async (
   filtros?: FiltrosBolsaDeTrabajo,

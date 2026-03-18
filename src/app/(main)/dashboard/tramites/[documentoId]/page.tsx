@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getMiTramiteDetalleCliente } from '@/lib/firebase/trabajador-portal'
 import { NOMBRES_TIPOS, type TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface TramiteDetail {
   documentoId: string
+  recordId?: string
   matricula: string
   nombre: string
   categoria: string
@@ -97,7 +98,9 @@ export default function TramiteDetailPage() {
   const { user, userData, loading } = useAuth()
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const documentoId = String(params.documentoId || '')
+  const recordId = searchParams.get('recordId')?.trim() || undefined
   const [data, setData] = useState<TramiteDetail | null>(null)
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
   const [pageLoading, setPageLoading] = useState(true)
@@ -124,7 +127,7 @@ export default function TramiteDetailPage() {
           throw new Error('El usuario autenticado no tiene matrícula vinculada.')
         }
 
-        const result = await getMiTramiteDetalleCliente(documentoId)
+        const result = await getMiTramiteDetalleCliente(documentoId, recordId)
         setData(result.data)
         setPeriodo(result.periodo || null)
       } catch (err: any) {
@@ -141,7 +144,7 @@ export default function TramiteDetailPage() {
     }
 
     fetchDetail()
-  }, [user, userData, documentoId])
+  }, [user, userData, documentoId, recordId])
 
   if (loading || pageLoading) {
     return (

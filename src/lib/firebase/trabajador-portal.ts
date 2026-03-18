@@ -9,6 +9,7 @@ export interface TrabajadorPeriodo {
 
 export interface TramitePortalResult {
   documentoId: string
+  recordId?: string
   matricula: string
   nombre: string
   categoria: string
@@ -76,12 +77,13 @@ export async function getMisTramitesCliente(): Promise<{
   }
 }
 
-export async function getMiTramiteDetalleCliente(documentoId: string): Promise<{
+export async function getMiTramiteDetalleCliente(documentoId: string, recordId?: string): Promise<{
   data: TramitePortalResult
   periodo: TrabajadorPeriodo
 }> {
   const headers = await getAuthHeaders()
-  const response = await fetch(`/api/trabajador/mis-tramites/${documentoId}`, {
+  const query = recordId ? `?recordId=${encodeURIComponent(recordId)}` : ''
+  const response = await fetch(`/api/trabajador/mis-tramites/${documentoId}${query}`, {
     method: 'GET',
     headers,
   })

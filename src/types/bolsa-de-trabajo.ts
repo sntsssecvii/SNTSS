@@ -159,6 +159,7 @@ export interface BolsaPosicionMaterializada {
   id?: string
   syncId: string
   matricula: string
+  recordId?: string
   tipoDocumento: TipoBolsaDeTrabajo
   documentoId: string
   periodo: PeriodoBolsa

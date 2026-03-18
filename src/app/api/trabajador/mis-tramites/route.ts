@@ -14,6 +14,10 @@ function getBearerToken(request: NextRequest) {
   return authHeader.slice('Bearer '.length).trim()
 }
 
+function hasUsableMaterializedRecord(record: { recordId?: string | null }) {
+  return Boolean(record.recordId?.trim())
+}
+
 export async function GET(request: NextRequest) {
   try {
     enforceRateLimit(request, { bucket: 'api:trabajador:mis-tramites', limit: 60, windowMs: 60_000 })
@@ -56,7 +60,8 @@ export async function GET(request: NextRequest) {
       ...syncSnap.docs[0].data()
     } as Sincronizacion
 
-    const tramitesMaterializados = await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula)
+    const tramitesMaterializados = (await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula))
+      .filter(hasUsableMaterializedRecord)
 
     if (tramitesMaterializados.length === 0) {
       const docsSnap = await adminDb
@@ -73,15 +78,9 @@ export async function GET(request: NextRequest) {
         const registrosSnap = await docSnap.ref
           .collection('registros')
           .where('matricula', '==', matricula)
-          .limit(1)
           .get()
 
-        if (registrosSnap.empty) return null
-
-        const workerRecord = {
-          id: registrosSnap.docs[0].id,
-          ...registrosSnap.docs[0].data(),
-        } as BolsaDeTrabajoRegistro
+        if (registrosSnap.empty) return []
 
         const allRegistrosSnap = await docSnap.ref.collection('registros').get()
         const registros = allRegistrosSnap.docs.map((doc) => ({
@@ -89,18 +88,29 @@ export async function GET(request: NextRequest) {
           ...doc.data(),
         })) as BolsaDeTrabajoRegistro[]
 
-        const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
-        const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
+        return registrosSnap.docs
+          .map((registroDoc) => ({
+            id: registroDoc.id,
+            ...registroDoc.data(),
+          }) as BolsaDeTrabajoRegistro)
+          .map((workerRecord) => {
+            const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
+            const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento, {
+              targetRecordId: workerRecord.id,
+            })
 
-        return resultado ? {
-          ...resultado,
-          tipoDocumento,
-          documentoId: docSnap.id,
-        } : null
+            return resultado ? {
+              ...resultado,
+              recordId: workerRecord.id,
+              tipoDocumento,
+              documentoId: docSnap.id,
+            } : null
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item))
       }))
 
       const tramitesFallback = resultadosFallback
-        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+        .flat()
         .sort((a, b) => a.tipoDocumento.localeCompare(b.tipoDocumento))
 
       if (tramitesFallback.length === 0) {

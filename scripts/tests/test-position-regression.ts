@@ -144,20 +144,32 @@ function testCambiosTurnoAdscripcion() {
   console.log('OK CAMBIOS_TURNO_ADSCRIPCION ordena por consecutivo en el grupo comparable')
 }
 
-function testCambiosTurnoAdscripcionDeduplica() {
+function testCambiosTurnoAdscripcionConservaMultiplesTramitesPorMatricula() {
   const registros: BolsaDeTrabajoRegistro[] = [
-    registro({ tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '1', matricula: 'CAT01', nombre: 'Primero', categoria: 'MED', zona: 'Z2', registro: 'CAT', adscripcionNueva: 'UMF1', turnoNuevo: 'VES' }),
-    registro({ tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '4', matricula: 'CAT01', nombre: 'Duplicado', categoria: 'MED', zona: 'Z2', registro: 'CAT', adscripcionNueva: 'UMF1', turnoNuevo: 'VES' }),
-    registro({ tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '6', matricula: 'CAT02', nombre: 'Segundo', categoria: 'MED', zona: 'Z2', registro: 'CAT', adscripcionNueva: 'UMF1', turnoNuevo: 'VES' }),
+    registro({ id: 'cat-1', tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '1', matricula: 'CAT01', nombre: 'Primero', categoria: 'MED', zona: 'Z2', registro: 'CAT', adscripcionNueva: 'UMF1', turnoNuevo: 'VES' }),
+    registro({ id: 'cat-2', tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '4', matricula: 'CAT01', nombre: 'Segundo tramite', categoria: 'MED', zona: 'Z2', registro: 'CAT', adscripcionNueva: 'UMF1', turnoNuevo: 'VES' }),
+    registro({ id: 'cat-3', tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION', numeroProg: '6', matricula: 'CAT02', nombre: 'Tercero', categoria: 'MED', zona: 'Z2', registro: 'CAT', adscripcionNueva: 'UMF1', turnoNuevo: 'VES' }),
   ]
 
-  const primero = calcularPosiciones(registros, 'CAT01', 'CAMBIOS_TURNO_ADSCRIPCION')
-  assert.ok(primero)
-  assert.equal(primero.nombre, 'Primero')
-  assert.equal(primero.posicionBase, 1)
-  assert.equal(primero.totalEnCategoria, 2)
+  const primerTramite = calcularPosiciones(registros, 'CAT01', 'CAMBIOS_TURNO_ADSCRIPCION', {
+    targetRecordId: 'cat-1',
+  })
+  assert.ok(primerTramite)
+  assert.equal(primerTramite.recordId, 'cat-1')
+  assert.equal(primerTramite.nombre, 'Primero')
+  assert.equal(primerTramite.posicionBase, 1)
+  assert.equal(primerTramite.totalEnCategoria, 3)
 
-  console.log('OK CAMBIOS_TURNO_ADSCRIPCION deduplica por matricula y conserva primer consecutivo')
+  const segundoTramite = calcularPosiciones(registros, 'CAT01', 'CAMBIOS_TURNO_ADSCRIPCION', {
+    targetRecordId: 'cat-2',
+  })
+  assert.ok(segundoTramite)
+  assert.equal(segundoTramite.recordId, 'cat-2')
+  assert.equal(segundoTramite.nombre, 'Segundo tramite')
+  assert.equal(segundoTramite.posicionBase, 2)
+  assert.equal(segundoTramite.totalEnCategoria, 3)
+
+  console.log('OK CAMBIOS_TURNO_ADSCRIPCION conserva multiples tramites del mismo trabajador')
 }
 
 function testCambiosTurnoAdscripcionFiltraPorSubcategoria() {
@@ -421,10 +433,10 @@ function main() {
   testNuevoIngresoDeduplicaPorMatricula()
   testNuevoIngresoFiltraPorSubcategoria()
   testCambiosTurnoAdscripcion()
-testCambiosTurnoAdscripcionDeduplica()
-testCambiosTurnoAdscripcionFiltraPorSubcategoria()
-testCambiosTurnoAdscripcionFiltraPorTurnoEnCad()
-testCambiosArea()
+  testCambiosTurnoAdscripcionConservaMultiplesTramitesPorMatricula()
+  testCambiosTurnoAdscripcionFiltraPorSubcategoria()
+  testCambiosTurnoAdscripcionFiltraPorTurnoEnCad()
+  testCambiosArea()
   testCambiosTipoPlaza()
   testCambiosResidenciaOrigen()
   testCambiosResidenciaDestino()

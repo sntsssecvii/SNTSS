@@ -6,7 +6,7 @@ import type {
 } from '@/types/bolsa-de-trabajo'
 
 export const POSITION_LOOKUP_COLLECTION = 'bolsa_posiciones_materializadas'
-export const POSITION_LOOKUP_VERSION = 'v1'
+export const POSITION_LOOKUP_VERSION = 'v2'
 
 function normalizeMatricula(matricula: string): string {
   return matricula.trim().toUpperCase()
@@ -15,9 +15,11 @@ function normalizeMatricula(matricula: string): string {
 export function buildBolsaPositionLookupId(
   syncId: string,
   matricula: string,
-  tipoDocumento: TipoBolsaDeTrabajo
+  tipoDocumento: TipoBolsaDeTrabajo,
+  recordId?: string
 ): string {
-  return `${syncId}__${normalizeMatricula(matricula)}__${tipoDocumento}`
+  const suffix = recordId?.trim() || 'no-record-id'
+  return `${syncId}__${normalizeMatricula(matricula)}__${tipoDocumento}__${suffix}`
 }
 
 interface BuildBolsaPositionLookupParams {
@@ -34,9 +36,10 @@ export function buildBolsaPositionLookup({
   resultado,
 }: BuildBolsaPositionLookupParams): BolsaPosicionMaterializada {
   return {
-    id: buildBolsaPositionLookupId(syncId, resultado.matricula, resultado.tipoDocumento),
+    id: buildBolsaPositionLookupId(syncId, resultado.matricula, resultado.tipoDocumento, resultado.recordId),
     syncId,
     matricula: normalizeMatricula(resultado.matricula),
+    recordId: resultado.recordId,
     tipoDocumento: resultado.tipoDocumento,
     documentoId,
     periodo,

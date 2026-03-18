@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface TramiteData {
   documentoId: string
+  recordId?: string
   matricula: string
   nombre: string
   categoria: string
@@ -250,7 +251,7 @@ export default function DashboardPage() {
               const metric = getPrimaryMetric(item)
 
               return (
-                <Card key={`${item.documentoId}-${item.tipoDocumento}`} className="overflow-hidden border-border/60">
+                <Card key={`${item.documentoId}-${item.recordId || item.tipoDocumento}`} className="overflow-hidden border-border/60">
                   <CardHeader className="space-y-4 pb-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div className="space-y-1">
@@ -309,7 +310,7 @@ export default function DashboardPage() {
                       <Button
                         variant="ghost"
                         className="px-0 text-primary"
-                        onClick={() => router.push(`/dashboard/tramites/${item.documentoId}`)}
+                        onClick={() => router.push(`/dashboard/tramites/${item.documentoId}${item.recordId ? `?recordId=${encodeURIComponent(item.recordId)}` : ''}`)}
                       >
                         Detalle del trámite <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>

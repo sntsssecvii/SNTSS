@@ -41,7 +41,7 @@ function serializeLookup(lookup: BolsaPosicionMaterializada) {
 export async function upsertBolsaPosicionMaterializada(
   lookup: BolsaPosicionMaterializada
 ): Promise<string> {
-  const id = lookup.id || buildBolsaPositionLookupId(lookup.syncId, lookup.matricula, lookup.tipoDocumento)
+  const id = lookup.id || buildBolsaPositionLookupId(lookup.syncId, lookup.matricula, lookup.tipoDocumento, lookup.recordId)
   const payload = serializeLookup({ ...lookup, id })
   await adminDb.collection(POSITION_LOOKUP_COLLECTION).doc(id).set(payload, { merge: true })
   return id
@@ -58,7 +58,7 @@ export async function upsertBolsaPosicionesMaterializadas(
     const lote = lookups.slice(i, i + BATCH_SIZE)
 
     lote.forEach((lookup) => {
-      const id = lookup.id || buildBolsaPositionLookupId(lookup.syncId, lookup.matricula, lookup.tipoDocumento)
+      const id = lookup.id || buildBolsaPositionLookupId(lookup.syncId, lookup.matricula, lookup.tipoDocumento, lookup.recordId)
       const payload = serializeLookup({ ...lookup, id })
       batch.set(adminDb.collection(POSITION_LOOKUP_COLLECTION).doc(id), payload, { merge: true })
     })
@@ -73,9 +73,10 @@ export async function upsertBolsaPosicionesMaterializadas(
 export async function getBolsaPosicionMaterializada(
   syncId: string,
   matricula: string,
-  tipoDocumento: TipoBolsaDeTrabajo
+  tipoDocumento: TipoBolsaDeTrabajo,
+  recordId?: string
 ): Promise<BolsaPosicionMaterializada | null> {
-  const id = buildBolsaPositionLookupId(syncId, matricula, tipoDocumento)
+  const id = buildBolsaPositionLookupId(syncId, matricula, tipoDocumento, recordId)
   const snap = await adminDb.collection(POSITION_LOOKUP_COLLECTION).doc(id).get()
 
   if (!snap.exists) {

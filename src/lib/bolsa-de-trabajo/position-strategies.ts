@@ -85,7 +85,7 @@ export const cambiosTurnoAdscripcionStrategy: PositionStrategy = {
     return record.numeroProg
   },
   shouldDeduplicateByMatricula() {
-    return true
+    return false
   },
   explain(result, target) {
     const tipoCambio = normalizeLabel(target.registro)
@@ -114,7 +114,7 @@ function buildSimpleZoneCategoryStrategy(tipo: TipoBolsaDeTrabajo, descripcion: 
       return record.numeroProg
     },
     shouldDeduplicateByMatricula() {
-      return true
+      return false
     },
     explain(_result, target) {
       const scope = target.subcategoria
@@ -143,7 +143,7 @@ function buildSimpleZoneTurnStrategy(tipo: TipoBolsaDeTrabajo, descripcion: stri
       return record.numeroProg
     },
     shouldDeduplicateByMatricula() {
-      return true
+      return false
     },
     explain(_result, target) {
       const scope = target.subcategoria
@@ -192,7 +192,7 @@ export const ampliacionesJornadaStrategy: PositionStrategy = {
     return record.numeroProg
   },
   shouldDeduplicateByMatricula() {
-    return true
+    return false
   },
   explain(_result, target) {
     const scope = target.subcategoria
@@ -218,7 +218,7 @@ export const cambiosRamaStrategy: PositionStrategy = {
     return record.numeroProg
   },
   shouldDeduplicateByMatricula() {
-    return true
+    return false
   },
   selectComparableRecords(records, target) {
     const mismaCategoria = records.filter((record) =>
@@ -263,6 +263,7 @@ export const positionStrategies: Partial<Record<TipoBolsaDeTrabajo, PositionStra
 
 export function buildStrategyResult(context: PositionEngineContext, strategy: PositionStrategy): PositionResult {
   const baseResult: PositionResult = {
+    recordId: context.target.id,
     matricula: context.target.matricula,
     nombre: context.target.nombre || '',
     categoria: context.target.categoria || '',

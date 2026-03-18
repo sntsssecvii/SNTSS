@@ -14,13 +14,15 @@ export type CalculoPosicion = PositionResult
 export function calcularPosiciones(
     registros: BolsaDeTrabajoRegistro[],
     matriculaBuscada: string,
-    tipoDocumento: TipoBolsaDeTrabajo
+    tipoDocumento: TipoBolsaDeTrabajo,
+    options: { targetRecordId?: string } = {}
 ): CalculoPosicion | null {
     const strategy = positionStrategies[tipoDocumento]
 
     return runPositionEngine(registros, {
         tipoDocumento,
         matriculaBuscada,
+        targetRecordId: options.targetRecordId,
         strategy,
         buildResult: strategy
             ? (context) => buildStrategyResult(context, strategy)
@@ -36,7 +38,8 @@ export interface TrabajadorAnterior {
 export function getTrabajadoresAntes(
     registros: BolsaDeTrabajoRegistro[],
     matriculaBuscada: string,
-    tipoDocumento: TipoBolsaDeTrabajo
+    tipoDocumento: TipoBolsaDeTrabajo,
+    options: { targetRecordId?: string } = {}
 ): TrabajadorAnterior[] {
     const strategy = positionStrategies[tipoDocumento]
     const normalizedRecords = normalizePositionRecords(registros)
@@ -46,7 +49,9 @@ export function getTrabajadoresAntes(
         return sortA - sortB
     })
 
-    const target = orderedRecords.find((record) => record.matricula === matriculaBuscada)
+    const target = options.targetRecordId
+        ? orderedRecords.find((record) => record.id === options.targetRecordId)
+        : orderedRecords.find((record) => record.matricula === matriculaBuscada)
     if (!target) return []
 
     let comparableRecords = strategy?.selectComparableRecords
@@ -63,7 +68,9 @@ export function getTrabajadoresAntes(
         ? comparableRecords
         : dedupePositionRecords(comparableRecords)
 
-    const posicionTarget = uniqueRecords.findIndex((record) => record.matricula === matriculaBuscada)
+    const posicionTarget = uniqueRecords.findIndex((record) =>
+        options.targetRecordId ? record.id === options.targetRecordId : record.matricula === matriculaBuscada
+    )
     if (posicionTarget <= 0) return []
 
     return uniqueRecords.slice(0, posicionTarget).map((record, index) => ({
