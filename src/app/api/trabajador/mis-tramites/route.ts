@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFuenteVerdad } from '@/lib/firebase/sincronizaciones'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
+import { getBolsaPosicionesMaterializadasPorMatricula } from '@/lib/firebase/bolsa-posiciones-materializadas'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
-import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import type { BolsaDeTrabajoRegistro, Sincronizacion, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export const dynamic = 'force-dynamic'
-
-interface DocumentoEncontrado {
-  docId: string
-  tipoDocumento: TipoBolsaDeTrabajo
-  registro: BolsaDeTrabajoRegistro
-}
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -47,73 +41,92 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'La cuenta no está activa para consultar información.' }, { status: 403 })
     }
 
-    const syncActiva = await getFuenteVerdad()
-    if (!syncActiva) {
+    const syncSnap = await adminDb
+      .collection('sincronizaciones')
+      .where('esFuenteVerdad', '==', true)
+      .limit(1)
+      .get()
+
+    if (syncSnap.empty) {
       return NextResponse.json({ error: 'No hay información oficial activa en este momento.' }, { status: 404 })
     }
 
-    const docsSnap = await adminDb
-      .collection('bolsa_de_trabajo_documentos')
-      .where('syncId', '==', syncActiva.id)
-      .get()
+    const syncActiva = {
+      id: syncSnap.docs[0].id,
+      ...syncSnap.docs[0].data()
+    } as Sincronizacion
 
-    if (docsSnap.empty) {
-      return NextResponse.json({ error: 'No se encontraron listados para esta quincena.' }, { status: 404 })
-    }
+    const tramitesMaterializados = await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula)
 
-    const documentosEncontrados: DocumentoEncontrado[] = []
-
-    for (const docSnap of docsSnap.docs) {
-      const tipoDocumento = docSnap.get('tipo') as TipoBolsaDeTrabajo
-      const registrosSnap = await docSnap.ref
-        .collection('registros')
-        .where('matricula', '==', matricula)
-        .limit(1)
+    if (tramitesMaterializados.length === 0) {
+      const docsSnap = await adminDb
+        .collection('bolsa_de_trabajo_documentos')
+        .where('syncId', '==', syncActiva.id)
         .get()
 
-      if (registrosSnap.empty) continue
+      if (docsSnap.empty) {
+        return NextResponse.json({ error: 'No se encontraron listados para esta quincena.' }, { status: 404 })
+      }
 
-      documentosEncontrados.push({
-        docId: docSnap.id,
-        tipoDocumento,
-        registro: {
+      const resultadosFallback = await Promise.all(docsSnap.docs.map(async (docSnap) => {
+        const tipoDocumento = docSnap.get('tipo') as TipoBolsaDeTrabajo
+        const registrosSnap = await docSnap.ref
+          .collection('registros')
+          .where('matricula', '==', matricula)
+          .limit(1)
+          .get()
+
+        if (registrosSnap.empty) return null
+
+        const workerRecord = {
           id: registrosSnap.docs[0].id,
           ...registrosSnap.docs[0].data(),
-        } as BolsaDeTrabajoRegistro,
+        } as BolsaDeTrabajoRegistro
+
+        const allRegistrosSnap = await docSnap.ref.collection('registros').get()
+        const registros = allRegistrosSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as BolsaDeTrabajoRegistro[]
+
+        const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
+        const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
+
+        return resultado ? {
+          ...resultado,
+          tipoDocumento,
+          documentoId: docSnap.id,
+        } : null
+      }))
+
+      const tramitesFallback = resultadosFallback
+        .filter((item): item is NonNullable<typeof item> => Boolean(item))
+        .sort((a, b) => a.tipoDocumento.localeCompare(b.tipoDocumento))
+
+      if (tramitesFallback.length === 0) {
+        return NextResponse.json({
+          error: 'No se encontraron trámites vigentes para la matrícula autenticada.',
+          matricula,
+        }, { status: 404 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        matricula,
+        data: tramitesFallback,
+        periodo: {
+          anio: syncActiva.anio,
+          mes: syncActiva.mes,
+          quincena: syncActiva.quincena,
+        },
       })
     }
 
-    if (documentosEncontrados.length === 0) {
-      return NextResponse.json({
-        error: 'No se encontraron trámites vigentes para la matrícula autenticada.',
-        matricula,
-      }, { status: 404 })
-    }
-
-    const resultados = await Promise.all(documentosEncontrados.map(async ({ docId, tipoDocumento, registro }) => {
-      const registrosSnap = await adminDb
-        .collection('bolsa_de_trabajo_documentos')
-        .doc(docId)
-        .collection('registros')
-        .get()
-
-      const registros = registrosSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as BolsaDeTrabajoRegistro[]
-
-      const comparisonRecords = getComparisonRecordsForWorker(registros, registro, tipoDocumento)
-      const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
-
-      return resultado ? {
-        ...resultado,
-        tipoDocumento,
-        documentoId: docId,
-      } : null
-    }))
-
-    const tramites = resultados
-      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    const tramites = tramitesMaterializados
+      .map((item) => ({
+        ...item,
+        registro: item.grupoComparable?.registro,
+      }))
       .sort((a, b) => a.tipoDocumento.localeCompare(b.tipoDocumento))
 
     return NextResponse.json({

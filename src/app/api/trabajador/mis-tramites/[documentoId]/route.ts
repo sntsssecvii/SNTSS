@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFuenteVerdad } from '@/lib/firebase/sincronizaciones'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
+import { getBolsaPosicionesMaterializadasPorMatricula } from '@/lib/firebase/bolsa-posiciones-materializadas'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
-import type { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import type { BolsaDeTrabajoRegistro, Sincronizacion, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,10 +44,20 @@ export async function GET(
       return NextResponse.json({ error: 'La cuenta no está activa para consultar información.' }, { status: 403 })
     }
 
-    const syncActiva = await getFuenteVerdad()
-    if (!syncActiva) {
+    const syncSnap = await adminDb
+      .collection('sincronizaciones')
+      .where('esFuenteVerdad', '==', true)
+      .limit(1)
+      .get()
+
+    if (syncSnap.empty) {
       return NextResponse.json({ error: 'No hay información oficial activa en este momento.' }, { status: 404 })
     }
+
+    const syncActiva = {
+      id: syncSnap.docs[0].id,
+      ...syncSnap.docs[0].data()
+    } as Sincronizacion
 
     const documentoRef = adminDb.collection('bolsa_de_trabajo_documentos').doc(documentoId)
     const documentoSnap = await documentoRef.get()
@@ -60,40 +70,60 @@ export async function GET(
       return NextResponse.json({ error: 'El trámite no pertenece al corte oficial vigente.' }, { status: 404 })
     }
 
-    const tipoDocumento = documentoSnap.get('tipo') as TipoBolsaDeTrabajo
+    const posiciones = await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula)
+    const resultado = posiciones.find((item) => item.documentoId === documentoId)
 
-    const registroSnap = await documentoRef
-      .collection('registros')
-      .where('matricula', '==', matricula)
-      .limit(1)
-      .get()
-
-    if (registroSnap.empty) {
-      return NextResponse.json({ error: 'El trámite solicitado no pertenece al usuario autenticado.' }, { status: 403 })
-    }
-
-    const registrosSnap = await documentoRef.collection('registros').get()
-    const registros = registrosSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as BolsaDeTrabajoRegistro[]
-    const workerRecord = {
-      id: registroSnap.docs[0].id,
-      ...registroSnap.docs[0].data(),
-    } as BolsaDeTrabajoRegistro
-
-    const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
-    const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
     if (!resultado) {
-      return NextResponse.json({ error: 'No se pudo calcular el detalle del trámite.' }, { status: 500 })
+      const tipoDocumento = documentoSnap.get('tipo') as TipoBolsaDeTrabajo
+      const registroSnap = await documentoRef
+        .collection('registros')
+        .where('matricula', '==', matricula)
+        .limit(1)
+        .get()
+
+      if (registroSnap.empty) {
+        return NextResponse.json({ error: 'El trámite solicitado no pertenece al usuario autenticado.' }, { status: 403 })
+      }
+
+      const workerRecord = {
+        id: registroSnap.docs[0].id,
+        ...registroSnap.docs[0].data(),
+      } as BolsaDeTrabajoRegistro
+
+      const registrosSnap = await documentoRef.collection('registros').get()
+      const registros = registrosSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as BolsaDeTrabajoRegistro[]
+
+      const comparisonRecords = getComparisonRecordsForWorker(registros, workerRecord, tipoDocumento)
+      const resultadoFallback = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
+
+      if (!resultadoFallback) {
+        return NextResponse.json({ error: 'No se pudo calcular el detalle del trámite.' }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...resultadoFallback,
+          tipoDocumento,
+          documentoId,
+        },
+        periodo: {
+          anio: syncActiva.anio,
+          mes: syncActiva.mes,
+          quincena: syncActiva.quincena,
+        },
+      })
     }
 
     return NextResponse.json({
       success: true,
       data: {
         ...resultado,
-        tipoDocumento,
         documentoId,
+        registro: resultado.grupoComparable?.registro,
       },
       periodo: {
         anio: syncActiva.anio,

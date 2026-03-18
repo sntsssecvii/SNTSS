@@ -18,6 +18,7 @@ Este directorio contiene utilidades manuales y pruebas locales. No todo lo que v
   - `ops/verificar-usuario-firestore.js`
   - `ops/crear-documento-usuario.js`
   - `ops/crear-usuario-firestore.js`
+  - `ops/materializar-sync-bolsa.ts`
   - `ops/solucionar-login.sh`
   - `ops/abrir-firebase-console.sh`
 - Pruebas:

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { calcularPosiciones } from '@/lib/bolsa-de-trabajo/calculos'
 import { getComparisonRecordsForWorker } from '@/lib/bolsa-de-trabajo/comparison-groups'
+import { getBolsaPosicionesMaterializadasPorMatricula } from '@/lib/firebase/bolsa-posiciones-materializadas'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
-import { BolsaDeTrabajoRegistro, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import type { BolsaDeTrabajoRegistro, BolsaPosicionMaterializada, TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,54 +45,76 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'No se encontraron listados para esta quincena.' }, { status: 404 })
         }
 
-        // 3. Buscar al trabajador en los registros de CUALQUIER documento de esta sincronización
-        let dataTrabajador: BolsaDeTrabajoRegistro | null = null
-        let docIdEncontrado: string | null = null
-        let tipoDocumento: TipoBolsaDeTrabajo | null = null
+        const posiciones = await getBolsaPosicionesMaterializadasPorMatricula(syncActiva.id, matricula)
 
-        for (const docSnap of snapDocs.docs) {
-            const snapTrabajador = await docSnap.ref
-                .collection('registros')
-                .where('matricula', '==', matricula)
-                .limit(1)
-                .get()
+        if (posiciones.length === 0) {
+            let dataTrabajador: BolsaDeTrabajoRegistro | null = null
+            let docIdEncontrado: string | null = null
+            let tipoDocumento: TipoBolsaDeTrabajo | null = null
 
-            if (!snapTrabajador.empty) {
-                dataTrabajador = { id: snapTrabajador.docs[0].id, ...snapTrabajador.docs[0].data() } as BolsaDeTrabajoRegistro
-                docIdEncontrado = docSnap.id
-                tipoDocumento = docSnap.data().tipo as TipoBolsaDeTrabajo
-                break // Encontrado
+            for (const docSnap of snapDocs.docs) {
+                const snapTrabajador = await docSnap.ref
+                    .collection('registros')
+                    .where('matricula', '==', matricula)
+                    .limit(1)
+                    .get()
+
+                if (!snapTrabajador.empty) {
+                    dataTrabajador = { id: snapTrabajador.docs[0].id, ...snapTrabajador.docs[0].data() } as BolsaDeTrabajoRegistro
+                    docIdEncontrado = docSnap.id
+                    tipoDocumento = docSnap.data().tipo as TipoBolsaDeTrabajo
+                    break
+                }
             }
-        }
 
-        if (!dataTrabajador || !docIdEncontrado || !tipoDocumento) {
+            if (!dataTrabajador || !docIdEncontrado || !tipoDocumento) {
+                return NextResponse.json({
+                    error: 'No se encontraron registros para esta matrícula en el listado actual.',
+                    matricula
+                }, { status: 404 })
+            }
+
+            const snapComparacion = await adminDb
+                .collection('bolsa_de_trabajo_documentos')
+                .doc(docIdEncontrado)
+                .collection('registros')
+                .get()
+            const registros = snapComparacion.docs.map(doc => ({ id: doc.id, ...doc.data() })) as BolsaDeTrabajoRegistro[]
+            const comparisonRecords = getComparisonRecordsForWorker(registros, dataTrabajador, tipoDocumento)
+            const resultadoFallback = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
+
+            if (!resultadoFallback) {
+                return NextResponse.json({ error: 'Error al calcular posiciones.' }, { status: 500 })
+            }
+
             return NextResponse.json({
-                error: 'No se encontraron registros para esta matrícula en el listado actual.',
-                matricula
-            }, { status: 404 })
+                success: true,
+                data: {
+                    ...resultadoFallback,
+                    tipoDocumento
+                },
+                periodo: {
+                    anio: syncActiva.anio,
+                    mes: syncActiva.mes,
+                    quincena: syncActiva.quincena
+                }
+            })
         }
 
-        // 4. Obtener todos los registros del documento encontrado y derivar el grupo comparable
-        const snapComparacion = await adminDb
-            .collection('bolsa_de_trabajo_documentos')
-            .doc(docIdEncontrado)
-            .collection('registros')
-            .get()
-        const registros = snapComparacion.docs.map(doc => ({ id: doc.id, ...doc.data() })) as BolsaDeTrabajoRegistro[]
-        const comparisonRecords = getComparisonRecordsForWorker(registros, dataTrabajador, tipoDocumento)
-
-        // 5. Realizar cálculos
-        const resultado = calcularPosiciones(comparisonRecords, matricula, tipoDocumento)
+        const orderedDocIds = snapDocs.docs.map((doc) => doc.id)
+        const resultado = orderedDocIds
+            .map((docId) => posiciones.find((item) => item.documentoId === docId))
+            .find((item): item is BolsaPosicionMaterializada => Boolean(item))
 
         if (!resultado) {
-            return NextResponse.json({ error: 'Error al calcular posiciones.' }, { status: 500 })
+            return NextResponse.json({ error: 'No se encontró una posición materializada para esta matrícula.' }, { status: 404 })
         }
 
         return NextResponse.json({
             success: true,
             data: {
                 ...resultado,
-                tipoDocumento
+                registro: resultado.grupoComparable?.registro,
             },
             periodo: {
                 anio: syncActiva.anio,

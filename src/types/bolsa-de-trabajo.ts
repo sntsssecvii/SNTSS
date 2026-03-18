@@ -149,6 +149,38 @@ export interface Sincronizacion {
   subidoPorEmail?: string
 }
 
+export interface PeriodoBolsa {
+  anio: number
+  mes: number
+  quincena: 1 | 2
+}
+
+export interface BolsaPosicionMaterializada {
+  id?: string
+  syncId: string
+  matricula: string
+  tipoDocumento: TipoBolsaDeTrabajo
+  documentoId: string
+  periodo: PeriodoBolsa
+  versionCalculo: string
+  fechaMaterializacion: Timestamp | Date
+  nombre: string
+  categoria: string
+  zona: string
+  posicionBase: number
+  totalEnCategoria: number
+  posicionInterinato?: number
+  totalEventualesEnCategoria?: number
+  tipoContratacion?: string
+  adscripcionNueva?: string
+  turnoNuevo?: string
+  grupoComparable?: Record<string, string | undefined>
+  sortValue?: number
+  metricasSecundarias?: Record<string, number>
+  reglasAplicadas?: string[]
+  explicacion?: string
+}
+
 // Filtros para búsqueda
 export interface FiltrosBolsaDeTrabajo {
   tipo?: TipoBolsaDeTrabajo[]
@@ -185,6 +217,64 @@ export const MAPEO_TIPOS_ARCHIVO: Record<string, TipoBolsaDeTrabajo> = {
   'CAMBIOS DE TIPO DE PLAZA': 'CAMBIOS_TIPO_PLAZA',
   'CAMBIOS DE TURNO Y-O ADSCRIPCIÓN': 'CAMBIOS_TURNO_ADSCRIPCION',
   'NUEVO INGRESO': 'NUEVO_INGRESO',
+}
+
+export function normalizarNombreDocumentoBolsa(nombreArchivo?: string): string {
+  if (!nombreArchivo) return ''
+
+  return nombreArchivo
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\.[A-Z0-9]+$/i, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function detectarTipoDocumentoPorNombre(nombreArchivo?: string): TipoBolsaDeTrabajo | null {
+  const nombreNormalizado = normalizarNombreDocumentoBolsa(nombreArchivo)
+
+  if (!nombreNormalizado) {
+    return null
+  }
+
+  for (const [key, value] of Object.entries(MAPEO_TIPOS_ARCHIVO)) {
+    if (nombreNormalizado.includes(normalizarNombreDocumentoBolsa(key))) {
+      return value
+    }
+  }
+
+  if (nombreNormalizado.includes('AMPLIACIONES') && nombreNormalizado.includes('JORNADA')) {
+    return 'AMPLIACIONES_JORNADA'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('AREA')) {
+    return 'CAMBIOS_AREA'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('RAMA')) {
+    return 'CAMBIOS_RAMA'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('RESIDENCIA') && nombreNormalizado.includes('DESTINO')) {
+    return 'CAMBIOS_RESIDENCIA_DESTINO'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('RESIDENCIA') && nombreNormalizado.includes('ORIGEN')) {
+    return 'CAMBIOS_RESIDENCIA_ORIGEN'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('TIPO') && nombreNormalizado.includes('PLAZA')) {
+    return 'CAMBIOS_TIPO_PLAZA'
+  }
+  if (
+    nombreNormalizado.includes('CAMBIOS') &&
+    nombreNormalizado.includes('TURNO') &&
+    nombreNormalizado.includes('ADSCRIPCION')
+  ) {
+    return 'CAMBIOS_TURNO_ADSCRIPCION'
+  }
+  if (nombreNormalizado.includes('NUEVO') && nombreNormalizado.includes('INGRESO')) {
+    return 'NUEVO_INGRESO'
+  }
+
+  return null
 }
 
 // Nombres legibles para los tipos

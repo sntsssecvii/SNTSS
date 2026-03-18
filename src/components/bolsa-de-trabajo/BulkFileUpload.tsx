@@ -8,9 +8,9 @@ import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { auth } from '@/lib/firebase/firebase-client'
 import type { TipoBolsaDeTrabajo, Sincronizacion } from '@/types/bolsa-de-trabajo'
-import { NOMBRES_TIPOS, MAPEO_TIPOS_ARCHIVO } from '@/types/bolsa-de-trabajo'
+import { NOMBRES_TIPOS, detectarTipoDocumentoPorNombre } from '@/types/bolsa-de-trabajo'
 import { cn } from '@/lib/utils'
-import { createSincronizacion, updateSincronizacion, establecerFuenteVerdad, getSincronizacionPorPeriodo } from '@/lib/firebase/sincronizaciones'
+import { createSincronizacion, updateSincronizacion, getSincronizacionPorPeriodo } from '@/lib/firebase/sincronizaciones'
 import { getBolsaDeTrabajoDocumentosBySyncId } from '@/lib/firebase/bolsa-de-trabajo'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PeriodSelector } from '@/components/bolsa-de-trabajo/PeriodSelector'
@@ -90,12 +90,7 @@ export function BulkFileUpload() {
     }, [periodo, syncId])
 
     const detectType = useCallback((fileName: string): TipoBolsaDeTrabajo | null => {
-        const upperName = fileName.normalize('NFC').toUpperCase()
-        for (const [key, value] of Object.entries(MAPEO_TIPOS_ARCHIVO)) {
-            const normalizedKey = key.normalize('NFC').toUpperCase()
-            if (upperName.includes(normalizedKey)) return value
-        }
-        return null
+        return detectarTipoDocumentoPorNombre(fileName)
     }, [])
 
     const addFiles = useCallback((newFiles: File[]) => {
@@ -305,7 +300,21 @@ export function BulkFileUpload() {
             return
         }
         try {
-            await establecerFuenteVerdad(syncId)
+            const idToken = await auth.currentUser?.getIdToken()
+            const response = await fetch('/api/bolsa-de-trabajo/publicar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ syncId })
+            })
+
+            const result = await response.json()
+            if (!response.ok) {
+                throw new Error(result.error || 'No se pudo publicar.')
+            }
+
             toast({ title: "Publicado", description: "Esta quincena ya es la información oficial." })
             router.push('/admin/bolsa-de-trabajo')
         } catch (error) {

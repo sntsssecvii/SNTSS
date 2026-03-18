@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, CalendarClock, CircleAlert, CircleCheckBig, FileText, Plus, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CircleAlert, CircleCheckBig, FileText, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/use-toast'
+import { cn } from '@/lib/utils'
 import { getSincronizacionById } from '@/lib/firebase/sincronizaciones'
 import { getBolsaDeTrabajoDocumentosBySyncId } from '@/lib/firebase/bolsa-de-trabajo'
 import { NOMBRES_TIPOS, type BolsaDeTrabajoDocumento, type Sincronizacion, type TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
@@ -24,14 +25,20 @@ const TIPOS: TipoBolsaDeTrabajo[] = [
 
 type TipoChecklistStatus = 'PENDIENTE' | 'ERROR' | 'LISTO' | 'PROCESANDO'
 
+const NOMBRES_MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+]
+
 function formatPeriodo(sync: Sincronizacion) {
-  return `${sync.quincena}ª quincena / ${sync.mes}/${sync.anio}`
+  const mesNombre = NOMBRES_MESES[sync.mes - 1] || sync.mes
+  return `${sync.quincena}ª quincena / ${mesNombre} ${sync.anio}`
 }
 
 function formatFecha(value?: Date | { toDate?: () => Date }) {
   if (!value) return 'Sin fecha'
   const dateValue = value instanceof Date ? value : value.toDate?.()
-  return dateValue ? dateValue.toLocaleDateString() : 'Sin fecha'
+  return dateValue ? dateValue.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha'
 }
 
 export default function DetalleQuincenaPage() {
@@ -43,41 +50,41 @@ export default function DetalleQuincenaPage() {
   const [sync, setSync] = useState<Sincronizacion | null>(null)
   const [documentos, setDocumentos] = useState<BolsaDeTrabajoDocumento[]>([])
 
-  useEffect(() => {
-    const cargar = async () => {
-      try {
-        setLoading(true)
-        const [syncData, docsData] = await Promise.all([
-          getSincronizacionById(syncId),
-          getBolsaDeTrabajoDocumentosBySyncId(syncId),
-        ])
+  const cargarDatos = useCallback(async () => {
+    try {
+      setLoading(true)
+      const [syncData, docsData] = await Promise.all([
+        getSincronizacionById(syncId),
+        getBolsaDeTrabajoDocumentosBySyncId(syncId),
+      ])
 
-        if (!syncData) {
-          toast({
-            title: 'No encontrada',
-            description: 'La quincena solicitada no existe.',
-            variant: 'destructive',
-          })
-          router.push('/admin/bolsa-de-trabajo')
-          return
-        }
-
-        setSync(syncData)
-        setDocumentos(docsData)
-      } catch (error) {
-        console.error(error)
+      if (!syncData) {
         toast({
-          title: 'Error',
-          description: 'No se pudo cargar el detalle de la quincena.',
+          title: 'No encontrada',
+          description: 'La quincena solicitada no existe.',
           variant: 'destructive',
         })
-      } finally {
-        setLoading(false)
+        router.push('/admin/bolsa-de-trabajo')
+        return
       }
-    }
 
-    if (syncId) cargar()
+      setSync(syncData)
+      setDocumentos(docsData)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Error',
+        description: 'No se pudo cargar el detalle de la quincena.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
   }, [router, syncId, toast])
+
+  useEffect(() => {
+    if (syncId) cargarDatos()
+  }, [syncId, cargarDatos])
 
   const faltantes = useMemo(
     () => TIPOS.filter((tipo) => !documentos.some((doc) => doc.tipo === tipo)),
@@ -112,188 +119,127 @@ export default function DetalleQuincenaPage() {
   if (!sync) return null
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-4 dark:bg-[#020617] sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
+    <div className="h-screen bg-[#F8FAFC] dark:bg-[#020617] overflow-hidden flex flex-col p-4 sm:p-6 lg:p-8 gap-6">
+      <div className="mx-auto w-full max-w-7xl flex flex-col h-full gap-6">
+        {/* Header Ultra-Compacto */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
+          <div className="flex items-center gap-4">
             <Button
               variant="ghost"
+              size="icon"
               onClick={() => router.push('/admin/bolsa-de-trabajo')}
-              className="h-10 rounded-xl px-3 font-bold"
+              className="h-10 w-10 rounded-xl text-slate-500 hover:text-primary hover:bg-primary/5 transition-colors shrink-0"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver a quincenas
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary">
-                <CalendarClock className="h-4 w-4" />
-                Detalle de quincena
-              </div>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+            <div className="space-y-0.5">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-900 dark:text-white leading-none">
                 {formatPeriodo(sync)}
               </h1>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                Aquí ya no cambias de periodo. Completa, revisa o reemplaza documentos dentro de este corte.
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-primary/70">
+                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                   Corte Administrativo
+                </div>
+                {sync.esFuenteVerdad && (
+                  <span className="text-[10px] font-black uppercase tracking-[0.1em] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">Oficial Vigente</span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {sync.esFuenteVerdad && (
-              <Badge variant="success" className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest">
-                Oficial vigente
-              </Badge>
-            )}
-            <Button
-              onClick={() => router.push(`/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}`)}
-              className="h-11 rounded-2xl px-5 font-black"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Cargar o reemplazar
-            </Button>
+          <div className="flex items-center gap-4 ml-auto sm:ml-0">
+             <div className="hidden lg:flex items-center gap-6 px-4 py-2 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl ring-1 ring-slate-200/50 dark:ring-slate-800/50 mr-2">
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Categorías</p>
+                  <p className="text-sm font-black text-slate-700 dark:text-slate-200 mt-0.5">{new Set(documentos.map((doc) => doc.tipo)).size}/8 Listas</p>
+                </div>
+                <div className="w-px h-6 bg-slate-200 dark:bg-slate-800" />
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Activo desde</p>
+                  <p className="text-sm font-black text-slate-700 dark:text-slate-200 mt-0.5">{formatFecha(sync.fechaFinalizacion || sync.fechaInicio)}</p>
+                </div>
+             </div>
+             <Button
+                size="lg"
+                onClick={() => router.push(`/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}`)}
+                className="h-12 rounded-2xl px-6 font-black bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:shadow-[0_0_20px_-5px_rgba(225,29,72,0.4)] transition-all"
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Cargar
+              </Button>
           </div>
         </div>
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <InfoCard
-            icon={<CircleCheckBig className="h-5 w-5" />}
-            title="Tipos cargados"
-            value={`${new Set(documentos.map((doc) => doc.tipo)).size}/8`}
-            description="Tipos que ya tienen documento dentro de esta quincena."
-          />
-          <InfoCard
-            icon={<CircleAlert className="h-5 w-5" />}
-            title="Faltantes"
-            value={String(faltantes.length)}
-            description="Tipos que aún faltan por cargar o reemplazar."
-          />
-          <InfoCard
-            icon={<ShieldCheck className="h-5 w-5" />}
-            title="Estado"
-            value={sync.esFuenteVerdad ? 'Oficial' : sync.estado}
-            description="Estado actual del corte quincenal."
-          />
-          <InfoCard
-            icon={<FileText className="h-5 w-5" />}
-            title="Actualizado"
-            value={formatFecha(sync.fechaFinalizacion || sync.fechaInicio)}
-            description={sync.subidoPorEmail || 'Sin correo registrado'}
-          />
-        </section>
 
-        {faltantes.length > 0 && (
-          <Card className="rounded-3xl border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
-            <CardContent className="p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
-                Tipos faltantes en esta quincena
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {faltantes.map((tipo) => (
-                  <span
-                    key={tipo}
-                    className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-black text-amber-700 dark:border-amber-900/50 dark:bg-slate-900 dark:text-amber-300"
-                  >
-                    {NOMBRES_TIPOS[tipo]}
-                  </span>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
-        <section className="space-y-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Checklist del corte</p>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white">Tipos oficiales de la quincena</h2>
-              <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-                Cada fila representa un tipo. Si ya existe documento, al tocar la fila entras directo a su tabla. Si falta, el flujo te lleva a cargarlo.
-              </p>
-            </div>
-
-            <div className="space-y-3">
+        <section className="flex-1 min-h-0 flex flex-col justify-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {checklistTipos.map(({ tipo, doc, status }) => (
-                <div
+                <Card 
                   key={tipo}
-                  role="button"
-                  tabIndex={0}
                   onClick={() => router.push(doc ? `/admin/bolsa-de-trabajo/${doc.id}` : `/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${tipo}`)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      router.push(doc ? `/admin/bolsa-de-trabajo/${doc.id}` : `/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${tipo}`)
-                    }
-                  }}
-                  className="w-full text-left"
+                  className={cn(
+                    "group rounded-[2rem] transition-all duration-500 ease-out border-none relative overflow-hidden cursor-pointer flex flex-col shadow-sm",
+                    doc 
+                      ? "bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl ring-1 ring-slate-200/50 dark:ring-slate-800/50 hover:shadow-2xl hover:ring-primary/20"
+                      : "bg-slate-50/40 dark:bg-slate-950/20 ring-1 ring-dashed ring-slate-300 dark:ring-slate-800 hover:bg-white/50 hover:ring-primary/30"
+                  )}
                 >
-                <Card className="rounded-3xl border-slate-200 bg-white transition-all hover:border-primary hover:shadow-lg dark:border-slate-800 dark:bg-slate-900/50">
-                  <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-lg font-black text-slate-900 dark:text-white">{NOMBRES_TIPOS[tipo]}</p>
-                        <TipoEstadoBadge status={status} />
-                      </div>
-
-                      <div className="grid gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 md:grid-cols-3">
-                        <span>
-                          Documento:
-                          <span className="ml-1 font-bold text-slate-700 dark:text-slate-200">
-                            {doc?.nombreArchivo || 'No cargado'}
-                          </span>
-                        </span>
-                        <span>
-                          Registros:
-                          <span className="ml-1 font-bold text-slate-700 dark:text-slate-200">
-                            {doc?.totalRegistros || 0}
-                          </span>
-                        </span>
-                        <span>
-                          Actualizado:
-                          <span className="ml-1 font-bold text-slate-700 dark:text-slate-200">
-                            {doc ? formatFecha(doc.fechaCarga as Date) : 'Sin fecha'}
-                          </span>
-                        </span>
-                      </div>
-
-                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                        {!doc
-                          ? 'Este tipo todavía no tiene documento dentro de la quincena.'
-                          : status === 'ERROR'
-                            ? 'El documento existe pero requiere corrección antes de considerarlo listo.'
-                            : status === 'PROCESANDO'
-                              ? 'El documento aún está procesándose o validándose.'
-                              : 'El documento vigente está listo para consulta y revisión.'}
-                      </p>
+                  <CardContent className="p-6 flex flex-col space-y-4">
+                    <div className="flex items-start justify-between min-h-[4.5rem]">
+                       <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] line-clamp-3">
+                         {NOMBRES_TIPOS[tipo]}
+                       </h3>
+                       {status === 'LISTO' && (
+                         <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 animate-in fade-in zoom-in duration-500">
+                           <Check className="h-4 w-4 stroke-[3px]" />
+                         </div>
+                       )}
                     </div>
 
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          router.push(`/admin/bolsa-de-trabajo/cargar?anio=${sync.anio}&mes=${sync.mes}&quincena=${sync.quincena}&tipo=${tipo}`)
-                        }}
-                        className="rounded-2xl font-black"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        {doc ? 'Reemplazar' : 'Cargar'}
-                      </Button>
-                      {doc && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            router.push(`/admin/bolsa-de-trabajo/${doc.id}`)
-                          }}
-                          className="rounded-2xl font-black"
-                        >
-                          Abrir tabla
-                        </Button>
+                    <div className="space-y-4 mt-auto">
+                      {doc ? (
+                        <>
+                          <div className="flex items-end justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                             <div className="flex flex-col">
+                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Registros</span>
+                               <span className="text-2xl font-black text-primary tracking-tighter mt-1">
+                                 {doc.totalRegistros?.toLocaleString()}
+                               </span>
+                             </div>
+                             <div className="text-right flex flex-col items-end">
+                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Estatus</span>
+                               <div className="mt-1">
+                                 <TipoEstadoBadge status={status} />
+                               </div>
+                             </div>
+                          </div>
+                          <p className="text-[11px] font-bold text-slate-500 line-clamp-1 italic px-1">
+                            {doc.nombreArchivo}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-6 gap-2 opacity-60">
+                           <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Información necesaria</p>
+                           <p className="text-[10px] font-bold text-slate-400/60">Clic para cargar</p>
+                        </div>
                       )}
+                    </div>
+
+                    <div className="pt-2 mt-auto">
+                       <div className={cn(
+                         "w-full h-12 flex items-center justify-between px-6 rounded-2xl transition-all duration-300",
+                         doc 
+                          ? "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white group-hover:shadow-[0_10px_20px_-5px_rgba(225,29,72,0.3)]" 
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-slate-900 dark:group-hover:bg-primary group-hover:text-white"
+                       )}>
+                         <span className="text-xs font-black uppercase tracking-[0.2em]">{doc ? 'Revisar' : 'Subir'}</span>
+                         <ArrowRight className="h-4 w-4" />
+                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                </div>
               ))}
             </div>
           </section>
@@ -302,30 +248,7 @@ export default function DetalleQuincenaPage() {
   )
 }
 
-function InfoCard({
-  icon,
-  title,
-  value,
-  description,
-}: {
-  icon: ReactNode
-  title: string
-  value: string
-  description: string
-}) {
-  return (
-    <Card className="rounded-3xl border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/50">
-      <CardContent className="space-y-3 p-5">
-        <div className="inline-flex rounded-2xl bg-primary/10 p-3 text-primary">{icon}</div>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{title}</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-white">{value}</p>
-        </div>
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{description}</p>
-      </CardContent>
-    </Card>
-  )
-}
+
 
 function TipoEstadoBadge({ status }: { status: TipoChecklistStatus }) {
   if (status === 'LISTO') {
