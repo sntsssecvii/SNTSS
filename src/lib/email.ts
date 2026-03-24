@@ -9,7 +9,7 @@ import {
 } from './email-templates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM_EMAIL = 'SNTSS Sección VII <onboarding@resend.dev>' // Idealmente usar un dominio verificado
+const FROM_EMAIL = process.env.RESEND_FROM || 'SNTSS Sección VII <notificaciones@sntssvii.com>'
 
 interface EmailPayload {
     to: string
@@ -18,6 +18,10 @@ interface EmailPayload {
 }
 
 export async function sendEmail(payload: EmailPayload) {
+    if (!process.env.RESEND_API_KEY) {
+        throw new Error('RESEND_API_KEY no está configurada')
+    }
+
     try {
         const { data, error } = await resend.emails.send({
             from: FROM_EMAIL,
@@ -28,14 +32,14 @@ export async function sendEmail(payload: EmailPayload) {
 
         if (error) {
             console.error('❌ [Email] Error de Resend:', error)
-            return { success: false, error }
+            throw new Error(typeof error.message === 'string' ? error.message : 'RESEND_SEND_FAILED')
         }
 
         console.log('✅ [Email] Enviado exitosamente:', data?.id)
         return { success: true, data }
     } catch (error) {
         console.error('❌ [Email] Error crítico enviando correo:', error)
-        return { success: false, error }
+        throw error
     }
 }
 

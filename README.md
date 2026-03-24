@@ -70,13 +70,15 @@ Tambien puedes usar `make check`, `make dev` o `make pdf-test`.
 Las variables necesarias estan documentadas en `.env.example`. Las mas importantes son:
 
 - `NEXT_PUBLIC_FIREBASE_*`
+- `NEXT_PUBLIC_APP_URL`
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
+- `RESEND_API_KEY`
+- `RESEND_FROM`
 - `ADOBE_CLIENT_ID`
 - `ADOBE_CLIENT_SECRET`
 - `ILOVEPDF_PUBLIC_KEY`
 - `ILOVEPDF_SECRET_KEY`
-- `RESEND_API_KEY`
 
 ## Documentacion relacionada
 
