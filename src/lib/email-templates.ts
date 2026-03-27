@@ -17,9 +17,20 @@ const baseStyles = `
   .footer { padding: 30px; text-align: center; font-size: 12px; color: #6b7280; }
   .divider { height: 1px; background-color: #e5e7eb; margin: 30px 0; }
   .reason-box { background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; font-style: italic; }
-`
+`;
 
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://sntssvii.com').replace(/\/+$/, '')
+const APP_URL = (
+  process.env.NEXT_PUBLIC_APP_URL || "https://sntssvii.com"
+).replace(/\/+$/, "");
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 const layout = (content: string) => `
 <!DOCTYPE html>
@@ -47,10 +58,11 @@ const layout = (content: string) => `
   </div>
 </body>
 </html>
-`
+`;
 
-export const registrationTemplate = (name: string) => layout(`
-  <h1 class="h1">¡Gracias por registrarte, ${name}!</h1>
+export const registrationTemplate = (name: string) =>
+  layout(`
+  <h1 class="h1">¡Gracias por registrarte, ${escapeHtml(name)}!</h1>
   <p class="p">Hemos recibido tu solicitud de registro para el portal de SNTSS Sección VII.</p>
   <p class="p">En este momento, nuestro equipo administrativo está revisando tus documentos para validar tu identidad. Recibirás otro correo electrónico en cuanto tu cuenta sea activada.</p>
   <p class="p">Este proceso suele tardar entre 24 y 48 horas hábiles.</p>
@@ -58,37 +70,40 @@ export const registrationTemplate = (name: string) => layout(`
     <a href="${APP_URL}" class="button">Ir al Portal</a>
   </div>
   <p class="p">Si no realizaste esta solicitud, por favor ignora este correo.</p>
-`)
+`);
 
-export const approvalTemplate = (name: string) => layout(`
+export const approvalTemplate = (name: string) =>
+  layout(`
   <h1 class="h1">¡Tu cuenta ha sido activada!</h1>
-  <p class="p">Hola ${name}, nos complace informarte que tu solicitud de registro ha sido <strong>aprobada exitosamente</strong>.</p>
+  <p class="p">Hola ${escapeHtml(name)}, nos complace informarte que tu solicitud de registro ha sido <strong>aprobada exitosamente</strong>.</p>
   <p class="p">Ya puedes acceder a todas las funcionalidades del portal con tu correo electrónico y contraseña.</p>
   <div class="button-container">
     <a href="${APP_URL}/login" class="button">Iniciar Sesión Ahora</a>
   </div>
   <p class="p">¡Bienvenido a la plataforma oficial de la Sección VII!</p>
-`)
+`);
 
-export const rejectionTemplate = (name: string, reason: string) => layout(`
+export const rejectionTemplate = (name: string, reason: string) =>
+  layout(`
   <h1 class="h1">Actualización sobre tu registro</h1>
-  <p class="p">Hola ${name}, te informamos que tu solicitud de registro ha sido rechazada por el siguiente motivo:</p>
+  <p class="p">Hola ${escapeHtml(name)}, te informamos que tu solicitud de registro ha sido rechazada por el siguiente motivo:</p>
   <div class="reason-box">
-    "${reason}"
+    "${escapeHtml(reason)}"
   </div>
   <p class="p">No te preocupes, puedes volver a intentar el proceso de registro corrigiendo los detalles mencionados anteriormente.</p>
   <div class="button-container">
     <a href="${APP_URL}/registro" class="button">Intentar de Nuevo</a>
   </div>
   <p class="p">Si tienes alguna duda, ponte en contacto con tu delegado sindical.</p>
-`)
+`);
 
-export const passwordResetTemplate = (name: string, resetLink: string) => layout(`
+export const passwordResetTemplate = (name: string, resetLink: string) =>
+  layout(`
   <h1 class="h1">Restablecer tu contraseña</h1>
-  <p class="p">Hola ${name},</p>
+  <p class="p">Hola ${escapeHtml(name)},</p>
   <p class="p">Recibimos una solicitud para restablecer la contraseña de tu cuenta en el portal SNTSS Sección VII.</p>
   <div class="button-container">
     <a href="${resetLink}" class="button">Restablecer Contraseña</a>
   </div>
   <p class="p">Este enlace expirará en 1 hora. Si no solicitaste este cambio, puedes ignorar este correo de forma segura.</p>
-`)
+`);

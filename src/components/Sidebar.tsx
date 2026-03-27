@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
-import Image from 'next/image'
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import Image from "next/image";
 import {
   LayoutDashboard,
   FileText,
@@ -19,56 +19,56 @@ import {
   FileBarChart,
   Users,
   ShieldCheck,
-} from 'lucide-react'
-import { Button } from './ui/button'
-import { cn } from '@/lib/utils'
-import logoSNTSS from '@/assets/logo-sntss.png'
-import seccion7 from '@/assets/seccion7.png'
-import { signOut } from 'firebase/auth'
-import { auth } from '@/lib/firebase/firebase-client'
-import { useToast } from './ui/use-toast'
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
+import logoSNTSS from "@/assets/logo-sntss.png";
+import seccion7 from "@/assets/seccion7.png";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase/firebase-client";
+import { useToast } from "./ui/use-toast";
 
 interface NavItem {
-  title: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-  badge?: string
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
 }
 
 const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
-  const baseItems: NavItem[] = []
+  const baseItems: NavItem[] = [];
 
   // Dashboard según rol
-  const roleUpper = rol?.toUpperCase()
+  const roleUpper = rol?.toUpperCase();
 
-  if (roleUpper === 'ADMIN') {
+  if (roleUpper === "ADMIN") {
     baseItems.push({
-      title: 'Panel Admin',
-      href: '/admin',
+      title: "Panel Admin",
+      href: "/admin",
       icon: LayoutDashboard,
-    })
+    });
   } else {
     baseItems.push({
-      title: 'Dashboard',
-      href: '/dashboard',
+      title: "Dashboard",
+      href: "/dashboard",
       icon: LayoutDashboard,
-    })
+    });
   }
 
   // Solo ADMIN puede ver estas secciones en el MVP
-  if (roleUpper === 'ADMIN') {
+  if (roleUpper === "ADMIN") {
     baseItems.push(
       {
-        title: 'Bolsa de Trabajo',
-        href: '/admin/bolsa-de-trabajo',
+        title: "Bolsa de Trabajo",
+        href: "/admin/bolsa-de-trabajo",
         icon: Users,
       },
       {
-        title: 'Validaciones',
-        href: '/admin/validaciones',
+        title: "Validaciones",
+        href: "/admin/validaciones",
         icon: ShieldCheck,
-        badge: pendingCount > 0 ? pendingCount.toString() : undefined
-      }
+        badge: pendingCount > 0 ? pendingCount.toString() : undefined,
+      },
       /* Oculto para MVP:
       {
         title: 'Propuestas',
@@ -86,106 +86,108 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
         icon: FileBarChart,
       }
       */
-    )
+    );
   }
 
   // Items comunes para todos
-  if (roleUpper === 'ADMIN') {
+  if (roleUpper === "ADMIN") {
     baseItems.push(
       {
-        title: 'Mi Perfil',
-        href: '/admin/perfil',
+        title: "Mi Perfil",
+        href: "/admin/perfil",
         icon: User,
       },
       {
-        title: 'Configuración',
-        href: '/admin/configuracion',
+        title: "Configuración",
+        href: "/admin/configuracion",
         icon: Settings,
       },
       {
-        title: 'Cambiar Contraseña',
-        href: '/admin/cambiar-contrasena',
+        title: "Cambiar Contraseña",
+        href: "/admin/cambiar-contrasena",
         icon: Lock,
-      }
-    )
+      },
+    );
   }
 
-  return baseItems
-}
+  return baseItems;
+};
 
 export function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false)
-  const pathname = usePathname()
-  const router = useRouter()
-  const { user, userData } = useAuth()
-  const { toast } = useToast()
-  const [pendingCount, setPendingCount] = useState(0)
+  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, userData } = useAuth();
+  const { toast } = useToast();
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    if (userData?.role?.toUpperCase() !== 'ADMIN') {
-      setPendingCount(0)
-      return
+    if (userData?.role?.toUpperCase() !== "ADMIN") {
+      setPendingCount(0);
+      return;
     }
 
-    let cancelled = false
+    let cancelled = false;
 
     const loadPendingCount = async () => {
       try {
-        const currentUser = auth.currentUser
-        if (!currentUser) return
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
 
-        const idToken = await currentUser.getIdToken()
-        const response = await fetch('/api/admin/validaciones/resumen', {
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch("/api/admin/validaciones/resumen", {
           headers: { Authorization: `Bearer ${idToken}` },
-          cache: 'no-store',
-        })
+          cache: "no-store",
+        });
 
         if (!response.ok) {
-          throw new Error(`HTTP_${response.status}`)
+          throw new Error(`HTTP_${response.status}`);
         }
 
-        const payload = await response.json()
+        const payload = await response.json();
         if (!cancelled) {
-          setPendingCount(payload?.data?.pending ?? 0)
+          setPendingCount(payload?.data?.pending ?? 0);
         }
       } catch (error) {
-        console.error('Error obteniendo badge de validaciones:', error)
+        console.error("Error obteniendo badge de validaciones:", error);
       }
-    }
+    };
 
-    loadPendingCount()
-    const intervalId = window.setInterval(loadPendingCount, 60_000)
+    loadPendingCount();
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) loadPendingCount();
+    }, 60_000);
 
     return () => {
-      cancelled = true
-      window.clearInterval(intervalId)
-    }
-  }, [userData])
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [userData]);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth)
+      await signOut(auth);
       toast({
-        title: 'Sesión cerrada',
-        description: 'Has cerrado sesión correctamente',
-      })
-      router.push('/login')
+        title: "Sesión cerrada",
+        description: "Has cerrado sesión correctamente",
+      });
+      router.push("/login");
     } catch (error: any) {
-      console.error('Error al cerrar sesión:', error)
+      console.error("Error al cerrar sesión:", error);
       toast({
-        title: 'Error',
-        description: 'No se pudo cerrar sesión',
-        variant: 'destructive',
-      })
+        title: "Error",
+        description: "No se pudo cerrar sesión",
+        variant: "destructive",
+      });
     }
-  }
+  };
 
   const isActive = (href: string) => {
-    if (href === '/dashboard' || href === '/admin') {
-      return pathname === href
+    if (href === "/dashboard" || href === "/admin") {
+      return pathname === href;
     }
-    return pathname?.startsWith(href)
-  }
+    return pathname?.startsWith(href);
+  };
 
   return (
     <>
@@ -197,7 +199,11 @@ export function Sidebar() {
           onClick={() => setIsOpen(!isOpen)}
           className="bg-background/90 backdrop-blur-sm border shadow-md h-9 w-9 sm:h-10 sm:w-10"
         >
-          {isOpen ? <X className="h-4 w-4 sm:h-5 sm:w-5" /> : <Menu className="h-4 w-4 sm:h-5 sm:w-5" />}
+          {isOpen ? (
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          ) : (
+            <Menu className="h-4 w-4 sm:h-5 sm:w-5" />
+          )}
         </Button>
       </div>
 
@@ -212,9 +218,9 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-full w-64 sm:w-72 lg:w-64 bg-[#7F1D1D] dark:bg-[#450a0a] border-r border-white/5 text-white z-50 transform transition-transform duration-500 ease-in-out shadow-2xl',
-          'lg:translate-x-0',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+          "fixed left-0 top-0 h-full w-64 sm:w-72 lg:w-64 bg-[#7F1D1D] dark:bg-[#450a0a] border-r border-white/5 text-white z-50 transform transition-transform duration-500 ease-in-out shadow-2xl",
+          "lg:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* Capa de gradiente profundo para efecto premium */}
@@ -236,9 +242,13 @@ export function Sidebar() {
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-xl font-black tracking-tighter text-white uppercase leading-none">Sección VII</p>
+                <p className="text-xl font-black tracking-tighter text-white uppercase leading-none">
+                  Sección VII
+                </p>
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10 backdrop-blur-sm">
-                   <p className="text-[10px] font-black text-red-200 uppercase tracking-[0.25em]">SNTSS</p>
+                  <p className="text-[10px] font-black text-red-200 uppercase tracking-[0.25em]">
+                    SNTSS
+                  </p>
                 </div>
               </div>
             </div>
@@ -249,16 +259,20 @@ export function Sidebar() {
             <div className="p-4 rounded-[1.5rem] bg-black/20 backdrop-blur-md border border-white/5 shadow-inner">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0 shadow-lg ring-2 ring-white/10">
-                  {userData?.nombre?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                  {userData?.nombre?.charAt(0) || user?.email?.charAt(0) || "U"}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-black tracking-tight truncate text-white">
                     {userData?.nombre} {userData?.apellidoPaterno}
                   </p>
-                  <p className="text-[10px] font-bold text-red-200/60 truncate leading-tight mb-1">{user?.email}</p>
+                  <p className="text-[10px] font-bold text-red-200/60 truncate leading-tight mb-1">
+                    {user?.email}
+                  </p>
                   {userData?.role && (
                     <span className="inline-flex px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-white/10 text-white rounded-md border border-white/10">
-                      {userData.role.toUpperCase() === 'ADMIN' ? 'Administrador' : 'Usuario'}
+                      {userData.role.toUpperCase() === "ADMIN"
+                        ? "Administrador"
+                        : "Usuario"}
                     </span>
                   )}
                 </div>
@@ -269,31 +283,42 @@ export function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5 custom-scrollbar">
             {getNavItems(userData?.role, pendingCount).map((item) => {
-              const Icon = item.icon
-              const active = isActive(item.href)
+              const Icon = item.icon;
+              const active = isActive(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setIsOpen(false)}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative',
+                    "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group relative",
                     active
-                      ? 'bg-white text-red-950 shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] font-black'
-                      : 'text-red-100 hover:bg-white/10 hover:text-white'
+                      ? "bg-white text-red-950 shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] font-black"
+                      : "text-red-100 hover:bg-white/10 hover:text-white",
                   )}
                 >
-                  <Icon className={cn('h-5 w-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110', active ? 'text-red-600' : 'text-red-300/80 group-hover:text-white')} />
-                  <span className="flex-1 text-sm font-bold tracking-tight">{item.title}</span>
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110",
+                      active
+                        ? "text-red-600"
+                        : "text-red-300/80 group-hover:text-white",
+                    )}
+                  />
+                  <span className="flex-1 text-sm font-bold tracking-tight">
+                    {item.title}
+                  </span>
                   {active ? (
-                     <ChevronRight className="h-4 w-4 flex-shrink-0 opacity-40" />
-                  ) : item.badge && (
-                    <span className="px-2 py-0.5 text-[10px] bg-red-500 text-white font-black rounded-lg shadow-lg">
-                      {item.badge}
-                    </span>
+                    <ChevronRight className="h-4 w-4 flex-shrink-0 opacity-40" />
+                  ) : (
+                    item.badge && (
+                      <span className="px-2 py-0.5 text-[10px] bg-red-500 text-white font-black rounded-lg shadow-lg">
+                        {item.badge}
+                      </span>
+                    )
                   )}
                 </Link>
-              )
+              );
             })}
           </nav>
 
@@ -307,11 +332,13 @@ export function Sidebar() {
               <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center mr-3 group-hover:bg-red-500/20 transition-colors">
                 <LogOut className="h-4 w-4" />
               </div>
-              <span className="text-sm font-black tracking-tight">Cerrar Sesión</span>
+              <span className="text-sm font-black tracking-tight">
+                Cerrar Sesión
+              </span>
             </Button>
           </div>
         </div>
       </aside>
     </>
-  )
+  );
 }

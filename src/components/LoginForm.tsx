@@ -1,64 +1,63 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { useToast } from '@/components/ui/use-toast'
-import { setAdminCredentials } from '@/lib/firebase/auth'
-import { useAuth } from '@/contexts/AuthContext'
-import { LoadingScreen } from './ui/loading-screen'
-import { motion } from 'framer-motion'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { useToast } from "@/components/ui/use-toast";
+import { setAdminCredentials } from "@/lib/firebase/auth";
+import { useAuth } from "@/contexts/AuthContext";
+import { LoadingScreen } from "./ui/loading-screen";
+import { motion } from "framer-motion";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 // Mapeo de roles a rutas iniciales
 const HOME_ROUTES = {
-  'ADMIN': '/admin',
-  'USER': '/dashboard',
-} as const
+  ADMIN: "/admin",
+  USER: "/dashboard",
+} as const;
 
 export default function LoginForm() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
-  const { user, userData, error } = useAuth()
-  const auth = getAuth()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  const { user, userData, error } = useAuth();
+  const auth = getAuth();
 
   // Efecto para redirigir si ya hay sesión activa
   useEffect(() => {
     if (user && userData?.role) {
       // Normalizamos a mayúsculas para coincidir con HOME_ROUTES (ADMIN/USER)
-      const roleKey = userData.role.toUpperCase() as keyof typeof HOME_ROUTES
-      const redirectPath = HOME_ROUTES[roleKey]
+      const roleKey = userData.role.toUpperCase() as keyof typeof HOME_ROUTES;
+      const redirectPath = HOME_ROUTES[roleKey];
 
       if (redirectPath) {
-        console.log('🔄 Sesión detectada, redirigiendo a:', redirectPath)
-        router.push(redirectPath)
+        router.push(redirectPath);
       } else {
-        console.warn('⚠️ No se encontró ruta para el rol:', userData.role)
+        console.warn("⚠️ No se encontró ruta para el rol:", userData.role);
       }
     }
-  }, [user, userData, router])
+  }, [user, userData, router]);
 
   // Mostrar error del AuthContext si existe
   useEffect(() => {
     if (error) {
-      console.error('❌ Error del AuthContext:', error)
+      console.error("❌ Error del AuthContext:", error);
       toast({
         title: "Error de base de datos",
         description: error,
         variant: "destructive",
         duration: 10000,
-      })
-      setLoading(false)
+      });
+      setLoading(false);
     }
-  }, [error, toast])
+  }, [error, toast]);
 
   // Si hay usuario autenticado, mostrar estado de redirección en lugar del formulario
   if (user && userData) {
@@ -69,58 +68,59 @@ export default function LoginForm() {
           Redirigiendo a su panel...
         </p>
       </div>
-    )
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (loading) return // Prevenir múltiples envíos
-    setLoading(true)
+    e.preventDefault();
+    if (loading) return; // Prevenir múltiples envíos
+    setLoading(true);
 
-    let success = false
-    let authSuccess = false
+    let success = false;
+    let authSuccess = false;
     try {
       // Verificar que Firebase esté configurado
       if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-        throw new Error('Firebase no está configurado. Por favor, configura las variables de entorno.')
+        throw new Error(
+          "Firebase no está configurado. Por favor, configura las variables de entorno.",
+        );
       }
 
       // Autenticar con Firebase (AuthContext manejará la lectura de Firestore)
-      console.log('🔐 Intentando autenticar usuario:', email)
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      authSuccess = true
-      console.log('✅ Usuario autenticado exitosamente:', {
-        email: userCredential.user.email,
-        uid: userCredential.user.uid,
-      })
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      authSuccess = true;
 
-      // Guardar credenciales del admin
-      sessionStorage.setItem('adminPassword', password)
-      setAdminCredentials(email, password)
+      // Guardar credenciales del admin en memoria (para re-auth al crear usuarios)
+      setAdminCredentials(email, password);
 
       // Mostrar toast de éxito
       toast({
         title: "¡Bienvenido!",
         description: "Iniciando sesión...",
-      })
+      });
 
-      success = true
+      success = true;
 
       // Esperar a que AuthContext cargue los datos y redirigir
       // El AuthContext manejará la redirección automáticamente cuando tenga los datos
       // Si hay un error de Firestore, se mostrará en el AuthContext
-
     } catch (error: any) {
-      console.error('❌ Error en login:', error)
-      const errorMessage = error?.message || 'Error desconocido'
-      const isConfigError = errorMessage.includes('Firebase no está configurado') || errorMessage.includes('invalid-api-key')
+      console.error("❌ Error en login:", error);
+      const errorMessage = error?.message || "Error desconocido";
+      const isConfigError =
+        errorMessage.includes("Firebase no está configurado") ||
+        errorMessage.includes("invalid-api-key");
 
       // Si ya se autenticó pero falló después, cerrar sesión
       if (authSuccess) {
         try {
-          await auth.signOut()
+          await auth.signOut();
         } catch (e) {
-          console.error('Error al cerrar sesión:', e)
+          console.error("Error al cerrar sesión:", e);
         }
       }
 
@@ -128,19 +128,21 @@ export default function LoginForm() {
         title: "Error al iniciar sesión",
         description: isConfigError
           ? "Firebase no está configurado. Por favor, configura las variables de entorno en el archivo .env"
-          : errorMessage.includes('Credenciales') || errorMessage.includes('auth/')
+          : errorMessage.includes("Credenciales") ||
+              errorMessage.includes("auth/")
             ? "Credenciales incorrectas. Por favor, verifica tus datos."
-            : errorMessage.includes('Firestore') || errorMessage.includes('database')
+            : errorMessage.includes("Firestore") ||
+                errorMessage.includes("database")
               ? "⚠️ Base de datos no disponible. Por favor contacta al administrador."
               : errorMessage,
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
       if (!success) {
-        setLoading(false)
+        setLoading(false);
       }
     }
-  }
+  };
 
   return (
     <>
@@ -210,7 +212,7 @@ export default function LoginForm() {
                 Iniciando sesión...
               </>
             ) : (
-              'Iniciar Sesión'
+              "Iniciar Sesión"
             )}
           </Button>
         </form>
@@ -226,5 +228,5 @@ export default function LoginForm() {
         </div>
       </motion.div>
     </>
-  )
+  );
 }
