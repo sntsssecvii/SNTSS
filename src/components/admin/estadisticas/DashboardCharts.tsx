@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { auth } from '@/lib/firebase/firebase-client'
 import { motion } from 'framer-motion'
 import { BarChart3, PieChart, TrendingUp, Calendar } from 'lucide-react'
 import { EstadoPropuesta } from '@/types/workflow'
@@ -18,14 +16,9 @@ interface BarChartItem {
   cantidad: number
 }
 
-interface EstadisticasResumenChartsResponse {
-  success: boolean
-  data: {
-    charts: {
-      propuestasPorMes: Array<{ mes: string; cantidad: number }>
-      distribucionPorEstado: Record<string, number>
-    }
-  }
+export interface DashboardChartsData {
+  propuestasPorMes: Array<{ mes: string; cantidad: number }>
+  distribucionPorEstado: Record<string, number>
 }
 
 const ESTADO_COLORS: Record<EstadoPropuesta, string> = {
@@ -46,70 +39,35 @@ const ESTADO_LABELS: Record<EstadoPropuesta, string> = {
   [EstadoPropuesta.COMPLETADA]: 'Completadas',
 }
 
-export default function DashboardCharts() {
-  const [barData, setBarData] = useState<BarChartItem[]>([])
-  const [pieData, setPieData] = useState<ChartData[]>([])
-  const [loading, setLoading] = useState(true)
+function buildBarData(data?: DashboardChartsData): BarChartItem[] {
+  return data?.propuestasPorMes?.map(item => ({ month: item.mes, cantidad: item.cantidad })) || []
+}
 
-  useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        setLoading(true)
-        const currentUser = auth.currentUser
-        if (!currentUser) {
-          throw new Error('No se pudo validar la sesión del administrador.')
-        }
+function buildPieData(data?: DashboardChartsData): ChartData[] {
+  if (!data) {
+    return [
+      { name: 'Aprobadas', value: 0, color: '#10b981' },
+      { name: 'Pendientes', value: 0, color: '#f59e0b' },
+    ]
+  }
 
-        const idToken = await currentUser.getIdToken()
-        const response = await fetch('/api/admin/estadisticas/resumen', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        })
+  return Object.entries(data.distribucionPorEstado || {})
+    .filter(([_, value]) => value > 0)
+    .map(([estado, value]) => ({
+      name: ESTADO_LABELS[estado as EstadoPropuesta],
+      value,
+      color: ESTADO_COLORS[estado as EstadoPropuesta],
+    }))
+}
 
-        const payload = await response.json() as EstadisticasResumenChartsResponse & { error?: string }
+interface DashboardChartsProps {
+  data?: DashboardChartsData
+  loading?: boolean
+}
 
-        if (!response.ok || !payload?.data?.charts) {
-          throw new Error(payload?.error || 'No se pudieron cargar los gráficos.')
-        }
-
-        const mesData = payload.data.charts.propuestasPorMes
-        const distribucion = payload.data.charts.distribucionPorEstado
-
-        // Formatear datos de barras
-        setBarData(mesData.map(item => ({ month: item.mes, cantidad: item.cantidad })))
-
-        // Formatear datos de pastel
-        const pieDataFormatted: ChartData[] = Object.entries(distribucion)
-          .filter(([_, value]) => value > 0)
-          .map(([estado, value]) => ({
-            name: ESTADO_LABELS[estado as EstadoPropuesta],
-            value,
-            color: ESTADO_COLORS[estado as EstadoPropuesta],
-          }))
-        
-        setPieData(pieDataFormatted)
-      } catch (error) {
-        console.error('Error cargando datos de gráficos:', error)
-        // Datos por defecto en caso de error
-        setBarData([])
-        setPieData([
-          { name: 'Aprobadas', value: 0, color: '#10b981' },
-          { name: 'Pendientes', value: 0, color: '#f59e0b' },
-        ])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    cargarDatos()
-
-    // Actualizar cada 60 segundos
-    const interval = setInterval(cargarDatos, 60000)
-
-    return () => clearInterval(interval)
-  }, [])
+export default function DashboardCharts({ data, loading = false }: DashboardChartsProps) {
+  const barData = buildBarData(data)
+  const pieData = buildPieData(data)
 
   if (loading) {
     return (

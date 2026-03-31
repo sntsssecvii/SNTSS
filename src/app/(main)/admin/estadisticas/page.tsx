@@ -2,14 +2,27 @@
 
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import DashboardStats from '@/components/admin/estadisticas/DashboardStats'
-import DashboardCharts from '@/components/admin/estadisticas/DashboardCharts'
+import { useEffect, useState } from 'react'
+import { auth } from '@/lib/firebase/firebase-client'
+import DashboardStats, { DashboardStatsData } from '@/components/admin/estadisticas/DashboardStats'
+import DashboardCharts, { DashboardChartsData } from '@/components/admin/estadisticas/DashboardCharts'
 import NotificationsPanel from '@/components/admin/estadisticas/NotificationsPanel'
+
+interface EstadisticasResumenResponse {
+  success: boolean
+  data?: {
+    stats?: DashboardStatsData
+    charts?: DashboardChartsData
+  }
+  error?: string
+}
 
 export default function EstadisticasPage() {
   const { user, userData, loading } = useAuth()
   const router = useRouter()
+  const [statsData, setStatsData] = useState<DashboardStatsData | undefined>()
+  const [chartsData, setChartsData] = useState<DashboardChartsData | undefined>()
+  const [loadingResumen, setLoadingResumen] = useState(true)
 
   useEffect(() => {
     const userRole = userData?.role?.toUpperCase()
@@ -17,6 +30,59 @@ export default function EstadisticasPage() {
       router.push('/login')
     }
   }, [user, userData, loading, router])
+
+  useEffect(() => {
+    if (!user || userData?.role?.toUpperCase() !== 'ADMIN') return
+
+    let cancelled = false
+
+    const loadResumen = async () => {
+      try {
+        if (!cancelled) setLoadingResumen(true)
+
+        const currentUser = auth.currentUser
+        if (!currentUser) {
+          throw new Error('No se pudo validar la sesión del administrador.')
+        }
+
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch('/api/admin/estadisticas/resumen', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+          cache: 'no-store',
+        })
+
+        const payload = await response.json() as EstadisticasResumenResponse
+
+        if (!response.ok || !payload?.data?.stats || !payload?.data?.charts) {
+          throw new Error(payload?.error || 'No se pudieron cargar las estadísticas.')
+        }
+
+        if (!cancelled) {
+          setStatsData(payload.data.stats)
+          setChartsData(payload.data.charts)
+          setLoadingResumen(false)
+        }
+      } catch (error) {
+        console.error('Error cargando resumen de estadísticas:', error)
+        if (!cancelled) {
+          setStatsData(undefined)
+          setChartsData(undefined)
+          setLoadingResumen(false)
+        }
+      }
+    }
+
+    loadResumen()
+    const intervalId = window.setInterval(loadResumen, 60_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [user, userData])
 
   if (loading) {
     return (
@@ -42,10 +108,10 @@ export default function EstadisticasPage() {
       </div>
 
       {/* Tarjetas de estadísticas principales */}
-      <DashboardStats />
+      <DashboardStats data={statsData} loading={loadingResumen} />
 
       {/* Gráficos y visualizaciones */}
-      <DashboardCharts />
+      <DashboardCharts data={chartsData} loading={loadingResumen} />
 
       {/* Panel de notificaciones */}
       <NotificationsPanel />

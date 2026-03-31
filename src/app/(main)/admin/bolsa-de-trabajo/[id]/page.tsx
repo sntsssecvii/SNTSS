@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useDeferredValue, useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { auth } from '@/lib/firebase/firebase-client'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Download, Search, ChevronLeft, ChevronRight,
@@ -11,8 +12,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
-  getBolsaDeTrabajoDocumentoHead,
-  getRegistrosBolsaDeTrabajo,
   updateBolsaDeTrabajoDocumento,
   deleteBolsaDeTrabajoDocumento
 } from '@/lib/firebase/bolsa-de-trabajo'
@@ -22,9 +21,6 @@ import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { EstadoBadgeBolsaDeTrabajo } from '@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { calcularPosiciones, getTrabajadoresAntes } from '@/lib/bolsa-de-trabajo/calculos'
-import { normalizePositionRecord } from '@/lib/bolsa-de-trabajo/position-engine'
-import { positionStrategies } from '@/lib/bolsa-de-trabajo/position-strategies'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog'
@@ -32,15 +28,52 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Select } from '@/components/ui/select'
 
+interface DocumentoDetalleResponse {
+  data?: {
+    documento?: BolsaDeTrabajoDocumento
+    registros?: (BolsaDeTrabajoRegistro & { _posCalculada?: any })[]
+    pagination?: {
+      page: number
+      pageSize: number
+      total: number
+      totalPages: number
+    }
+    facetas?: {
+      categorias?: string[]
+      categoriasCount?: Record<string, number>
+      zonas?: string[]
+      zonasCount?: Record<string, number>
+    }
+  }
+  error?: string
+}
+
+interface ContextoRegistroResponse {
+  data?: {
+    trabajadoresAntes?: Array<{ posicionBase: number; registro: BolsaDeTrabajoRegistro }>
+  }
+  error?: string
+}
+
+type TableState = 'loading-initial' | 'loading-refresh' | 'success' | 'empty' | 'error'
+type DebugEvent = {
+  id: string
+  at: string
+  type: string
+  detail: string
+}
+
 export default function DetalleBolsaDeTrabajoPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { user } = useAuth()
   const { toast } = useToast()
 
   const [documento, setDocumento] = useState<BolsaDeTrabajoDocumento | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [streaming, setStreaming] = useState(false)
+  const [registrosPagina, setRegistrosPagina] = useState<(BolsaDeTrabajoRegistro & { _posCalculada?: any })[]>([])
+  const [ultimaPaginaConDatos, setUltimaPaginaConDatos] = useState<(BolsaDeTrabajoRegistro & { _posCalculada?: any })[]>([])
+  const [tableState, setTableState] = useState<TableState>('loading-initial')
   const [busqueda, setBusqueda] = useState('')
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [filtroValidacion, setFiltroValidacion] = useState<'all' | 'pendientes'>('all')
@@ -61,57 +94,51 @@ export default function DetalleBolsaDeTrabajoPage() {
   // Paginación
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 50
+  const [totalRegistrosFiltrados, setTotalRegistrosFiltrados] = useState(0)
+  const [totalPaginas, setTotalPaginas] = useState(1)
+  const [categoriasUnicas, setCategoriasUnicas] = useState<string[]>([])
+  const [zonasUnicas, setZonasUnicas] = useState<string[]>([])
+  const [stats, setStats] = useState<{ categorias: Record<string, number>; zonas: Record<string, number> }>({
+    categorias: {},
+    zonas: {},
+  })
 
   // Modal de detalles
   const [registroSeleccionado, setRegistroSeleccionado] = useState<BolsaDeTrabajoRegistro | null>(null)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [mostrarAnteriores, setMostrarAnteriores] = useState(false)
+  const [trabajadoresAntes, setTrabajadoresAntes] = useState<Array<{ posicionBase: number; registro: BolsaDeTrabajoRegistro }>>([])
+  const [cargandoTrabajadoresAntes, setCargandoTrabajadoresAntes] = useState(false)
+  const [errorCargaDocumento, setErrorCargaDocumento] = useState<string | null>(null)
+  const [errorContextoPosicion, setErrorContextoPosicion] = useState<string | null>(null)
+  const [debugEnabled, setDebugEnabled] = useState(false)
+  const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([])
+  const activeRequestIdRef = useRef(0)
+  const previousFilterKeyRef = useRef('')
+  const lastSettledFilterKeyRef = useRef('')
+  const activeFetchControllerRef = useRef<AbortController | null>(null)
+  const activeContextControllerRef = useRef<AbortController | null>(null)
 
-  const cargarDocumento = useCallback(async (id: string) => {
-    try {
-      setLoading(true)
-      
-      // 1. Carga ultra-rápida del encabezado
-      const head = await getBolsaDeTrabajoDocumentoHead(id)
-      if (!head) {
-        toast({ title: 'Error', description: 'No se pudo cargar el documento', variant: 'destructive' })
-        setLoading(false)
-        return
-      }
-      
-      // Ya podemos mostrar la estructura de la página
-      setDocumento(head)
-      setNuevoNombre(head.nombreArchivo || '')
-      setLoading(false) // <--- Quitamos el spinner global aquí
-      
-      // 2. Carga de registros en segundo plano (streaming)
-      setStreaming(true)
-      try {
-        const regs = await getRegistrosBolsaDeTrabajo(id)
-        setDocumento(prev => prev ? { ...prev, registros: regs } : null)
-      } catch (err) {
-        console.error('Error cargando registros:', err)
-        toast({ title: 'Error parcial', description: 'No se pudieron cargar los detalles de los registros', variant: 'destructive' })
-      } finally {
-        setStreaming(false)
-      }
-      
-    } catch (error: any) {
-      console.error('Error general cargando documento:', error)
-      toast({
-        title: 'Error',
-        description: 'Error en la conexión con el servidor',
-        variant: 'destructive',
-      })
-      setLoading(false)
+  const pushDebugEvent = useCallback((type: string, detail: string) => {
+    if (!debugEnabled) return
+
+    const event = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      at: new Date().toLocaleTimeString('es-MX', { hour12: false }),
+      type,
+      detail,
     }
-  }, [toast])
+
+    setDebugEvents((prev) => [event, ...prev].slice(0, 14))
+    console.info('[BolsaTableDebug]', event)
+  }, [debugEnabled])
 
   useEffect(() => {
-    if (params.id) {
-      cargarDocumento(params.id as string)
-    }
-  }, [params.id, cargarDocumento])
+    const queryFlag = searchParams.get('debugTable')
+    const localFlag = typeof window !== 'undefined' ? window.localStorage.getItem('debug-bolsa-table') : null
+    const enabled = queryFlag === '1' || localFlag === '1'
+    setDebugEnabled(enabled)
+  }, [searchParams])
 
   // Debounce para la búsqueda
   useEffect(() => {
@@ -121,184 +148,141 @@ export default function DetalleBolsaDeTrabajoPage() {
     return () => clearTimeout(timer)
   }, [busqueda])
 
-  // Normalización para categorías
-  const normalizarString = (str: string | undefined): string => {
-    if (!str) return ''
-    return str.trim().toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ')
-  }
-
-  // Obtener categorías únicas
-  const categoriasUnicas = useMemo(() => {
-    if (!documento) return []
-    const catMap = new Map<string, string>()
-    documento.registros.forEach(r => {
-      if (r.categoria) {
-        const norm = normalizarString(r.categoria)
-        if (!catMap.has(norm) || r.categoria.length > catMap.get(norm)!.length) {
-          catMap.set(norm, r.categoria.trim())
-        }
-      }
-    })
-    return Array.from(catMap.values()).sort()
-  }, [documento])
+  const busquedaCategoriaDeferred = useDeferredValue(busquedaCategoria)
+  const busquedaZonaDeferred = useDeferredValue(busquedaZona)
 
   const categoriasFiltradas = useMemo(() => {
-    if (!busquedaCategoria) return categoriasUnicas
-    const lower = busquedaCategoria.toLowerCase()
+    if (!busquedaCategoriaDeferred) return categoriasUnicas
+    const lower = busquedaCategoriaDeferred.toLowerCase()
     return categoriasUnicas.filter(c => c.toLowerCase().includes(lower))
-  }, [categoriasUnicas, busquedaCategoria])
-
-  // Obtener conteos de registros por categoría y zona (para evitar O(N*M) en el render)
-  const stats = useMemo(() => {
-    if (!documento) return { categorias: {}, zonas: {} }
-    const catStats: Record<string, number> = {}
-    const zonaStats: Record<string, number> = {}
-    
-    documento.registros.forEach(r => {
-      if (r.categoria) {
-        catStats[r.categoria] = (catStats[r.categoria] || 0) + 1
-      }
-      if (r.zona) {
-        const z = r.zona.trim()
-        zonaStats[z] = (zonaStats[z] || 0) + 1
-      }
-    })
-    
-    return { categorias: catStats, zonas: zonaStats }
-  }, [documento])
-
-  // Obtener zonas únicas
-  const zonasUnicas = useMemo(() => {
-    if (!documento) return []
-    const zonaSet = new Set<string>()
-    documento.registros.forEach(r => {
-      if (r.zona) zonaSet.add(r.zona.trim())
-    })
-    return Array.from(zonaSet).sort()
-  }, [documento])
+  }, [categoriasUnicas, busquedaCategoriaDeferred])
 
   const zonasFiltradas = useMemo(() => {
-    if (!busquedaZona) return zonasUnicas
-    const lower = busquedaZona.toLowerCase()
+    if (!busquedaZonaDeferred) return zonasUnicas
+    const lower = busquedaZonaDeferred.toLowerCase()
     return zonasUnicas.filter(z => z.toLowerCase().includes(lower))
-  }, [zonasUnicas, busquedaZona])
+  }, [zonasUnicas, busquedaZonaDeferred])
 
-  // Nuevo useMemo para agrupar registros por su clave de comparación
-  // Esto evita filtrar todo el array (O(N)) por cada fila que se muestra en pantalla (O(M)).
-  const registrosPorGrupo = useMemo(() => {
-    if (!documento) return new Map<string, BolsaDeTrabajoRegistro[]>()
-    
-    // Solo necesitamos agrupar para tipos que calculan posición
-    const tiposConPosicion = [
-      'NUEVO_INGRESO',
-      'AMPLIACIONES_JORNADA',
-      'CAMBIOS_TURNO_ADSCRIPCION',
-      'CAMBIOS_RAMA',
-      'CAMBIOS_AREA',
-      'CAMBIOS_TIPO_PLAZA',
-      'CAMBIOS_RESIDENCIA_DESTINO',
-      'CAMBIOS_RESIDENCIA_ORIGEN',
-    ]
-    
-    if (!tiposConPosicion.includes(documento.tipo)) return new Map<string, BolsaDeTrabajoRegistro[]>()
-    
-    const groups = new Map<string, BolsaDeTrabajoRegistro[]>()
-    const tipo = documento.tipo
-    const strategy = positionStrategies[tipo]
-    
-    documento.registros.forEach(reg => {
-      const normalized = normalizePositionRecord(reg)
-      const key = normalized && strategy
-        ? strategy.buildGroupKey(normalized)
-        : `${reg.categoria || ''}-${reg.subcategoria || ''}-${reg.zona || ''}`
-      
-      const existing = groups.get(key) || []
-      existing.push(reg)
-      groups.set(key, existing)
-    })
-    
-    return groups
-  }, [documento])
+  const showingRefreshState = tableState === 'loading-refresh'
+  const searchInputDirty = busqueda !== busquedaDebounced
+  const isPendingSearch = searchInputDirty || showingRefreshState
 
-  // Filtrado de registros
-  const registrosFiltrados = useMemo(() => {
-    if (!documento) return []
-    const lowerSearch = busquedaDebounced.toLowerCase()
-    const normFiltroCat = filtroCategoria !== 'all' ? normalizarString(filtroCategoria) : ''
-    
-    return documento.registros.filter(reg => {
-      // Filtro de búsqueda texto (usando el debounced para evitar lag)
-      if (lowerSearch) {
-        const coincide =
-          reg.nombre?.toLowerCase().includes(lowerSearch) ||
-          reg.matricula?.toLowerCase().includes(lowerSearch) ||
-          reg.categoria?.toLowerCase().includes(lowerSearch) ||
-          reg.zona?.toLowerCase().includes(lowerSearch)
-        if (!coincide) return false
-      }
+  const filterKey = useMemo(
+    () => JSON.stringify([busquedaDebounced, filtroValidacion, filtroCategoria, filtroZona]),
+    [busquedaDebounced, filtroValidacion, filtroCategoria, filtroZona]
+  )
+  const hasRenderedData = registrosPagina.length > 0 || ultimaPaginaConDatos.length > 0
+  const hasRenderedDataRef = useRef(hasRenderedData)
+  hasRenderedDataRef.current = hasRenderedData
 
-      // Filtro de validación
-      if (filtroValidacion === 'pendientes' && reg.validado) return false
-
-      // Filtro de categoría
-      if (normFiltroCat) {
-        if (normalizarString(reg.categoria) !== normFiltroCat) return false
-      }
-
-      // Filtro de zona
-      if (filtroZona !== 'all') {
-        if (reg.zona !== filtroZona) return false
-      }
-
-      return true
-    })
-  }, [documento, busquedaDebounced, filtroValidacion, filtroCategoria, filtroZona])
-
-  // Pre-calcular posiciones para los registros filtrados
-  const totalPaginas = Math.ceil(registrosFiltrados.length / registrosPorPagina)
+  const isFirstLoadRef = useRef(true)
   
-  // Obtener la página actual de registros
-  const registrosEnPagina = useMemo(() => {
-    return registrosFiltrados.slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
-  }, [registrosFiltrados, paginaActual])
+  // We don't eagerly clear registers on search anymore to avoid flashing; we simply display them directly.
+  const visibleRows = registrosPagina
 
-  // Pre-calcular posiciones SOLO para los registros de la página actual
-  const registrosPaginated = useMemo(() => {
-    if (!documento) return registrosEnPagina
-    const tipo = documento.tipo
+  const cargarDocumento = useCallback(async (id: string) => {
+    const requestId = ++activeRequestIdRef.current
+    try {
+      setErrorCargaDocumento(null)
+      setTableState(isFirstLoadRef.current ? 'loading-initial' : 'loading-refresh')
+      isFirstLoadRef.current = false
 
-    const tiposConPosicion = [
-      'NUEVO_INGRESO',
-      'AMPLIACIONES_JORNADA',
-      'CAMBIOS_TURNO_ADSCRIPCION',
-      'CAMBIOS_RAMA',
-      'CAMBIOS_AREA',
-      'CAMBIOS_TIPO_PLAZA',
-      'CAMBIOS_RESIDENCIA_DESTINO',
-      'CAMBIOS_RESIDENCIA_ORIGEN',
-    ]
+      pushDebugEvent('request:start', `doc=${id} page=${paginaActual} search="${busquedaDebounced}" cat=${filtroCategoria} zona=${filtroZona}`)
+      activeFetchControllerRef.current?.abort()
+      const controller = new AbortController()
+      activeFetchControllerRef.current = controller
 
-    if (!tiposConPosicion.includes(tipo)) return registrosEnPagina
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        throw new Error('No se pudo validar la sesión del administrador.')
+      }
 
-    const strategy = positionStrategies[tipo]
+      const idToken = await currentUser.getIdToken()
+      const query = new URLSearchParams({
+        page: String(paginaActual),
+        pageSize: String(registrosPorPagina),
+        search: busquedaDebounced,
+        filtroValidacion,
+        filtroCategoria,
+        filtroZona,
+      })
 
-    return registrosEnPagina.map(reg => {
-      const normalized = normalizePositionRecord(reg)
-      const key = normalized && strategy
-        ? strategy.buildGroupKey(normalized)
-        : `${reg.categoria || ''}-${reg.subcategoria || ''}-${reg.zona || ''}`
-      
-      const grupoRegistros = registrosPorGrupo.get(key) || [reg]
-      const pos = calcularPosiciones(grupoRegistros, reg.matricula || '', tipo)
-      return { ...reg, _posCalculada: pos }
-    })
-  }, [documento, registrosEnPagina, registrosPorGrupo])
+      const response = await fetch(`/api/admin/bolsa/documentos/${id}?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      const payload = await response.json() as DocumentoDetalleResponse
 
-  useEffect(() => { setPaginaActual(1) }, [busquedaDebounced, filtroValidacion, filtroCategoria, filtroZona])
+      if (response.status === 404) {
+        setErrorCargaDocumento('Documento no encontrado.')
+        setTableState('error')
+        pushDebugEvent('request:404', `doc=${id}`)
+        return
+      }
+
+      if (!response.ok || !payload?.data?.documento || !payload.data.registros || !payload.data.pagination || !payload.data.facetas) {
+        throw new Error(payload.error || 'No se pudo cargar el documento.')
+      }
+
+      if (requestId !== activeRequestIdRef.current) {
+        return
+      }
+
+      setDocumento(payload.data.documento)
+      setNuevoNombre(payload.data.documento.nombreArchivo || '')
+      setRegistrosPagina(payload.data.registros)
+      if (payload.data.registros.length > 0) {
+        setUltimaPaginaConDatos(payload.data.registros)
+      }
+      setTotalRegistrosFiltrados(payload.data.pagination.total)
+      setTotalPaginas(payload.data.pagination.totalPages)
+      setCategoriasUnicas(payload.data.facetas.categorias || [])
+      setZonasUnicas(payload.data.facetas.zonas || [])
+      setStats({
+        categorias: payload.data.facetas.categoriasCount || {},
+        zonas: payload.data.facetas.zonasCount || {},
+      })
+
+      lastSettledFilterKeyRef.current = filterKey
+      setTableState(payload.data.registros.length === 0 ? 'empty' : 'success')
+      pushDebugEvent(
+        'request:success',
+        `doc=${id} page=${payload.data.pagination.page}/${payload.data.pagination.totalPages} rows=${payload.data.registros.length} total=${payload.data.pagination.total}`
+      )
+    } catch (error: any) {
+      if (requestId !== activeRequestIdRef.current) {
+        return
+      }
+      if (error?.name === 'AbortError') {
+        pushDebugEvent('request:abort', `doc=${id}`)
+        return
+      }
+      console.error('Error general cargando documento:', error)
+      setErrorCargaDocumento('No se pudo actualizar la tabla. Intenta nuevamente.')
+      setTableState(hasRenderedDataRef.current ? 'success' : 'error')
+      pushDebugEvent('request:error', `doc=${id} message=${error?.message || 'UNKNOWN'}`)
+    }
+  }, [busquedaDebounced, filterKey, filtroCategoria, filtroValidacion, filtroZona, paginaActual, pushDebugEvent])
+
+  useEffect(() => {
+    if (!params.id) return
+
+    const filtersChanged = previousFilterKeyRef.current !== filterKey
+    previousFilterKeyRef.current = filterKey
+
+    if (filtersChanged && paginaActual !== 1) {
+      setPaginaActual(1)
+      return
+    }
+
+    cargarDocumento(params.id as string)
+  }, [params.id, cargarDocumento, filterKey, paginaActual])
 
   const abrirModalDetalle = (reg: BolsaDeTrabajoRegistro) => {
     setRegistroSeleccionado(reg)
     setMostrarAnteriores(false)
+    setTrabajadoresAntes([])
     setModalAbierto(true)
   }
 
@@ -313,14 +297,16 @@ export default function DetalleBolsaDeTrabajoPage() {
 
   const exportarCSV = () => {
     if (!documento) return
-    const headers = Object.keys(documento.registros[0] || {}).filter(k => k !== 'id')
-    const rows = registrosFiltrados.map(r => headers.map(h => `"${(r as any)[h] || ''}"`).join(','))
-    const csv = [headers.join(','), ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = `${documento.nombreArchivo || 'export'}.csv`
-    link.click()
+    const query = new URLSearchParams({
+      page: String(paginaActual),
+      pageSize: String(registrosPorPagina),
+      search: busquedaDebounced,
+      filtroValidacion,
+      filtroCategoria,
+      filtroZona,
+      format: 'csv',
+    })
+    window.open(`/api/admin/bolsa/documentos/${documento.id}?${query.toString()}`, '_blank')
   }
 
   const handleGuardarNombre = async () => {
@@ -359,23 +345,74 @@ export default function DetalleBolsaDeTrabajoPage() {
     ? `/admin/bolsa-de-trabajo/cargar?anio=${documento.metadata.anio}&mes=${documento.metadata.mes}&quincena=${documento.metadata.quincena}&tipo=${documento.tipo}`
     : '/admin/bolsa-de-trabajo/cargar'
 
-  const trabajadoresAntes = useMemo(() => {
-    if (!documento || !registroSeleccionado?.matricula) return []
-    return getTrabajadoresAntes(documento.registros, registroSeleccionado.matricula, documento.tipo)
-  }, [documento, registroSeleccionado])
+  useEffect(() => {
+    const loadTrabajadoresAntes = async () => {
+      if (!modalAbierto || !mostrarAnteriores || !registroSeleccionado?.id || !documento?.id) return
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-[#020617] space-y-4">
-      <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      <p className="text-xs font-black uppercase text-slate-500 tracking-widest">Sincronizando Registros...</p>
+      try {
+        setCargandoTrabajadoresAntes(true)
+        setErrorContextoPosicion(null)
+        pushDebugEvent('context:start', `doc=${documento.id} record=${registroSeleccionado.id}`)
+        activeContextControllerRef.current?.abort()
+        const controller = new AbortController()
+        activeContextControllerRef.current = controller
+        const currentUser = auth.currentUser
+        if (!currentUser) {
+          throw new Error('No se pudo validar la sesión del administrador.')
+        }
+
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch(
+          `/api/admin/bolsa/documentos/${documento.id}/contexto?recordId=${registroSeleccionado.id}`,
+          {
+            headers: { Authorization: `Bearer ${idToken}` },
+            cache: 'no-store',
+            signal: controller.signal,
+          }
+        )
+        const payload = await response.json() as ContextoRegistroResponse
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'No se pudo cargar la validación de posiciones.')
+        }
+
+        setTrabajadoresAntes(payload.data?.trabajadoresAntes || [])
+        pushDebugEvent('context:success', `doc=${documento.id} record=${registroSeleccionado.id} prev=${payload.data?.trabajadoresAntes?.length || 0}`)
+      } catch (error) {
+        if ((error as any)?.name === 'AbortError') {
+          pushDebugEvent('context:abort', `doc=${documento.id} record=${registroSeleccionado.id}`)
+          return
+        }
+        console.error('Error cargando trabajadores anteriores:', error)
+        setErrorContextoPosicion('No se pudo cargar la validación de posiciones.')
+        pushDebugEvent('context:error', `doc=${documento?.id} record=${registroSeleccionado?.id}`)
+      } finally {
+        setCargandoTrabajadoresAntes(false)
+      }
+    }
+
+    loadTrabajadoresAntes()
+  }, [documento?.id, modalAbierto, mostrarAnteriores, pushDebugEvent, registroSeleccionado?.id, toast])
+
+  useEffect(() => {
+    return () => {
+      activeFetchControllerRef.current?.abort()
+      activeContextControllerRef.current?.abort()
+    }
+  }, [])
+
+  if (tableState === 'error') return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+      <XCircle className="w-16 h-16 text-slate-300 mb-4" />
+      <h2 className="text-xl font-black">{errorCargaDocumento || 'Documento no encontrado'}</h2>
+      <Button onClick={() => router.push('/admin/bolsa-de-trabajo')} className="mt-4 rounded-xl">Volver</Button>
     </div>
   )
 
-  if (!documento) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
-      <XCircle className="w-16 h-16 text-slate-300 mb-4" />
-      <h2 className="text-xl font-black">Documento no encontrado</h2>
-      <Button onClick={() => router.push('/admin/bolsa-de-trabajo')} className="mt-4 rounded-xl">Volver</Button>
+  if (!documento || tableState === 'loading-initial') return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-[#020617] space-y-4">
+      <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <p className="text-xs font-black uppercase text-slate-500 tracking-widest">Cargando documento...</p>
     </div>
   )
 
@@ -401,12 +438,6 @@ export default function DetalleBolsaDeTrabajoPage() {
                   {documento.metadata?.anio && (
                     <span className="text-[10px] font-black text-slate-500 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">
                       {documento.metadata.quincena}° Qna {documento.metadata.mes}/{documento.metadata.anio}
-                    </span>
-                  )}
-                  {streaming && (
-                    <span className="text-[10px] font-black text-blue-500 uppercase bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded-full animate-pulse flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Sincronizando...
                     </span>
                   )}
                 </div>
@@ -536,7 +567,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                         "text-[9px] px-2 py-0.5 rounded-full",
                         filtroCategoria === 'all' ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
                       )}>
-                        {documento.registros.length}
+                        {documento.totalRegistros || 0}
                       </span>
                     </button>
 
@@ -600,7 +631,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                         "text-[9px] px-2 py-0.5 rounded-full",
                         filtroZona === 'all' ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
                       )}>
-                        {documento.registros.length}
+                        {documento.totalRegistros || 0}
                       </span>
                     </button>
 
@@ -667,7 +698,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                   size="sm" onClick={() => setFiltroValidacion('all')}
                   className="h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider"
                 >
-                  Todos ({registrosFiltrados.length})
+                  Todos ({totalRegistrosFiltrados})
                 </Button>
 
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
@@ -707,6 +738,11 @@ export default function DetalleBolsaDeTrabajoPage() {
                 </div>
               </div>
             </div>
+            {errorCargaDocumento ? (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                {errorCargaDocumento}
+              </div>
+            ) : null}
           </div>
 
           {/* TABLE CONTAINER */}
@@ -780,21 +816,26 @@ export default function DetalleBolsaDeTrabajoPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {streaming && registrosPaginated.length === 0 ? (
-                  <TableSkeleton cols={documento.tipo === 'NUEVO_INGRESO' ? 5 : 7} />
-                ) : registrosPaginated.length === 0 ? (
+                {visibleRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="py-32 text-center">
                       <div className="flex flex-col items-center gap-3">
-                        <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-300">
-                          <Search className="w-8 h-8" />
+                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 shadow-inner dark:bg-slate-800">
+                          <Search className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                         </div>
-                        <p className="text-xs font-black uppercase text-slate-400 tracking-tighter">Sin registros que coincidan</p>
+                        <div className="space-y-1">
+                          <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                            No se encontraron registros
+                          </p>
+                          <p className="text-sm font-bold text-slate-500 max-w-sm uppercase tracking-tight">
+                            La búsqueda no arrojó resultados. Intenta con otros filtros o términos.
+                          </p>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  registrosPaginated.map((reg, i) => (
+                  visibleRows.map((reg, i) => (
                     <TableRow key={reg.id} className={cn("group border-b border-slate-100 dark:border-slate-800", i % 2 === 0 ? "bg-white dark:bg-[#020617]" : "bg-slate-50/30 dark:bg-slate-950/20")}>
                       {documento.tipo === 'NUEVO_INGRESO' ? (
                         <>
@@ -1090,7 +1131,9 @@ export default function DetalleBolsaDeTrabajoPage() {
                           Personas antes que este trabajador
                         </h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400">
-                          {trabajadoresAntes.length === 0
+                          {cargandoTrabajadoresAntes
+                            ? 'Calculando contexto del grupo comparable...'
+                            : trabajadoresAntes.length === 0
                             ? 'No hay personas antes en el grupo comparable actual.'
                             : `Hay ${trabajadoresAntes.length} persona(s) arriba dentro del mismo grupo comparable.`}
                         </p>
@@ -1106,7 +1149,16 @@ export default function DetalleBolsaDeTrabajoPage() {
 
                     {mostrarAnteriores && (
                       <div className="border-t border-slate-200 dark:border-slate-800">
-                        {trabajadoresAntes.length === 0 ? (
+                        {errorContextoPosicion ? (
+                          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                            {errorContextoPosicion}
+                          </div>
+                        ) : null}
+                        {cargandoTrabajadoresAntes ? (
+                          <div className="p-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+                            Cargando contexto de posiciones...
+                          </div>
+                        ) : trabajadoresAntes.length === 0 ? (
                           <div className="p-4 text-sm font-medium text-slate-500 dark:text-slate-400">
                             Este trabajador ya aparece en la primera posición del grupo comparable.
                           </div>
@@ -1175,6 +1227,33 @@ export default function DetalleBolsaDeTrabajoPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {debugEnabled ? (
+        <div className="fixed bottom-4 right-4 z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Debug Tabla</p>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {tableState}
+            </span>
+          </div>
+          <div className="mb-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+            page={paginaActual} total={totalRegistrosFiltrados} search=&quot;{busquedaDebounced || '-'}&quot;
+          </div>
+          <div className="max-h-56 space-y-1 overflow-auto rounded-xl bg-slate-50 p-2 dark:bg-slate-950/60">
+            {debugEvents.length === 0 ? (
+              <p className="text-[11px] text-slate-400">Sin eventos todavía.</p>
+            ) : (
+              debugEvents.map((event) => (
+                <div key={event.id} className="rounded-lg bg-white px-2 py-1 text-[11px] shadow-sm dark:bg-slate-900">
+                  <span className="mr-2 font-black text-slate-400">{event.at}</span>
+                  <span className="mr-2 font-black text-primary">{event.type}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{event.detail}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : null}
     </motion.div>
   )
 }

@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { auth } from '@/lib/firebase/firebase-client'
 import { TrendingUp, TrendingDown, Users, FileText, Clock, CheckCircle, AlertCircle, Activity } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,136 +14,99 @@ interface StatCard {
   loading?: boolean
 }
 
-interface EstadisticasResumenResponse {
-  success: boolean
-  data: {
-    stats: {
-      totalPropuestas: number
-      propuestasPendientes: number
-      propuestasAprobadas: number
-      propuestasRechazadas: number
-      propuestasRequierenAtencion: number
-      actividadDelMes: number
-    }
-  }
+export interface DashboardStatsData {
+  totalPropuestas: number
+  propuestasPendientes: number
+  propuestasAprobadas: number
+  propuestasRechazadas: number
+  propuestasRequierenAtencion: number
+  actividadDelMes: number
 }
 
-export default function DashboardStats() {
-  const [stats, setStats] = useState<StatCard[]>([])
-  const [loading, setLoading] = useState(true)
+function buildStats(data?: DashboardStatsData): StatCard[] {
+  if (!data) {
+    return [
+      {
+        title: 'Total de Propuestas',
+        value: 0,
+        change: 0,
+        icon: FileText,
+        color: 'text-blue-600',
+        bgGradient: 'from-blue-500/20 to-blue-600/10',
+      },
+    ]
+  }
 
-  useEffect(() => {
-    const cargarEstadisticas = async () => {
-      try {
-        setLoading(true)
-        const currentUser = auth.currentUser
-        if (!currentUser) {
-          throw new Error('No se pudo validar la sesión del administrador.')
-        }
+  const {
+    totalPropuestas,
+    propuestasPendientes,
+    propuestasAprobadas,
+    propuestasRechazadas,
+    propuestasRequierenAtencion,
+    actividadDelMes,
+  } = data
 
-        const idToken = await currentUser.getIdToken()
-        const response = await fetch('/api/admin/estadisticas/resumen', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-        })
+  const cambioBase = 5.2
 
-        const payload = await response.json() as EstadisticasResumenResponse & { error?: string }
+  return [
+    {
+      title: 'Total de Propuestas',
+      value: totalPropuestas,
+      change: cambioBase,
+      icon: FileText,
+      color: 'text-blue-600 dark:text-blue-400',
+      bgGradient: 'from-blue-500/20 to-blue-600/10',
+    },
+    {
+      title: 'Pendientes de Revisión',
+      value: propuestasPendientes,
+      change: propuestasPendientes > 0 ? cambioBase : 0,
+      icon: Clock,
+      color: 'text-yellow-600 dark:text-yellow-400',
+      bgGradient: 'from-yellow-500/20 to-yellow-600/10',
+    },
+    {
+      title: 'Aprobadas',
+      value: propuestasAprobadas,
+      change: propuestasAprobadas > 0 ? cambioBase + 2 : 0,
+      icon: CheckCircle,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bgGradient: 'from-emerald-500/20 to-emerald-600/10',
+    },
+    {
+      title: 'Rechazadas',
+      value: propuestasRechazadas,
+      change: propuestasRechazadas > 0 ? -cambioBase : 0,
+      icon: AlertCircle,
+      color: 'text-red-600 dark:text-red-400',
+      bgGradient: 'from-red-500/20 to-red-600/10',
+    },
+    {
+      title: 'Requieren Atención',
+      value: propuestasRequierenAtencion,
+      change: propuestasRequierenAtencion > 0 ? cambioBase + 5 : 0,
+      icon: AlertCircle,
+      color: 'text-orange-600 dark:text-orange-400',
+      bgGradient: 'from-orange-500/20 to-orange-600/10',
+    },
+    {
+      title: 'Actividad del Mes',
+      value: actividadDelMes,
+      change: actividadDelMes > 0 ? cambioBase + 3 : 0,
+      icon: Activity,
+      color: 'text-purple-600 dark:text-purple-400',
+      bgGradient: 'from-purple-500/20 to-purple-600/10',
+    },
+  ]
+}
 
-        if (!response.ok || !payload?.data?.stats) {
-          throw new Error(payload?.error || 'No se pudieron cargar las estadísticas.')
-        }
+interface DashboardStatsProps {
+  data?: DashboardStatsData
+  loading?: boolean
+}
 
-        const {
-          totalPropuestas,
-          propuestasPendientes,
-          propuestasAprobadas,
-          propuestasRechazadas,
-          propuestasRequierenAtencion,
-          actividadDelMes,
-        } = payload.data.stats
-
-        // Calcular cambios porcentuales (simulado por ahora, se puede mejorar con historial)
-        const cambioBase = 5.2 // Se puede calcular comparando con mes anterior
-
-        const nuevasStats: StatCard[] = [
-          {
-            title: 'Total de Propuestas',
-            value: totalPropuestas,
-            change: cambioBase,
-            icon: FileText,
-            color: 'text-blue-600 dark:text-blue-400',
-            bgGradient: 'from-blue-500/20 to-blue-600/10',
-          },
-          {
-            title: 'Pendientes de Revisión',
-            value: propuestasPendientes,
-            change: propuestasPendientes > 0 ? cambioBase : 0,
-            icon: Clock,
-            color: 'text-yellow-600 dark:text-yellow-400',
-            bgGradient: 'from-yellow-500/20 to-yellow-600/10',
-          },
-          {
-            title: 'Aprobadas',
-            value: propuestasAprobadas,
-            change: propuestasAprobadas > 0 ? cambioBase + 2 : 0,
-            icon: CheckCircle,
-            color: 'text-emerald-600 dark:text-emerald-400',
-            bgGradient: 'from-emerald-500/20 to-emerald-600/10',
-          },
-          {
-            title: 'Rechazadas',
-            value: propuestasRechazadas,
-            change: propuestasRechazadas > 0 ? -cambioBase : 0,
-            icon: AlertCircle,
-            color: 'text-red-600 dark:text-red-400',
-            bgGradient: 'from-red-500/20 to-red-600/10',
-          },
-          {
-            title: 'Requieren Atención',
-            value: propuestasRequierenAtencion,
-            change: propuestasRequierenAtencion > 0 ? cambioBase + 5 : 0,
-            icon: AlertCircle,
-            color: 'text-orange-600 dark:text-orange-400',
-            bgGradient: 'from-orange-500/20 to-orange-600/10',
-          },
-          {
-            title: 'Actividad del Mes',
-            value: actividadDelMes,
-            change: actividadDelMes > 0 ? cambioBase + 3 : 0,
-            icon: Activity,
-            color: 'text-purple-600 dark:text-purple-400',
-            bgGradient: 'from-purple-500/20 to-purple-600/10',
-          },
-        ]
-
-        setStats(nuevasStats)
-      } catch (error) {
-        console.error('Error cargando estadísticas:', error)
-        // En caso de error, mostrar valores en 0
-        setStats([
-          {
-            title: 'Total de Propuestas',
-            value: 0,
-            change: 0,
-            icon: FileText,
-            color: 'text-blue-600',
-            bgGradient: 'from-blue-500/20 to-blue-600/10',
-          },
-        ])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    cargarEstadisticas()
-
-    // Actualizar cada 30 segundos
-    const interval = setInterval(cargarEstadisticas, 30000)
-
-    return () => clearInterval(interval)
-  }, [])
+export default function DashboardStats({ data, loading = false }: DashboardStatsProps) {
+  const stats = buildStats(data)
 
   const containerVariants = {
     hidden: { opacity: 0 },

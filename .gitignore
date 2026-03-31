@@ -24,6 +24,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# firebase service account keys
+*-firebase-adminsdk-*.json
+
 # local env files
 .env*.local
 .env
@@ -61,3 +64,14 @@ src/assets/PDFs/*_CONVERTED.xlsx
 src/assets/PDFs/*_ADOBE.xlsx
 src/assets/PDFs/*_PLUMBER.xlsx
 src/assets/PDFs/*_RESULT.xlsx
+.mcp.json
+
+# source documents (large PDFs, not code)
+CCT.pdf
+estatutos-sntss-rcci-image.pdf
+
+# temp scripts
+test_search.js
+
+# claude code worktrees
+.claude/worktrees/

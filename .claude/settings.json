@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$TOOL_INPUT\" | grep -q 'git commit'; then echo '⚡ Commit detectado — corre /pr-check antes de abrir PR'; fi"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$TOOL_INPUT\" | grep -q 'firestore.rules'; then echo 'WARN: Editando firestore.rules — requiere deploy manual con: firebase deploy --only firestore:rules'; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$TOOL_INPUT\" | grep -q '\\.env'; then echo 'WARN: Editando archivo de entorno — verifica que no se suba a git'; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "firebase": {
+      "command": "npx",
+      "args": ["-y", "@gannonh/firebase-mcp"],
+      "env": {
+        "SERVICE_ACCOUNT_KEY_PATH": "/Users/gerardoarroyo/.config/firebase/sntss-service-account.json"
+      }
+    }
+  }
+}
