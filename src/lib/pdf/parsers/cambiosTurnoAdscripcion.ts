@@ -80,6 +80,7 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
   const errores: string[] = []
   let zonaActual = ''
   let categoriaActual = ''
+  let subcategoriaActual = ''
 
   const lineasRaw = dividirLineas(texto)
   const lineas = unirLineasPartidas(lineasRaw)
@@ -96,13 +97,23 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
     const categoriaMatch = linea.match(/^(\d{6})\s*-\s*(.+)$/)
     if (categoriaMatch) {
       categoriaActual = linea.trim()
+      subcategoriaActual = ''
+      continue
+    }
+
+    const subcategoriaMatch = linea.match(/^(\d{1,3})\s+([A-ZÁÉÍÓÚÑ\s.-]{5,})$/)
+    if (subcategoriaMatch && !linea.includes('Matrícula') && !linea.includes('Nombre')) {
+      const posibleNombre = subcategoriaMatch[2].trim()
+      if (posibleNombre.length > 5 && !posibleNombre.includes('/') && !posibleNombre.includes('&')) {
+        subcategoriaActual = `${subcategoriaMatch[1]} ${posibleNombre}`
+      }
       continue
     }
 
     const esRegistroPotencial = /^\d+\s+[A-Z]{2,}\s+/.test(linea)
 
     if (debeDescartarLinea(linea, esRegistroPotencial) ||
-        (!esRegistroPotencial && (linea.includes(' of ') || linea.includes('No. Prog')))) {
+      (!esRegistroPotencial && (linea.includes(' of ') || linea.includes('No. Prog')))) {
       continue
     }
 
@@ -113,9 +124,9 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
 
     if (match) {
       const [
-        , numeroProg, _cambio, _adscripActClave, turnoAnterior,
-        fecha, registro, _dias, matricula, nombre, sexo,
-        _adscripNuevaClave, _adscripNuevaNombre, _plaza, _jornada, turnoNuevo,
+        , numeroProg, tipoCambio, _adscripActClave, turnoAnterior,
+        fecha, status, _dias, matricula, nombre, sexo,
+        adscripcionNueva, adscripcionNuevaNombre, _plaza, _jornada, turnoNuevo,
       ] = match
 
       const registroObj: BolsaDeTrabajoRegistro = {
@@ -125,12 +136,16 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
         turnoAnterior,
         turnoNuevo,
         fecha,
-        registro,
+        registro: tipoCambio, // CAT o CAD
+        estatus: status,
         matricula,
         nombre: nombre.trim(),
         sexo,
+        adscripcionNueva,
+        adscripcionNuevaNombre: adscripcionNuevaNombre.trim(),
         zona: zonaActual,
         categoria: categoriaActual,
+        subcategoria: subcategoriaActual || undefined,
         filaOriginal: i + 1,
         necesitaValidacion: false,
       }
@@ -167,10 +182,10 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
       id: parseUtils.generarIdRegistro('CAMBIOS_TURNO_ADSCRIPCION', registros.length),
       tipoDocumento: 'CAMBIOS_TURNO_ADSCRIPCION',
       numeroProg: partes[0],
+      registro: partes[1] || '', // CAT/CAD
       turnoAnterior: turnoIdx !== -1 ? partes[turnoIdx] : '',
       turnoNuevo: turnoNuevoVal,
       fecha: partes[fechaIdx],
-      registro: partes[fechaIdx + 1] || '',
       matricula: partes[matIdx],
       nombre: sexIdx !== -1
         ? partes.slice(matIdx + 1, sexIdx).join(' ')
@@ -178,6 +193,7 @@ export function parseCambiosTurnoAdscripcion(texto: string): ParseResult {
       sexo: sexIdx !== -1 ? partes[sexIdx] : '',
       zona: zonaActual,
       categoria: categoriaActual,
+      subcategoria: subcategoriaActual || undefined,
       confianza: 0.7,
       filaOriginal: i + 1,
       necesitaValidacion: true,

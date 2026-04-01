@@ -47,6 +47,7 @@ const convertirDocumento = (doc: any, incluirRegistros: boolean = false): BolsaD
   const data = doc.data()
   return {
     id: doc.id,
+    syncId: data.syncId,
     tipo: data.tipo,
     fechaActualizacion: convertirTimestamp(data.fechaActualizacion),
     fechaCarga: convertirTimestamp(data.fechaCarga),
@@ -154,6 +155,33 @@ export const guardarRegistrosEnSubcoleccion = async (
   }
 }
 
+export const reemplazarRegistrosEnSubcoleccion = async (
+  documentoId: string,
+  registros: BolsaDeTrabajoRegistro[]
+): Promise<void> => {
+  try {
+    const registrosRef = collection(db, COLECCION, documentoId, SUBCOLECCION_REGISTROS)
+    const existentes = await getDocs(registrosRef)
+
+    if (!existentes.empty) {
+      const BATCH_SIZE = 500
+      const docs = existentes.docs
+
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        const lote = docs.slice(i, i + BATCH_SIZE)
+        lote.forEach((docSnap) => batch.delete(docSnap.ref))
+        await batch.commit()
+      }
+    }
+
+    await guardarRegistrosEnSubcoleccion(documentoId, registros)
+  } catch (error) {
+    console.error('Error reemplazando registros en subcolección:', error)
+    throw error
+  }
+}
+
 // Obtener documento por ID (con registros opcionales)
 export const getBolsaDeTrabajoDocumentoById = async (
   id: string,
@@ -177,6 +205,24 @@ export const getBolsaDeTrabajoDocumentoById = async (
     return documento
   } catch (error) {
     console.error('Error obteniendo documento de bolsa de trabajo:', error)
+    throw error
+  }
+}
+
+export const getBolsaDeTrabajoDocumentoHead = async (
+  id: string
+): Promise<BolsaDeTrabajoDocumento | null> => {
+  try {
+    const docRef = doc(db, COLECCION, id)
+    const docSnap = await getDoc(docRef)
+
+    if (!docSnap.exists()) {
+      return null
+    }
+
+    return convertirDocumento(docSnap, false)
+  } catch (error) {
+    console.error('Error obteniendo encabezado de documento:', error)
     throw error
   }
 }
@@ -210,6 +256,18 @@ export const getBolsaDeTrabajoDocumentos = async (
       constraints.push(where('fechaActualizacion', '<=', Timestamp.fromDate(filtros.fechaHasta)))
     }
 
+    if (filtros?.anio) {
+      constraints.push(where('metadata.anio', '==', filtros.anio))
+    }
+
+    if (filtros?.mes) {
+      constraints.push(where('metadata.mes', '==', filtros.mes))
+    }
+
+    if (filtros?.quincena) {
+      constraints.push(where('metadata.quincena', '==', filtros.quincena))
+    }
+
     if (limite) {
       constraints.push(limit(limite))
     }
@@ -230,6 +288,71 @@ export const getBolsaDeTrabajoDocumentos = async (
     }
   } catch (error) {
     console.error('Error obteniendo documentos de bolsa de trabajo:', error)
+    throw error
+  }
+}
+
+export const getBolsaDeTrabajoDocumentosBySyncId = async (
+  syncId: string
+): Promise<BolsaDeTrabajoDocumento[]> => {
+  try {
+    const q = query(
+      collection(db, COLECCION),
+      where('syncId', '==', syncId),
+      orderBy('fechaCarga', 'desc')
+    )
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map(doc => convertirDocumento(doc))
+  } catch (error) {
+    console.error('Error obteniendo documentos por sincronización:', error)
+    throw error
+  }
+}
+
+export const getBolsaDeTrabajoDocumentosBySyncIds = async (
+  syncIds: string[]
+): Promise<BolsaDeTrabajoDocumento[]> => {
+  if (syncIds.length === 0) return []
+  try {
+    // Firestore 'in' limit is 10 items. We process in chunks of 10.
+    const CHUNK_SIZE = 10
+    const results: BolsaDeTrabajoDocumento[] = []
+    
+    for (let i = 0; i < syncIds.length; i += CHUNK_SIZE) {
+      const chunk = syncIds.slice(i, i + CHUNK_SIZE)
+      const q = query(
+        collection(db, COLECCION),
+        where('syncId', 'in', chunk),
+        orderBy('fechaCarga', 'desc')
+      )
+      const querySnapshot = await getDocs(q)
+      const chunkDocs = querySnapshot.docs.map(doc => convertirDocumento(doc))
+      results.push(...chunkDocs)
+    }
+    
+    return results
+  } catch (error) {
+    console.error('Error obteniendo documentos por múltiples sincronizaciones:', error)
+    throw error
+  }
+}
+
+export const getBolsaDeTrabajoDocumentoBySyncAndTipo = async (
+  syncId: string,
+  tipo: TipoBolsaDeTrabajo
+): Promise<BolsaDeTrabajoDocumento | null> => {
+  try {
+    const q = query(
+      collection(db, COLECCION),
+      where('syncId', '==', syncId),
+      where('tipo', '==', tipo),
+      limit(1)
+    )
+    const querySnapshot = await getDocs(q)
+    if (querySnapshot.empty) return null
+    return convertirDocumento(querySnapshot.docs[0])
+  } catch (error) {
+    console.error('Error obteniendo documento por sincronización y tipo:', error)
     throw error
   }
 }

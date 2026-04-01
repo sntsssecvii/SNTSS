@@ -14,6 +14,7 @@ export function parseCambiosResidenciaDestino(texto: string): ParseResult {
   const errores: string[] = []
   let zonaActual = ''
   let categoriaActual = ''
+  let subcategoriaActual = ''
 
   const lineasRaw = dividirLineas(texto)
 
@@ -31,6 +32,16 @@ export function parseCambiosResidenciaDestino(texto: string): ParseResult {
     const categoriaMatch = linea.match(/^(\d{6})\s*-\s*(.+)$/)
     if (categoriaMatch) {
       categoriaActual = linea.trim()
+      subcategoriaActual = ''
+      continue
+    }
+
+    const subcategoriaMatch = linea.match(/^(\d{1,3})\s+([A-ZÁÉÍÓÚÑ\s.-]{5,})$/)
+    if (subcategoriaMatch && !linea.includes('Matrícula') && !linea.includes('Nombre')) {
+      const posibleNombre = subcategoriaMatch[2].trim()
+      if (posibleNombre.length > 5 && !posibleNombre.includes('/') && !posibleNombre.includes('&')) {
+        subcategoriaActual = `${subcategoriaMatch[1]} ${posibleNombre}`
+      }
       continue
     }
 
@@ -60,6 +71,7 @@ export function parseCambiosResidenciaDestino(texto: string): ParseResult {
         clave: clave.trim(),
         zona: zonaActual,
         categoria: categoriaActual,
+        subcategoria: subcategoriaActual || undefined,
         filaOriginal: i + 1,
         necesitaValidacion: false,
       }
@@ -98,6 +110,7 @@ export function parseCambiosResidenciaDestino(texto: string): ParseResult {
         sexo: sexIdx !== -1 ? partes[sexIdx] : '',
         zona: zonaActual,
         categoria: categoriaActual,
+        subcategoria: subcategoriaActual || undefined,
         confianza: 0.7,
         filaOriginal: i + 1,
         necesitaValidacion: true,

@@ -14,6 +14,9 @@ interface StepDocsProps {
     isSubmitting: boolean
 }
 
+const MAX_REGISTRATION_FILE_SIZE_BYTES = 5 * 1024 * 1024
+const ALLOWED_REGISTRATION_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+
 export default function StepDocs({ onBack, onSubmit, isSubmitting }: StepDocsProps) {
     const [identificacion, setIdentificacion] = useState<File | null>(null)
     const [tarjeton, setTarjeton] = useState<File | null>(null)
@@ -31,8 +34,13 @@ export default function StepDocs({ onBack, onSubmit, isSubmitting }: StepDocsPro
         if (!file) return
 
         // Validar tipo
-        if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type)) {
+        if (!ALLOWED_REGISTRATION_FILE_TYPES.includes(file.type)) {
             setErrors(prev => ({ ...prev, [type]: 'Solo imágenes (JPG, PNG) o PDF son permitidos' }))
+            return
+        }
+
+        if (file.size <= 0 || file.size > MAX_REGISTRATION_FILE_SIZE_BYTES) {
+            setErrors(prev => ({ ...prev, [type]: 'El archivo debe pesar máximo 5 MB' }))
             return
         }
 

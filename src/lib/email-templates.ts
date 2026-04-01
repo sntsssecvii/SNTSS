@@ -19,6 +19,8 @@ const baseStyles = `
   .reason-box { background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; font-style: italic; }
 `
 
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://sntssvii.com').replace(/\/+$/, '')
+
 const layout = (content: string) => `
 <!DOCTYPE html>
 <html>
@@ -53,7 +55,7 @@ export const registrationTemplate = (name: string) => layout(`
   <p class="p">En este momento, nuestro equipo administrativo está revisando tus documentos para validar tu identidad. Recibirás otro correo electrónico en cuanto tu cuenta sea activada.</p>
   <p class="p">Este proceso suele tardar entre 24 y 48 horas hábiles.</p>
   <div class="button-container">
-    <a href="https://sntss-portal.vercel.app" class="button">Ir al Portal</a>
+    <a href="${APP_URL}" class="button">Ir al Portal</a>
   </div>
   <p class="p">Si no realizaste esta solicitud, por favor ignora este correo.</p>
 `)
@@ -63,7 +65,7 @@ export const approvalTemplate = (name: string) => layout(`
   <p class="p">Hola ${name}, nos complace informarte que tu solicitud de registro ha sido <strong>aprobada exitosamente</strong>.</p>
   <p class="p">Ya puedes acceder a todas las funcionalidades del portal con tu correo electrónico y contraseña.</p>
   <div class="button-container">
-    <a href="https://sntss-portal.vercel.app/login" class="button">Iniciar Sesión Ahora</a>
+    <a href="${APP_URL}/login" class="button">Iniciar Sesión Ahora</a>
   </div>
   <p class="p">¡Bienvenido a la plataforma oficial de la Sección VII!</p>
 `)
@@ -76,7 +78,7 @@ export const rejectionTemplate = (name: string, reason: string) => layout(`
   </div>
   <p class="p">No te preocupes, puedes volver a intentar el proceso de registro corrigiendo los detalles mencionados anteriormente.</p>
   <div class="button-container">
-    <a href="https://sntss-portal.vercel.app/registro" class="button">Intentar de Nuevo</a>
+    <a href="${APP_URL}/registro" class="button">Intentar de Nuevo</a>
   </div>
   <p class="p">Si tienes alguna duda, ponte en contacto con tu delegado sindical.</p>
 `)

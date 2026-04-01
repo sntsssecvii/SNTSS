@@ -7,14 +7,20 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { auth } from '@/lib/firebase/firebase-client'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import type { TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
 import { NOMBRES_TIPOS } from '@/types/bolsa-de-trabajo'
 import { Select } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 interface FileUploadProps {
   onUploadSuccess?: (documentoId: string) => void
 }
+
+const MAX_BOLSA_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
+const EXCEL_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+]
 
 export function FileUpload({ onUploadSuccess }: FileUploadProps) {
   const [file, setFile] = useState<File | null>(null)
@@ -23,6 +29,9 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [phase, setPhase] = useState<'upload' | 'process' | 'done'>('upload')
+  const [anio, setAnio] = useState<number>(new Date().getFullYear())
+  const [mes, setMes] = useState<number>(new Date().getMonth() + 1)
+  const [quincena, setQuincena] = useState<1 | 2>(new Date().getDate() <= 15 ? 1 : 2)
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -41,12 +50,16 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
     setIsDragging(false)
 
     const droppedFile = e.dataTransfer.files[0]
-    if (droppedFile && droppedFile.type === 'application/pdf') {
+    const normalizedName = droppedFile?.name.toLowerCase() || ''
+    const isPDF = droppedFile && (droppedFile.type === 'application/pdf' || normalizedName.endsWith('.pdf'))
+    const isExcel = droppedFile && (EXCEL_MIME_TYPES.includes(droppedFile.type) || normalizedName.endsWith('.xlsx') || normalizedName.endsWith('.xls'))
+
+    if (droppedFile && droppedFile.size > 0 && droppedFile.size <= MAX_BOLSA_UPLOAD_SIZE_BYTES && (isPDF || isExcel)) {
       setFile(droppedFile)
     } else {
       toast({
         title: 'Error',
-        description: 'Por favor, selecciona un archivo PDF',
+        description: 'Por favor, selecciona un archivo PDF o Excel (.xlsx o .xls) de hasta 25 MB.',
         variant: 'destructive',
       })
     }
@@ -54,12 +67,16 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
-    if (selectedFile && selectedFile.type === 'application/pdf') {
+    const normalizedName = selectedFile?.name.toLowerCase() || ''
+    const isPDF = selectedFile && (selectedFile.type === 'application/pdf' || normalizedName.endsWith('.pdf'))
+    const isExcel = selectedFile && (EXCEL_MIME_TYPES.includes(selectedFile.type) || normalizedName.endsWith('.xlsx') || normalizedName.endsWith('.xls'))
+
+    if (selectedFile && selectedFile.size > 0 && selectedFile.size <= MAX_BOLSA_UPLOAD_SIZE_BYTES && (isPDF || isExcel)) {
       setFile(selectedFile)
     } else {
       toast({
         title: 'Error',
-        description: 'Por favor, selecciona un archivo PDF',
+        description: 'Por favor, selecciona un archivo PDF o Excel (.xlsx o .xls) de hasta 25 MB.',
         variant: 'destructive',
       })
     }
@@ -103,6 +120,9 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
       formData.append('tipo', tipo)
       formData.append('userId', user.uid)
       formData.append('userEmail', user.email || '')
+      formData.append('anio', anio.toString())
+      formData.append('mes', mes.toString())
+      formData.append('quincena', quincena.toString())
 
       const currentUser = auth.currentUser
       if (!currentUser) {
@@ -210,7 +230,7 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
     } finally {
       setIsUploading(false)
     }
-  }, [file, tipo, user, toast, onUploadSuccess])
+  }, [file, tipo, user, toast, onUploadSuccess, anio, mes, quincena])
 
   const tiposDisponibles: TipoBolsaDeTrabajo[] = [
     'AMPLIACIONES_JORNADA',
@@ -223,19 +243,22 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
     'NUEVO_INGRESO',
   ]
 
+  const meses = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ]
+
   return (
-    <div className="space-y-4 relative">
-      {/* Overlay de procesamiento con animación simplificada y dinámica */}
+    <div className="space-y-6 relative">
       <AnimatePresence>
         {isUploading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg bg-background/80 backdrop-blur-md border-2 border-primary/20"
+            className="absolute inset-x-[-24px] inset-y-[-24px] z-50 flex flex-col items-center justify-center rounded-lg bg-background/80 backdrop-blur-md border-2 border-primary/20"
           >
             <div className="relative flex flex-col items-center gap-8 z-10 w-full max-w-sm px-6">
-              {/* Contenedor del Icono con Glow sutil */}
               <div className="relative">
                 <motion.div
                   className="absolute inset-0 rounded-full bg-primary/10 blur-3xl"
@@ -271,9 +294,9 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
                       >
                         <FileText className="h-12 w-12 text-primary" strokeWidth={1.5} />
 
-                        {/* Escáner mejorado: haz de luz */}
                         <motion.div
-                          className="absolute -inset-x-2 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent shadow-[0_0_15px_rgba(var(--primary),0.5)]"
+                          className="absolute -inset-x-2 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent"
+                          style={{ boxShadow: '0 0 15px hsla(var(--primary) / 0.5)' }}
                           animate={{
                             top: ['10%', '90%', '10%'],
                             opacity: [0, 1, 1, 0]
@@ -288,36 +311,9 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
                       </motion.div>
                     )}
                   </AnimatePresence>
-
-                  {/* Partículas sutiles orbitando (solo 2, más lentas) */}
-                  {phase !== 'done' && [0, 1].map((i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute w-1.5 h-1.5 rounded-full bg-primary/40"
-                      animate={{
-                        rotate: 360,
-                        scale: [1, 1.5, 1],
-                      }}
-                      transition={{
-                        rotate: { duration: 8, repeat: Infinity, ease: "linear", delay: i * 4 },
-                        scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                      }}
-                      style={{
-                        transformOrigin: 'center center',
-                        width: '120px',
-                        height: '120px',
-                        left: 'calc(50% - 60px)',
-                        top: 'calc(50% - 60px)',
-                        padding: '10px',
-                      }}
-                    >
-                      <div className="w-full h-full rounded-full border border-dashed border-primary/10" />
-                    </motion.div>
-                  ))}
                 </motion.div>
               </div>
 
-              {/* Texto y Progreso */}
               <div className="w-full space-y-6 text-center">
                 <div className="space-y-1">
                   <motion.h3
@@ -340,7 +336,6 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
                   </p>
                 </div>
 
-                {/* Barra de progreso minimalista */}
                 <div className="space-y-3">
                   <div className="flex justify-between text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
                     <span>Progreso</span>
@@ -348,28 +343,12 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
                   </div>
                   <div className="relative h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
                     <motion.div
-                      className="absolute left-0 top-0 h-full bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.3)]"
+                      className="absolute left-0 top-0 h-full bg-primary rounded-full"
+                      style={{ boxShadow: '0 0 10px hsla(var(--primary) / 0.3)' }}
                       initial={{ width: '0%' }}
                       animate={{ width: `${uploadProgress}%` }}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
                     />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-6 pt-2">
-                  <div className={`flex flex-col items-center gap-1 transition-opacity duration-300 ${phase === 'upload' ? 'opacity-100' : 'opacity-40'}`}>
-                    <div className={`w-2 h-2 rounded-full ${phase === 'upload' ? 'bg-primary animate-pulse' : 'bg-muted'}`} />
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">Subida</span>
-                  </div>
-                  <div className="w-8 h-px bg-border" />
-                  <div className={`flex flex-col items-center gap-1 transition-opacity duration-300 ${phase === 'process' ? 'opacity-100' : 'opacity-40'}`}>
-                    <div className={`w-2 h-2 rounded-full ${phase === 'process' ? 'bg-primary animate-pulse' : 'bg-muted'}`} />
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">Proceso</span>
-                  </div>
-                  <div className="w-8 h-px bg-border" />
-                  <div className={`flex flex-col items-center gap-1 transition-opacity duration-300 ${phase === 'done' ? 'opacity-100' : 'opacity-40'}`}>
-                    <div className={`w-2 h-2 rounded-full ${phase === 'done' ? 'bg-green-500' : 'bg-muted'}`} />
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">Fin</span>
                   </div>
                 </div>
               </div>
@@ -378,73 +357,115 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
         )}
       </AnimatePresence>
 
-      {/* Selector de tipo */}
-      <div>
-        <label className="block text-sm font-medium mb-2">
-          Tipo de Documento
-        </label>
-        <Select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value as TipoBolsaDeTrabajo)}
-        >
-          <option value="">Selecciona el tipo de documento</option>
-          {tiposDisponibles.map((tipoItem) => (
-            <option key={tipoItem} value={tipoItem}>
-              {NOMBRES_TIPOS[tipoItem]}
-            </option>
-          ))}
-        </Select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Tipo de Documento
+          </label>
+          <Select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value as TipoBolsaDeTrabajo)}
+            className="w-full h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 focus:border-primary font-bold transition-all px-4"
+          >
+            <option value="">Selecciona el tipo</option>
+            {tiposDisponibles.map((tipoItem) => (
+              <option key={tipoItem} value={tipoItem}>
+                {NOMBRES_TIPOS[tipoItem]}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Periodo del Documento
+          </label>
+          <div className="flex gap-2">
+            <Select
+              value={anio}
+              onChange={(e) => setAnio(parseInt(e.target.value))}
+              className="flex-1 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 focus:border-primary font-bold px-2"
+            >
+              {[2024, 2025, 2026].map(a => <option key={a} value={a}>{a}</option>)}
+            </Select>
+            <Select
+              value={mes}
+              onChange={(e) => setMes(parseInt(e.target.value))}
+              className="flex-1 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 focus:border-primary font-bold px-2"
+            >
+              {meses.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </Select>
+            <Select
+              value={quincena}
+              onChange={(e) => setQuincena(parseInt(e.target.value) as 1 | 2)}
+              className="flex-1 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 focus:border-primary font-bold px-2"
+            >
+              <option value={1}>1ra Qna</option>
+              <option value={2}>2da Qna</option>
+            </Select>
+          </div>
+        </div>
       </div>
 
-      {/* Área de carga */}
       <motion.div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`
-          relative border-2 border-dashed rounded-lg p-8 text-center transition-colors overflow-hidden
-          ${isDragging ? 'border-primary bg-primary/5' : 'border-gray-300'}
-          ${file ? 'border-green-500 bg-green-50' : ''}
-        `}
-        animate={isDragging ? { scale: 1.01 } : { scale: 1 }}
-        transition={{ duration: 0.2 }}
+        className={cn(
+          "relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 overflow-hidden group hover:border-primary/50",
+          isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950",
+          file ? "border-emerald-500 bg-emerald-50/10" : ""
+        )}
       >
         {file ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <File className="h-8 w-8 text-green-600" />
-              <div className="text-left">
-                <p className="font-medium">{file.name}</p>
-                <p className="text-sm text-gray-500">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
+          <div className="flex flex-col items-center gap-4">
+            <div className="p-4 rounded-2xl bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600">
+              <FileText className="h-12 w-12" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-extrabold text-slate-900 dark:text-white">{file.name}</p>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-tighter">
+                {(file.size / 1024 / 1024).toFixed(2)} MB • Listo para procesar
+              </p>
             </div>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="sm"
               onClick={() => setFile(null)}
               disabled={isUploading}
+              className="rounded-xl border-2 font-black hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all font-sans"
             >
-              <X className="h-4 w-4" />
+              <X className="mr-2 h-4 w-4" /> CAMBIAR ARCHIVO
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
-            <Upload className="h-12 w-12 mx-auto text-gray-400" />
+          <div className="space-y-6">
+            <div className="relative w-24 h-24 mx-auto">
+              <div className="absolute inset-0 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all" />
+              <div className="relative w-24 h-24 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-500">
+                <Upload className="h-10 w-10 text-primary" strokeWidth={1.5} />
+              </div>
+            </div>
             <div>
-              <p className="text-lg font-medium mb-1">
-                Arrastra y suelta tu archivo PDF aquí
+              <p className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                Arrastra tu PDF o Excel aquí
               </p>
-              <p className="text-sm text-gray-500 mb-4">o</p>
-              <label htmlFor="file-upload">
-                <Button asChild variant="outline">
-                  <span>Seleccionar archivo</span>
+              <p className="text-sm font-bold text-slate-500 mt-1">
+                Sube el PDF original o el Excel ya extraído
+              </p>
+              <div className="flex items-center justify-center gap-4 mt-8">
+                <div className="h-px w-8 bg-slate-200 dark:bg-slate-800" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">o selecciona uno</span>
+                <div className="h-px w-8 bg-slate-200 dark:bg-slate-800" />
+              </div>
+              <label htmlFor="file-upload" className="mt-4 block">
+                <Button asChild variant="secondary" className="rounded-xl font-black px-8 py-6 h-auto shadow-lg hover:shadow-xl transition-all cursor-pointer">
+                  <span>Explorar Archivos</span>
                 </Button>
                 <input
                   id="file-upload"
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.xlsx"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -454,22 +475,20 @@ export function FileUpload({ onUploadSuccess }: FileUploadProps) {
         )}
       </motion.div>
 
-      {/* Botón de subir */}
       {file && tipo && (
         <motion.div
-          whileHover={{ scale: isUploading ? 1 : 1.02 }}
-          whileTap={{ scale: isUploading ? 1 : 0.98 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
         >
           <Button
             onClick={handleUpload}
             disabled={isUploading}
-            className="w-full"
-            size="lg"
+            className="w-full h-14 rounded-2xl font-black text-lg shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
             {!isUploading && (
               <>
-                <Upload className="mr-2 h-4 w-4" />
-                Procesar PDF
+                <Scan className="mr-3 h-6 w-6" />
+                Sincronizar con Bolsa de Trabajo
               </>
             )}
           </Button>

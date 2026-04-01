@@ -41,10 +41,10 @@ He realizado las siguientes mejoras:
    ✅ Mensajes de error específicos con enlaces
 
 2. SCRIPTS CREADOS:
-   ✅ scripts/solucionar-login.sh (guía interactiva)
-   ✅ scripts/diagnostico-completo.sh (verificar estado)
-   ✅ scripts/crear-usuario-firestore.js (crear documento)
-   ✅ scripts/abrir-firebase-console.sh (abrir consola)
+   ✅ scripts/ops/solucionar-login.sh (guía interactiva)
+   ✅ scripts/ops/diagnostico-completo.sh (verificar estado)
+   ✅ scripts/ops/crear-usuario-firestore.js (crear documento)
+   ✅ scripts/ops/abrir-firebase-console.sh (abrir consola)
 
 3. CONFIGURACIÓN:
    ✅ firestore.rules (reglas de seguridad)
@@ -62,7 +62,7 @@ He realizado las siguientes mejoras:
 
 OPCIÓN RÁPIDA - Script Automático:
    $ cd /Users/gerardoarroyo/Desktop/SNTSS
-   $ ./scripts/solucionar-login.sh
+   $ ./scripts/ops/solucionar-login.sh
 
 O MANUAL:
 
@@ -76,7 +76,7 @@ O MANUAL:
 
    PASO 2: Crear Documento de Usuario (1 minuto)
    ──────────────────────────────────────────────
-   $ node scripts/crear-usuario-firestore.js
+   $ node scripts/ops/crear-usuario-firestore.js
 
    PASO 3: Aplicar Reglas de Seguridad (2 minutos)
    ────────────────────────────────────────────────
@@ -90,7 +90,7 @@ O MANUAL:
 
 Después de completar los pasos, verifica:
 
-   $ ./scripts/diagnostico-completo.sh
+   $ ./scripts/ops/diagnostico-completo.sh
 
 Debe mostrar:
    ✅ Archivo .env.local existe
@@ -142,9 +142,9 @@ Guías detalladas:
    → SOLUCION-FIRESTORE.md
 
 Scripts:
-   → ./scripts/solucionar-login.sh (ejecuta este)
-   → ./scripts/diagnostico-completo.sh
-   → ./scripts/crear-usuario-firestore.js
+   → ./scripts/ops/solucionar-login.sh (ejecuta este)
+   → ./scripts/ops/diagnostico-completo.sh
+   → ./scripts/ops/crear-usuario-firestore.js
 
 Configuración:
    → firestore.rules
@@ -168,7 +168,7 @@ Configuración:
 Ejecuta el script de solución ahora:
 
    $ cd /Users/gerardoarroyo/Desktop/SNTSS
-   $ ./scripts/solucionar-login.sh
+   $ ./scripts/ops/solucionar-login.sh
 
 Este script te guiará paso a paso y verificará cada etapa.
 

@@ -49,6 +49,7 @@ export function parseAmpliacionesJornada(texto: string): BolsaDeTrabajoParseResu
   const errores: string[] = []
   let zonaActual = ''
   let categoriaActual = ''
+  let subcategoriaActual = ''
 
   const lineasRaw = dividirLineas(texto)
   const lineas = unirLineasPartidas(lineasRaw)
@@ -65,13 +66,23 @@ export function parseAmpliacionesJornada(texto: string): BolsaDeTrabajoParseResu
     const categoriaMatch = linea.match(/^(\d{6})\s*-\s*(.+)$/)
     if (categoriaMatch) {
       categoriaActual = linea.trim()
+      subcategoriaActual = ''
+      continue
+    }
+
+    const subcategoriaMatch = linea.match(/^(\d{1,3})\s+([A-ZÁÉÍÓÚÑ\s.-]{5,})$/)
+    if (subcategoriaMatch && !linea.includes('Matrícula') && !linea.includes('Nombre')) {
+      const posibleNombre = subcategoriaMatch[2].trim()
+      if (posibleNombre.length > 5 && !posibleNombre.includes('/') && !posibleNombre.includes('&')) {
+        subcategoriaActual = `${subcategoriaMatch[1]} ${posibleNombre}`
+      }
       continue
     }
 
     const esRegistroPotencial = /^\d+\s+\d+/.test(linea)
 
     if (debeDescartarLinea(linea, esRegistroPotencial) ||
-        (!esRegistroPotencial && (linea.includes(' of ') || linea.includes('No. Prog')))) {
+      (!esRegistroPotencial && (linea.includes(' of ') || linea.includes('No. Prog')))) {
       continue
     }
 
@@ -113,13 +124,14 @@ export function parseAmpliacionesJornada(texto: string): BolsaDeTrabajoParseResu
         matricula,
         nombre: nombre.trim(),
         sexo,
-        adscripcionNuevaClave: adscripcionNuevaClave || '',
+        adscripcionNueva: adscripcionNuevaClave || '',
         adscripcionNuevaNombre: (adscripcionNuevaNombre || '').trim(),
         numeroPlaza: numeroPlaza || '',
         jornadaNueva: jornadaNueva || '',
         turnoNueva: turnoNueva || '',
         zona: zonaActual,
         categoria: categoriaActual,
+        subcategoria: subcategoriaActual || undefined,
         confianza: adscripcionNuevaClave ? 1.0 : 0.9,
         filaOriginal: i + 1,
         necesitaValidacion: false,
@@ -146,7 +158,9 @@ export function parseAmpliacionesJornada(texto: string): BolsaDeTrabajoParseResu
           tipoDocumento: 'AMPLIACIONES_JORNADA',
           numeroProg: partes[0],
           jornadaActual: partes[1],
+          jornadaNueva: partes[1],
           adscripcionActualClave: partes[2],
+          adscripcionNueva: partes[2],
           turnoActual: partes[3],
           fecha: partes[4].includes('/') ? partes[4] : '',
           estatus: partes[5],
@@ -157,6 +171,7 @@ export function parseAmpliacionesJornada(texto: string): BolsaDeTrabajoParseResu
           sexo: sexIdx !== -1 ? partes[sexIdx] : '',
           zona: zonaActual,
           categoria: categoriaActual,
+          subcategoria: subcategoriaActual || undefined,
           confianza: 0.5,
           filaOriginal: i + 1,
           necesitaValidacion: true,
@@ -177,6 +192,8 @@ export function parseAmpliacionesJornada(texto: string): BolsaDeTrabajoParseResu
     metadata: {
       zona: zonaActual || undefined,
       categoria: categoriaActual || undefined,
+      totalRegistros: registros.length,
+      extraidoCon: 'PDF',
     },
     errores,
   }

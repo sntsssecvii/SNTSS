@@ -1,8 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Evita que Next empaquete pdf-parse en el servidor; así se ejecuta en Node
-  // y se evita el error "DOMMatrix is not defined" (APIs de navegador).
-  serverExternalPackages: ['pdf-parse'],
+  transpilePackages: ['framer-motion'],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
 };
 
 export default nextConfig;

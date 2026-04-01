@@ -5,24 +5,63 @@ import { motion } from 'framer-motion'
 import { ShieldCheck, Users, Clock, UserX } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEffect, useState } from 'react'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
-import { db } from '@/lib/firebase/firebase-client'
 import { Badge } from '@/components/ui/badge'
+import { auth } from '@/lib/firebase/firebase-client'
+
+interface ValidationSummaryResponse {
+    data?: {
+        pending?: number
+        active?: number
+        rejected?: number
+    }
+    error?: string
+}
 
 export default function ValidacionesPage() {
     const [counts, setCounts] = useState({ pending: 0, active: 0, rejected: 0 })
+    const [activeTab, setActiveTab] = useState<'pending' | 'active' | 'rejected'>('pending')
+
+    const loadCounts = async () => {
+        const currentUser = auth.currentUser
+        if (!currentUser) return
+
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch('/api/admin/validaciones/resumen', {
+            headers: { Authorization: `Bearer ${idToken}` },
+            cache: 'no-store',
+        })
+        const payload = await response.json() as ValidationSummaryResponse
+
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP_${response.status}`)
+        }
+
+        setCounts({
+            pending: payload.data?.pending ?? 0,
+            active: payload.data?.active ?? 0,
+            rejected: payload.data?.rejected ?? 0,
+        })
+    }
 
     useEffect(() => {
-        const createQuery = (status: string) => query(collection(db, 'users'), where('status', '==', status))
+        let cancelled = false
 
-        const unsubPending = onSnapshot(createQuery('pending'), s => setCounts(prev => ({ ...prev, pending: s.size })))
-        const unsubActive = onSnapshot(createQuery('active'), s => setCounts(prev => ({ ...prev, active: s.size })))
-        const unsubRejected = onSnapshot(createQuery('rejected'), s => setCounts(prev => ({ ...prev, rejected: s.size })))
+        const syncCounts = async () => {
+            try {
+                await loadCounts()
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Error loading validation counts:', error)
+                }
+            }
+        }
+
+        syncCounts()
+        const intervalId = window.setInterval(syncCounts, 45_000)
 
         return () => {
-            unsubPending()
-            unsubActive()
-            unsubRejected()
+            cancelled = true
+            window.clearInterval(intervalId)
         }
     }, [])
 
@@ -47,7 +86,7 @@ export default function ValidacionesPage() {
                 </div>
             </motion.div>
 
-            <Tabs defaultValue="pending" className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'pending' | 'active' | 'rejected')} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 mb-8">
                     <TabsTrigger value="pending" className="flex items-center gap-2">
                         <Clock className="w-4 h-4" />
@@ -80,19 +119,19 @@ export default function ValidacionesPage() {
 
                 <TabsContent value="pending">
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <AdminValidacion filterStatus="pending" />
+                        {activeTab === 'pending' ? <AdminValidacion filterStatus="pending" onDataChanged={loadCounts} /> : null}
                     </motion.div>
                 </TabsContent>
 
                 <TabsContent value="active">
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <AdminValidacion filterStatus="active" />
+                        {activeTab === 'active' ? <AdminValidacion filterStatus="active" onDataChanged={loadCounts} /> : null}
                     </motion.div>
                 </TabsContent>
 
                 <TabsContent value="rejected">
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        <AdminValidacion filterStatus="rejected" />
+                        {activeTab === 'rejected' ? <AdminValidacion filterStatus="rejected" onDataChanged={loadCounts} /> : null}
                     </motion.div>
                 </TabsContent>
             </Tabs>

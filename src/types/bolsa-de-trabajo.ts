@@ -17,7 +17,7 @@ export type EstadoProcesamiento = 'PROCESANDO' | 'COMPLETADO' | 'ERROR' | 'VALID
 // Resultado del parseo de un PDF (registros + metadata + errores)
 export interface BolsaDeTrabajoParseResult {
   registros: BolsaDeTrabajoRegistro[]
-  metadata: Pick<MetadataBolsaDeTrabajo, 'zona' | 'categoria'>
+  metadata: Pick<MetadataBolsaDeTrabajo, 'zona' | 'categoria' | 'totalRegistros' | 'extraidoCon'>
   errores: string[]
 }
 
@@ -31,12 +31,17 @@ export interface MetadataBolsaDeTrabajo {
   fechaActualizacionOriginal?: string
   totalRegistros?: number
   organoOperacion?: string
+  extraidoCon?: 'PDF' | 'EXCEL'
+  anio?: number
+  mes?: number
+  quincena?: 1 | 2
 }
 
 // Registro extraído de un PDF
 export interface BolsaDeTrabajoRegistro {
   id: string
   tipoDocumento: TipoBolsaDeTrabajo
+  syncId?: string // ID de la sincronización a la que pertenece
 
   // Campos comunes a todos los tipos
   nombre?: string
@@ -48,12 +53,12 @@ export interface BolsaDeTrabajoRegistro {
   zona?: string
   categoria?: string
 
-  // Campos específicos para AMPLIACIONES DE JORNADA
+  // Campos comunes: jornada y turno (usados en varios tipos)
   jornadaActual?: string
-  adscripcionActualClave?: string
-  turnoActual?: string
   jornadaNueva?: string
-  turnoNueva?: string // Ya existía turnoNuevo, pero mantenemos consistencia
+  turnoActual?: string
+  turnoNueva?: string
+  adscripcionActualClave?: string
   sexo?: string
   numeroPlaza?: string
   adscripcionNuevaClave?: string
@@ -82,9 +87,15 @@ export interface BolsaDeTrabajoRegistro {
   adscripcionAnterior?: string
   adscripcionNueva?: string
 
+  // Campos específicos para CAMBIOS DE ÁREA / RESIDENCIA / RAMA
+  ramaNueva?: string
+  delegacionDestino?: string
+  delegacionOrigen?: string
+
   // Campos específicos para NUEVO INGRESO
   numeroProg?: string
   grupo?: string
+  subcategoria?: string
   calificacion?: string
   tipoContratacion?: string
   diasLaborados?: string
@@ -103,6 +114,7 @@ export interface BolsaDeTrabajoRegistro {
 // Documento de bolsa de trabajo completo
 export interface BolsaDeTrabajoDocumento {
   id?: string
+  syncId?: string // ID de la sincronización a la que pertenece
   tipo: TipoBolsaDeTrabajo
   fechaActualizacion: Timestamp | Date // Fecha del documento original
   fechaCarga: Timestamp | Date // Cuándo se subió al sistema
@@ -120,6 +132,56 @@ export interface BolsaDeTrabajoDocumento {
   registrosConErrores?: number // Cantidad de registros con errores
 }
 
+// Modelo de Sincronización
+export type EstadoSincronizacion = 'PROCESANDO' | 'COMPLETADO' | 'ERROR' | 'BORRADOR'
+
+export interface Sincronizacion {
+  id: string
+  anio: number
+  mes: number
+  quincena: 1 | 2
+  estado: EstadoSincronizacion
+  fechaInicio: Timestamp | Date
+  fechaFinalizacion?: Timestamp | Date
+  archivosSubidos: string[] // IDs de documentos en 'bolsa_de_trabajo_documentos'
+  esFuenteVerdad: boolean // Flag para identificar la versión activa
+  subidoPor: string
+  subidoPorEmail?: string
+}
+
+export interface PeriodoBolsa {
+  anio: number
+  mes: number
+  quincena: 1 | 2
+}
+
+export interface BolsaPosicionMaterializada {
+  id?: string
+  syncId: string
+  matricula: string
+  recordId?: string
+  tipoDocumento: TipoBolsaDeTrabajo
+  documentoId: string
+  periodo: PeriodoBolsa
+  versionCalculo: string
+  fechaMaterializacion: Timestamp | Date
+  nombre: string
+  categoria: string
+  zona: string
+  posicionBase: number
+  totalEnCategoria: number
+  posicionInterinato?: number
+  totalEventualesEnCategoria?: number
+  tipoContratacion?: string
+  adscripcionNueva?: string
+  turnoNuevo?: string
+  grupoComparable?: Record<string, string | undefined>
+  sortValue?: number
+  metricasSecundarias?: Record<string, number>
+  reglasAplicadas?: string[]
+  explicacion?: string
+}
+
 // Filtros para búsqueda
 export interface FiltrosBolsaDeTrabajo {
   tipo?: TipoBolsaDeTrabajo[]
@@ -130,6 +192,9 @@ export interface FiltrosBolsaDeTrabajo {
   estado?: EstadoProcesamiento[]
   necesitaValidacion?: boolean
   textoBusqueda?: string // Búsqueda en nombres, matrículas, etc.
+  anio?: number
+  mes?: number
+  quincena?: 1 | 2
 }
 
 // Estadísticas de bolsa de trabajo
@@ -153,6 +218,64 @@ export const MAPEO_TIPOS_ARCHIVO: Record<string, TipoBolsaDeTrabajo> = {
   'CAMBIOS DE TIPO DE PLAZA': 'CAMBIOS_TIPO_PLAZA',
   'CAMBIOS DE TURNO Y-O ADSCRIPCIÓN': 'CAMBIOS_TURNO_ADSCRIPCION',
   'NUEVO INGRESO': 'NUEVO_INGRESO',
+}
+
+export function normalizarNombreDocumentoBolsa(nombreArchivo?: string): string {
+  if (!nombreArchivo) return ''
+
+  return nombreArchivo
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\.[A-Z0-9]+$/i, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function detectarTipoDocumentoPorNombre(nombreArchivo?: string): TipoBolsaDeTrabajo | null {
+  const nombreNormalizado = normalizarNombreDocumentoBolsa(nombreArchivo)
+
+  if (!nombreNormalizado) {
+    return null
+  }
+
+  for (const [key, value] of Object.entries(MAPEO_TIPOS_ARCHIVO)) {
+    if (nombreNormalizado.includes(normalizarNombreDocumentoBolsa(key))) {
+      return value
+    }
+  }
+
+  if (nombreNormalizado.includes('AMPLIACIONES') && nombreNormalizado.includes('JORNADA')) {
+    return 'AMPLIACIONES_JORNADA'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('AREA')) {
+    return 'CAMBIOS_AREA'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('RAMA')) {
+    return 'CAMBIOS_RAMA'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('RESIDENCIA') && nombreNormalizado.includes('DESTINO')) {
+    return 'CAMBIOS_RESIDENCIA_DESTINO'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('RESIDENCIA') && nombreNormalizado.includes('ORIGEN')) {
+    return 'CAMBIOS_RESIDENCIA_ORIGEN'
+  }
+  if (nombreNormalizado.includes('CAMBIOS') && nombreNormalizado.includes('TIPO') && nombreNormalizado.includes('PLAZA')) {
+    return 'CAMBIOS_TIPO_PLAZA'
+  }
+  if (
+    nombreNormalizado.includes('CAMBIOS') &&
+    nombreNormalizado.includes('TURNO') &&
+    nombreNormalizado.includes('ADSCRIPCION')
+  ) {
+    return 'CAMBIOS_TURNO_ADSCRIPCION'
+  }
+  if (nombreNormalizado.includes('NUEVO') && nombreNormalizado.includes('INGRESO')) {
+    return 'NUEVO_INGRESO'
+  }
+
+  return null
 }
 
 // Nombres legibles para los tipos

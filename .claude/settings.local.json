@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /Users/gerardoarroyo/Projects/SNTSS/SNTSS/.env*)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(npm install:*)",
+      "Bash(ls -la /Users/gerardoarroyo/Projects/SNTSS/SNTSS/.env*)",
+      "Bash(ls -la /Users/gerardoarroyo/Projects/sntss/.env*)",
+      "Read(//Users/gerardoarroyo/Projects/**)",
+      "Bash(python3:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

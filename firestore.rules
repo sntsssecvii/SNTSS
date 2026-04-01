@@ -20,9 +20,8 @@ service cloud.firestore {
     
     // Colección de usuarios
     match /usuarios/{userId} {
-      // Lectura: Solo usuarios autenticados pueden leer
-      // Escritura: Solo el propio usuario o un admin
-      allow read: if isAuthenticated();
+      // Lectura y escritura solo del propio usuario o admin
+      allow read: if isOwner(userId) || isAdmin();
       allow write: if isOwner(userId) || isAdmin();
     }
     
@@ -39,55 +38,58 @@ service cloud.firestore {
 
     // Colección de tramites
     match /tramites/{tramiteId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read, write: if isAdmin();
     }
     
     // Colección de correspondencia enviada
     match /correspondencia-enviada/{corrId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read, write: if isAdmin();
     }
     
     // Colección de afiliacion
     match /afiliacion/{afilId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read, write: if isAdmin();
     }
     
     // Colección de cambios de consultorio
     match /cambios-consultorio/{cambioId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read, write: if isAdmin();
     }
     
     // Colección de notificaciones
     match /notifications/{notifId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
       allow update: if isOwner(resource.data.userId) || isAdmin();
       allow delete: if isAdmin();
     }
     
     match /notificaciones/{notifId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read, write: if isAdmin();
     }
     
     // Colección de contadores (para números de oficio)
     match /contadores/{contadorId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read, write: if isAdmin();
+    }
+
+    // Sincronizaciones de cortes de bolsa de trabajo
+    match /sincronizaciones/{syncId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Documentos de bolsa de trabajo
+    match /bolsa_de_trabajo_documentos/{documentoId} {
+      allow read, write: if isAdmin();
+
+      match /registros/{registroId} {
+        allow read, write: if isAdmin();
+      }
     }
     
-    // Cualquier otra colección: solo lectura para autenticados
+    // Cualquier otra colección: solo admin
     match /{document=**} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
   }

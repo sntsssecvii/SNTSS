@@ -1,16 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { TrendingUp, TrendingDown, Users, FileText, Clock, CheckCircle, AlertCircle, Activity } from 'lucide-react'
 import { motion } from 'framer-motion'
-import {
-  getTotalPropuestas,
-  getPropuestasPendientes,
-  getPropuestasAprobadas,
-  getPropuestasRechazadas,
-  getPropuestasRequierenAtencion,
-  getActividadDelMes,
-} from '@/lib/firebase/analytics'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface StatCard {
@@ -23,112 +14,99 @@ interface StatCard {
   loading?: boolean
 }
 
-export default function DashboardStats() {
-  const [stats, setStats] = useState<StatCard[]>([])
-  const [loading, setLoading] = useState(true)
+export interface DashboardStatsData {
+  totalPropuestas: number
+  propuestasPendientes: number
+  propuestasAprobadas: number
+  propuestasRechazadas: number
+  propuestasRequierenAtencion: number
+  actividadDelMes: number
+}
 
-  useEffect(() => {
-    const cargarEstadisticas = async () => {
-      try {
-        setLoading(true)
-        
-        // Cargar todas las estadísticas en paralelo
-        const [
-          total,
-          pendientes,
-          aprobadas,
-          rechazadas,
-          requierenAtencion,
-          actividadMes,
-        ] = await Promise.all([
-          getTotalPropuestas(),
-          getPropuestasPendientes(),
-          getPropuestasAprobadas(),
-          getPropuestasRechazadas(),
-          getPropuestasRequierenAtencion(),
-          getActividadDelMes(),
-        ])
+function buildStats(data?: DashboardStatsData): StatCard[] {
+  if (!data) {
+    return [
+      {
+        title: 'Total de Propuestas',
+        value: 0,
+        change: 0,
+        icon: FileText,
+        color: 'text-blue-600',
+        bgGradient: 'from-blue-500/20 to-blue-600/10',
+      },
+    ]
+  }
 
-        // Calcular cambios porcentuales (simulado por ahora, se puede mejorar con historial)
-        const cambioBase = 5.2 // Se puede calcular comparando con mes anterior
+  const {
+    totalPropuestas,
+    propuestasPendientes,
+    propuestasAprobadas,
+    propuestasRechazadas,
+    propuestasRequierenAtencion,
+    actividadDelMes,
+  } = data
 
-        const nuevasStats: StatCard[] = [
-          {
-            title: 'Total de Propuestas',
-            value: total,
-            change: cambioBase,
-            icon: FileText,
-            color: 'text-blue-600 dark:text-blue-400',
-            bgGradient: 'from-blue-500/20 to-blue-600/10',
-          },
-          {
-            title: 'Pendientes de Revisión',
-            value: pendientes,
-            change: pendientes > 0 ? cambioBase : 0,
-            icon: Clock,
-            color: 'text-yellow-600 dark:text-yellow-400',
-            bgGradient: 'from-yellow-500/20 to-yellow-600/10',
-          },
-          {
-            title: 'Aprobadas',
-            value: aprobadas,
-            change: aprobadas > 0 ? cambioBase + 2 : 0,
-            icon: CheckCircle,
-            color: 'text-emerald-600 dark:text-emerald-400',
-            bgGradient: 'from-emerald-500/20 to-emerald-600/10',
-          },
-          {
-            title: 'Rechazadas',
-            value: rechazadas,
-            change: rechazadas > 0 ? -cambioBase : 0,
-            icon: AlertCircle,
-            color: 'text-red-600 dark:text-red-400',
-            bgGradient: 'from-red-500/20 to-red-600/10',
-          },
-          {
-            title: 'Requieren Atención',
-            value: requierenAtencion,
-            change: requierenAtencion > 0 ? cambioBase + 5 : 0,
-            icon: AlertCircle,
-            color: 'text-orange-600 dark:text-orange-400',
-            bgGradient: 'from-orange-500/20 to-orange-600/10',
-          },
-          {
-            title: 'Actividad del Mes',
-            value: actividadMes,
-            change: actividadMes > 0 ? cambioBase + 3 : 0,
-            icon: Activity,
-            color: 'text-purple-600 dark:text-purple-400',
-            bgGradient: 'from-purple-500/20 to-purple-600/10',
-          },
-        ]
+  const cambioBase = 5.2
 
-        setStats(nuevasStats)
-      } catch (error) {
-        console.error('Error cargando estadísticas:', error)
-        // En caso de error, mostrar valores en 0
-        setStats([
-          {
-            title: 'Total de Propuestas',
-            value: 0,
-            change: 0,
-            icon: FileText,
-            color: 'text-blue-600',
-            bgGradient: 'from-blue-500/20 to-blue-600/10',
-          },
-        ])
-      } finally {
-        setLoading(false)
-      }
-    }
+  return [
+    {
+      title: 'Total de Propuestas',
+      value: totalPropuestas,
+      change: cambioBase,
+      icon: FileText,
+      color: 'text-blue-600 dark:text-blue-400',
+      bgGradient: 'from-blue-500/20 to-blue-600/10',
+    },
+    {
+      title: 'Pendientes de Revisión',
+      value: propuestasPendientes,
+      change: propuestasPendientes > 0 ? cambioBase : 0,
+      icon: Clock,
+      color: 'text-yellow-600 dark:text-yellow-400',
+      bgGradient: 'from-yellow-500/20 to-yellow-600/10',
+    },
+    {
+      title: 'Aprobadas',
+      value: propuestasAprobadas,
+      change: propuestasAprobadas > 0 ? cambioBase + 2 : 0,
+      icon: CheckCircle,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bgGradient: 'from-emerald-500/20 to-emerald-600/10',
+    },
+    {
+      title: 'Rechazadas',
+      value: propuestasRechazadas,
+      change: propuestasRechazadas > 0 ? -cambioBase : 0,
+      icon: AlertCircle,
+      color: 'text-red-600 dark:text-red-400',
+      bgGradient: 'from-red-500/20 to-red-600/10',
+    },
+    {
+      title: 'Requieren Atención',
+      value: propuestasRequierenAtencion,
+      change: propuestasRequierenAtencion > 0 ? cambioBase + 5 : 0,
+      icon: AlertCircle,
+      color: 'text-orange-600 dark:text-orange-400',
+      bgGradient: 'from-orange-500/20 to-orange-600/10',
+    },
+    {
+      title: 'Actividad del Mes',
+      value: actividadDelMes,
+      change: actividadDelMes > 0 ? cambioBase + 3 : 0,
+      icon: Activity,
+      color: 'text-purple-600 dark:text-purple-400',
+      bgGradient: 'from-purple-500/20 to-purple-600/10',
+    },
+  ]
+}
 
-    cargarEstadisticas()
+interface DashboardStatsProps {
+  data?: DashboardStatsData
+  loading?: boolean
+}
 
-    // Actualizar cada 30 segundos
-    const interval = setInterval(cargarEstadisticas, 30000)
-
-    return () => clearInterval(interval)
-  }, [])
+export default function DashboardStats({ data, loading = false }: DashboardStatsProps) {
+  const stats = buildStats(data)
 
   const containerVariants = {
     hidden: { opacity: 0 },

@@ -1,263 +1,465 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Plus, FileText, Calendar, Filter, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
-import { getBolsaDeTrabajoDocumentos, deleteBolsaDeTrabajoDocumento } from '@/lib/firebase/bolsa-de-trabajo'
-import type { BolsaDeTrabajoDocumento, TipoBolsaDeTrabajo, EstadoProcesamiento, FiltrosBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
-import { NOMBRES_TIPOS } from '@/types/bolsa-de-trabajo'
-import { useToast } from '@/components/ui/use-toast'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { EstadoBadgeBolsaDeTrabajo } from '@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo'
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase/firebase-client";
+import {
+  ArrowRight,
+  CalendarClock,
+  Clock3,
+  Plus,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
+import type {
+  BolsaDeTrabajoDocumento,
+  Sincronizacion,
+} from "@/types/bolsa-de-trabajo";
 
-export default function BolsaDeTrabajoPage() {
-  const [documentos, setDocumentos] = useState<BolsaDeTrabajoDocumento[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filtros, setFiltros] = useState<FiltrosBolsaDeTrabajo>({})
-  const [busqueda, setBusqueda] = useState('')
-  const router = useRouter()
-  const { toast } = useToast()
+interface QuincenaResumen {
+  sync: Sincronizacion;
+  documentos: BolsaDeTrabajoDocumento[];
+  tiposCargados: number;
+  completados: number;
+  errores: number;
+  procesando: number;
+  totalRegistros: number;
+  estadoUI: "PUBLICADA" | "LISTA" | "INCOMPLETA" | "CON_ERROR" | "BORRADOR";
+}
 
-  useEffect(() => {
-    cargarDocumentos()
-  }, [filtros])
+const TIPOS_REQUERIDOS = 8;
+const NOMBRES_MESES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
-  const cargarDocumentos = async () => {
-    try {
-      setLoading(true)
-      const resultado = await getBolsaDeTrabajoDocumentos(filtros, 50)
-      setDocumentos(resultado.documentos)
-    } catch (error: any) {
-      console.error('Error cargando documentos:', error)
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar los documentos',
-        variant: 'destructive',
+function formatPeriodo(sync: Sincronizacion) {
+  const mesNombre = NOMBRES_MESES[sync.mes - 1] || sync.mes;
+  return `${sync.quincena}ª quincena / ${mesNombre} ${sync.anio}`;
+}
+
+function formatFecha(value?: Date | string | { toDate?: () => Date }) {
+  if (!value) return "Sin fecha";
+  const dateValue =
+    value instanceof Date
+      ? value
+      : typeof value === "string"
+        ? new Date(value)
+        : value.toDate?.();
+  return dateValue && !isNaN(dateValue.getTime())
+    ? dateValue.toLocaleDateString("es-MX", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
       })
-    } finally {
-      setLoading(false)
-    }
-  }
+    : "Sin fecha";
+}
 
-  const handleEliminar = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este documento?')) {
-      return
-    }
+function getEstadoUI(
+  sync: Sincronizacion,
+  documentos: BolsaDeTrabajoDocumento[],
+): QuincenaResumen["estadoUI"] {
+  if (sync.esFuenteVerdad) return "PUBLICADA";
+  if (documentos.some((doc) => doc.estado === "ERROR")) return "CON_ERROR";
+  if (documentos.length === 0) return "BORRADOR";
+  if (documentos.length < TIPOS_REQUERIDOS) return "INCOMPLETA";
+  return "LISTA";
+}
 
-    try {
-      await deleteBolsaDeTrabajoDocumento(id)
-      toast({
-        title: 'Éxito',
-        description: 'Documento eliminado correctamente',
-      })
-      cargarDocumentos()
-    } catch (error: any) {
-      console.error('Error eliminando documento:', error)
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar el documento',
-        variant: 'destructive',
-      })
-    }
-  }
+function getPeriodoKey(sync: Sincronizacion) {
+  return `${sync.anio}-${sync.mes}-${sync.quincena}`;
+}
 
-  const documentosFiltrados = documentos.filter((doc) => {
-    if (busqueda) {
-      const busquedaLower = busqueda.toLowerCase()
-      return (
-        doc.nombreArchivo?.toLowerCase().includes(busquedaLower) ||
-        NOMBRES_TIPOS[doc.tipo].toLowerCase().includes(busquedaLower) ||
-        doc.metadata?.zona?.toLowerCase().includes(busquedaLower) ||
-        doc.metadata?.categoria?.toLowerCase().includes(busquedaLower)
-      )
-    }
-    return true
-  })
-
-  const estados: EstadoProcesamiento[] = ['PROCESANDO', 'COMPLETADO', 'ERROR', 'VALIDANDO']
-  const tipos: TipoBolsaDeTrabajo[] = [
-    'AMPLIACIONES_JORNADA',
-    'CAMBIOS_AREA',
-    'CAMBIOS_RAMA',
-    'CAMBIOS_RESIDENCIA_DESTINO',
-    'CAMBIOS_RESIDENCIA_ORIGEN',
-    'CAMBIOS_TIPO_PLAZA',
-    'CAMBIOS_TURNO_ADSCRIPCION',
-    'NUEVO_INGRESO',
-  ]
+function getResumenScore(item: QuincenaResumen) {
+  const baseDate = item.sync.fechaFinalizacion || item.sync.fechaInicio;
+  const timestamp =
+    baseDate instanceof Date
+      ? baseDate.getTime()
+      : typeof baseDate === "string"
+        ? new Date(baseDate).getTime() || 0
+        : baseDate?.toDate?.().getTime?.() || 0;
+  const estadoScore =
+    item.estadoUI === "PUBLICADA"
+      ? 4
+      : item.estadoUI === "LISTA"
+        ? 3
+        : item.estadoUI === "INCOMPLETA"
+          ? 2
+          : item.estadoUI === "CON_ERROR"
+            ? 1
+            : 0;
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Bolsa de Trabajo</h1>
-          <p className="text-muted-foreground mt-2">
-            Gestiona los documentos de bolsa de trabajo procesados
-          </p>
-        </div>
-        <Button onClick={() => router.push('/admin/bolsa-de-trabajo/cargar')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Cargar Documento
-        </Button>
-      </div>
+    estadoScore * 1_000_000_000_000 +
+    item.tiposCargados * 1_000_000_000 +
+    timestamp
+  );
+}
 
-      {/* Filtros */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Buscar</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar por nombre, tipo, zona..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="pl-10"
-                />
+function consolidarResumenesPorPeriodo(items: QuincenaResumen[]) {
+  const grouped = new Map<string, QuincenaResumen[]>();
+
+  items.forEach((item) => {
+    const key = getPeriodoKey(item.sync);
+    const bucket = grouped.get(key) || [];
+    bucket.push(item);
+    grouped.set(key, bucket);
+  });
+
+  return Array.from(grouped.values())
+    .map(
+      (bucket) =>
+        bucket.sort((a, b) => getResumenScore(b) - getResumenScore(a))[0],
+    )
+    .sort((a, b) => getResumenScore(b) - getResumenScore(a));
+}
+
+export default function BolsaDeTrabajoPage() {
+  const [resumenes, setResumenes] = useState<QuincenaResumen[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busqueda, setBusqueda] = useState("");
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        setLoading(true);
+        const currentUser = auth.currentUser;
+        if (!currentUser)
+          throw new Error("No se pudo validar la sesión del administrador.");
+
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch("/api/admin/bolsa/quincenas?limit=30", {
+          headers: { Authorization: `Bearer ${idToken}` },
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as {
+          data?: { resumenes?: QuincenaResumen[] };
+          error?: string;
+        };
+
+        if (!response.ok || !payload?.data?.resumenes) {
+          throw new Error(
+            payload?.error || "No se pudieron cargar las quincenas.",
+          );
+        }
+
+        setResumenes(payload.data.resumenes);
+      } catch (error) {
+        console.error(error);
+        toast({
+          title: "Error",
+          description:
+            "No se pudieron cargar las quincenas de bolsa de trabajo.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargar();
+  }, [toast]);
+
+  const resumenesFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return resumenes;
+
+    return resumenes.filter(({ sync, estadoUI }) => {
+      const values = [
+        formatPeriodo(sync),
+        sync.subidoPorEmail || "",
+        estadoUI,
+        sync.esFuenteVerdad ? "oficial" : "borrador",
+      ];
+      return values.some((value) => value.toLowerCase().includes(q));
+    });
+  }, [busqueda, resumenes]);
+
+  const resumenGeneral = useMemo(() => {
+    return {
+      total: resumenes.length,
+      oficiales: resumenes.filter((item) => item.sync.esFuenteVerdad).length,
+      listas: resumenes.filter((item) => item.estadoUI === "LISTA").length,
+      conError: resumenes.filter((item) => item.estadoUI === "CON_ERROR")
+        .length,
+    };
+  }, [resumenes]);
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] p-4 dark:bg-[#020617] sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="relative overflow-hidden rounded-[2.5rem] bg-slate-950 border border-slate-900 p-8 sm:p-12 mb-8 isolate shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent opacity-60"></div>
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-primary border border-primary/20 backdrop-blur-md">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                Control de Quincenas
               </div>
+              <h1 className="text-4xl font-black tracking-tight text-white sm:text-6xl lg:leading-[1.1]">
+                Bolsa de{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-rose-500">
+                  Trabajo
+                </span>
+              </h1>
+              <p className="max-w-xl text-sm font-medium text-slate-400 sm:text-base leading-relaxed">
+                Plataforma de gestión y publicación de cortes quincenales.
+                Sincronización centralizada para el ecosistema SNTSS.
+              </p>
+            </div>
+
+            <Button
+              size="lg"
+              onClick={() => router.push("/admin/bolsa-de-trabajo/cargar")}
+              className="h-14 rounded-2xl px-8 text-sm font-black sm:text-base bg-primary hover:bg-primary/90 text-white shadow-[0_0_40px_-10px_rgba(225,29,72,0.4)] transition-all"
+            >
+              <Plus className="mr-2 h-5 w-5" />
+              Nueva Quincena
+            </Button>
+          </div>
+        </header>
+
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 mb-8">
+          <div className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 p-6 flex items-center gap-6 shadow-sm hover:shadow-md transition-all">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+              <CalendarClock className="h-7 w-7" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Tipo</label>
-              <Select
-                value={filtros.tipo?.[0] || ''}
-                onChange={(e) =>
-                  setFiltros({
-                    ...filtros,
-                    tipo: e.target.value ? [e.target.value as TipoBolsaDeTrabajo] : undefined,
-                  })
-                }
-              >
-                <option value="">Todos los tipos</option>
-                {tipos.map((tipo) => (
-                  <option key={tipo} value={tipo}>
-                    {NOMBRES_TIPOS[tipo]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Estado</label>
-              <Select
-                value={filtros.estado?.[0] || ''}
-                onChange={(e) =>
-                  setFiltros({
-                    ...filtros,
-                    estado: e.target.value ? [e.target.value as EstadoProcesamiento] : undefined,
-                  })
-                }
-              >
-                <option value="">Todos los estados</option>
-                {estados.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {estado}
-                  </option>
-                ))}
-              </Select>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+                Quincenas Importadas
+              </p>
+              <p className="text-4xl font-black text-slate-900 dark:text-white">
+                {resumenGeneral.total}
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Lista de documentos */}
-      {loading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Cargando documentos...</p>
+          <div className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 p-6 flex items-center gap-6 shadow-sm hover:shadow-md transition-all">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+              <ShieldCheck className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+                Publicadas Vigentes
+              </p>
+              <p className="text-4xl font-black text-slate-900 dark:text-white">
+                {resumenGeneral.oficiales}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="group rounded-[2rem] border border-slate-200/50 bg-white/40 p-1.5 shadow-sm backdrop-blur-xl transition-all hover:border-primary/20 hover:shadow-md dark:border-slate-800/50 dark:bg-slate-900/40">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-hover:text-primary" />
+            <Input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por periodo, estado o correo de carga..."
+              className="h-14 rounded-2xl border-none bg-transparent pl-11 text-sm font-bold tracking-tight text-slate-700 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-200"
+            />
+          </div>
         </div>
-      ) : documentosFiltrados.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-muted-foreground mb-4">
-              No hay documentos de bolsa de trabajo cargados
+
+        {loading ? (
+          <div className="flex min-h-[280px] items-center justify-center">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Cargando quincenas...
             </p>
-            <Button onClick={() => router.push('/admin/bolsa-de-trabajo/cargar')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Cargar Primer Documento
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {documentosFiltrados.map((documento) => (
-            <Card key={documento.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      {documento.nombreArchivo || 'Sin nombre'}
-                    </CardTitle>
-                    <CardDescription className="mt-2">
-                      {NOMBRES_TIPOS[documento.tipo]}
-                    </CardDescription>
-                  </div>
-                  <EstadoBadgeBolsaDeTrabajo estado={documento.estado} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Registros</p>
-                    <p className="text-lg font-semibold">
-                      {documento.totalRegistros || 0}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Validados</p>
-                    <p className="text-lg font-semibold">
-                      {documento.registrosValidados || 0}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Zona</p>
-                    <p className="text-lg font-semibold">
-                      {documento.metadata?.zona || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Fecha de Carga</p>
-                    <p className="text-sm font-medium">
-                      {format(
-                        documento.fechaCarga instanceof Date
-                          ? documento.fechaCarga
-                          : (documento.fechaCarga as any).toDate(),
-                        'dd/MM/yyyy',
-                        { locale: es }
+          </div>
+        ) : resumenesFiltrados.length === 0 ? (
+          <Card className="rounded-3xl border-dashed border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-900/50">
+            <CardContent className="flex min-h-[260px] flex-col items-center justify-center gap-3 text-center">
+              <CalendarClock className="h-10 w-10 text-slate-300" />
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                No hay quincenas para mostrar
+              </h2>
+              <p className="max-w-md text-sm font-medium text-slate-500 dark:text-slate-400">
+                Crea una nueva quincena o ajusta la búsqueda para encontrar un
+                corte existente.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {resumenesFiltrados.map((item) => (
+              <button
+                key={item.sync.id}
+                onClick={() =>
+                  router.push(
+                    `/admin/bolsa-de-trabajo/quincenas/${item.sync.id}`,
+                  )
+                }
+                className="text-left"
+              >
+                <Card
+                  className={cn(
+                    "group h-full rounded-[2.5rem] transition-all duration-500 ease-out border-none relative overflow-hidden",
+                    item.sync.esFuenteVerdad
+                      ? "bg-gradient-to-br from-primary/5 via-primary/[0.02] to-transparent ring-[1.5px] ring-primary/30 shadow-[0_20px_50px_-12px_rgba(225,29,72,0.15)]"
+                      : "bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl ring-1 ring-slate-200/50 dark:ring-slate-800/50 shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 dark:hover:shadow-primary/5 hover:ring-primary/20",
+                  )}
+                >
+                  {item.sync.esFuenteVerdad && (
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-primary/20 transition-colors" />
+                  )}
+
+                  <CardContent className="flex flex-col h-full p-8 sm:p-10 space-y-8 relative z-10">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p
+                            className={cn(
+                              "text-[10px] font-black uppercase tracking-[0.2em]",
+                              item.sync.esFuenteVerdad
+                                ? "text-primary"
+                                : "text-slate-400",
+                            )}
+                          >
+                            Periodo {item.sync.esFuenteVerdad && "• Activa"}
+                          </p>
+                          {item.sync.esFuenteVerdad && (
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                          )}
+                        </div>
+                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                          {formatPeriodo(item.sync)}
+                        </h2>
+                      </div>
+                      <EstadoBadge
+                        estado={item.estadoUI}
+                        oficial={item.sync.esFuenteVerdad}
+                      />
+                    </div>
+
+                    <div
+                      className={cn(
+                        "rounded-[2rem] p-6 flex flex-col gap-1 transition-all duration-300",
+                        item.sync.esFuenteVerdad
+                          ? "bg-white/50 dark:bg-slate-950/40 shadow-inner-white border border-primary/10"
+                          : "bg-slate-50/50 dark:bg-slate-950/30 border border-slate-100/50 dark:border-slate-800/50 group-hover:bg-white/80 group-hover:border-primary/10",
                       )}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push(`/admin/bolsa-de-trabajo/${documento.id}`)}
-                  >
-                    Ver Detalles
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleEliminar(documento.id!)}
-                  >
-                    Eliminar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold uppercase tracking-[0.2em]",
+                            item.sync.esFuenteVerdad
+                              ? "text-primary/70"
+                              : "text-slate-500",
+                          )}
+                        >
+                          Registros Extraídos
+                        </span>
+                        <span
+                          className={cn(
+                            "text-3xl font-black tracking-tighter",
+                            item.sync.esFuenteVerdad
+                              ? "text-primary"
+                              : "text-slate-900 dark:text-white",
+                          )}
+                        >
+                          {item.totalRegistros.toLocaleString()}
+                        </span>
+                      </div>
+                      <p
+                        className={cn(
+                          "text-[12px] font-medium leading-relaxed mt-4 opacity-70",
+                          item.sync.esFuenteVerdad
+                            ? "text-primary/80"
+                            : "text-slate-600 dark:text-slate-400",
+                        )}
+                      >
+                        {item.documentos.length === 0
+                          ? "Esperando la carga de los documentos para este periodo."
+                          : item.estadoUI === "CON_ERROR"
+                            ? "Se detectaron detalles que requieren revisión antes de continuar."
+                            : item.sync.esFuenteVerdad
+                              ? "Esta es la información oficial que los trabajadores pueden consultar actualmente."
+                              : "Toda la información ha sido procesada y está lista para ser revisada."}
+                      </p>
+                    </div>
+
+                    <div className="mt-auto flex items-center justify-between gap-4 pt-6">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          Actualizado
+                        </p>
+                        <p className="truncate text-sm font-bold text-slate-700 dark:text-slate-200 mt-1">
+                          {formatFecha(
+                            item.sync.fechaFinalizacion ||
+                              item.sync.fechaInicio,
+                          )}
+                        </p>
+                      </div>
+                      <div
+                        className={cn(
+                          "inline-flex shrink-0 w-12 h-12 items-center justify-center rounded-2xl transition-all duration-300 transform group-hover:-rotate-12",
+                          item.sync.esFuenteVerdad
+                            ? "bg-primary text-white shadow-[0_10px_20px_-5px_rgba(225,29,72,0.4)]"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-primary group-hover:text-white group-hover:shadow-lg",
+                        )}
+                      >
+                        <ArrowRight className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-  )
+  );
+}
+
+function EstadoBadge({
+  estado,
+  oficial,
+}: {
+  estado: QuincenaResumen["estadoUI"];
+  oficial: boolean;
+}) {
+  return (
+    <Badge
+      variant={
+        oficial
+          ? "success"
+          : estado === "CON_ERROR"
+            ? "destructive"
+            : estado === "INCOMPLETA"
+              ? "warning"
+              : "secondary"
+      }
+      className={cn(
+        "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest",
+        !oficial &&
+          estado === "LISTA" &&
+          "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+      )}
+    >
+      {estado}
+    </Badge>
+  );
 }

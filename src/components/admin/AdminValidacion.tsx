@@ -1,10 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { sendApprovalEmail, sendRejectionEmail } from '@/lib/email'
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '@/lib/firebase/firebase-client'
-import { createNotification } from '@/lib/firebase/notifications'
+import { auth } from '@/lib/firebase/firebase-client'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -27,14 +24,23 @@ interface UserRequest {
         identificacion: string
         tarjeton: string
     }
-    createdAt: any
+    rejectionReason?: string
+    createdAtMs: number | null
 }
 
 interface AdminValidacionProps {
     filterStatus?: 'pending' | 'active' | 'rejected'
+    onDataChanged?: () => void
 }
 
-export default function AdminValidacion({ filterStatus = 'pending' }: AdminValidacionProps) {
+interface UserRequestsResponse {
+    data?: {
+        requests?: UserRequest[]
+    }
+    error?: string
+}
+
+export default function AdminValidacion({ filterStatus = 'pending', onDataChanged }: AdminValidacionProps) {
     const [requests, setRequests] = useState<UserRequest[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedRequest, setSelectedRequest] = useState<UserRequest | null>(null)
@@ -45,44 +51,99 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
     const { toast } = useToast()
 
     useEffect(() => {
-        // Escuchar solicitudes pendientes en tiempo real
-        const q = query(
-            collection(db, 'users'),
-            where('status', '==', filterStatus)
-        )
+        let cancelled = false
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const docs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserRequest))
-            setRequests(docs)
-            setLoading(false)
-        }, (error) => {
-            console.error("Error fetching", error)
-            setLoading(false)
+        const loadRequests = async () => {
+            try {
+                if (!cancelled) setLoading(true)
+
+                const currentUser = auth.currentUser
+                if (!currentUser) {
+                    if (!cancelled) {
+                        setRequests([])
+                        setLoading(false)
+                    }
+                    return
+                }
+
+                const idToken = await currentUser.getIdToken()
+                const response = await fetch(`/api/admin/validaciones/solicitudes?status=${filterStatus}`, {
+                    headers: { Authorization: `Bearer ${idToken}` },
+                    cache: 'no-store',
+                })
+                const payload = await response.json() as UserRequestsResponse
+
+                if (!response.ok) {
+                    throw new Error(payload.error || `HTTP_${response.status}`)
+                }
+
+                if (!cancelled) {
+                    setRequests(payload.data?.requests || [])
+                    setLoading(false)
+                }
+            } catch (error) {
+                console.error('Error fetching validation requests:', error)
+                if (!cancelled) {
+                    setRequests([])
+                    setLoading(false)
+                }
+            }
+        }
+
+        loadRequests()
+        const intervalId = window.setInterval(loadRequests, 45_000)
+
+        return () => {
+            cancelled = true
+            window.clearInterval(intervalId)
+        }
+    }, [filterStatus])
+
+    const refreshRequests = async () => {
+        const currentUser = auth.currentUser
+        if (!currentUser) return
+
+        const idToken = await currentUser.getIdToken()
+        const response = await fetch(`/api/admin/validaciones/solicitudes?status=${filterStatus}`, {
+            headers: { Authorization: `Bearer ${idToken}` },
+            cache: 'no-store',
         })
+        const payload = await response.json() as UserRequestsResponse
 
-        return () => unsubscribe()
-    }, [])
+        if (!response.ok) {
+            throw new Error(payload.error || `HTTP_${response.status}`)
+        }
+
+        setRequests(payload.data?.requests || [])
+    }
 
     const handleApprove = async () => {
         if (!selectedRequest) return
         setIsProcessing(true)
 
         try {
-            await updateDoc(doc(db, 'users', selectedRequest.uid), {
-                status: 'active',
-                updatedAt: serverTimestamp()
+            const currentUser = auth.currentUser
+            if (!currentUser) {
+                throw new Error('AUTH_REQUIRED')
+            }
+
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(`/api/admin/validaciones/solicitudes/${selectedRequest.uid}`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: 'active' }),
             })
+            const payload = await response.json()
 
-            await createNotification({
-                userId: selectedRequest.uid,
-                title: '¡Cuenta Activada!',
-                message: 'Tu solicitud de registro ha sido aprobada. Ya puedes acceder a todas las funcionalidades.',
-                type: 'system',
-                link: '/admin/perfil'
-            })
+            if (!response.ok) {
+                throw new Error(payload.error || `HTTP_${response.status}`)
+            }
 
-            await sendApprovalEmail(selectedRequest.email, `${selectedRequest.nombre} ${selectedRequest.apellidoPaterno} ${selectedRequest.apellidoMaterno}`)
-
+            await refreshRequests()
+            onDataChanged?.()
             toast({ title: "Usuario Aprobado", description: "El usuario ha sido notificado." })
             setSelectedRequest(null)
         } catch (error) {
@@ -98,21 +159,28 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
         setIsProcessing(true)
 
         try {
-            await updateDoc(doc(db, 'users', selectedRequest.uid), {
-                status: 'rejected',
-                rejectionReason: rejectReason,
-                updatedAt: serverTimestamp()
+            const currentUser = auth.currentUser
+            if (!currentUser) {
+                throw new Error('AUTH_REQUIRED')
+            }
+
+            const idToken = await currentUser.getIdToken()
+            const response = await fetch(`/api/admin/validaciones/solicitudes/${selectedRequest.uid}`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${idToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: 'rejected', rejectionReason: rejectReason }),
             })
+            const payload = await response.json()
 
-            await createNotification({
-                userId: selectedRequest.uid,
-                title: 'Solicitud Rechazada',
-                message: `Tu solicitud ha sido rechazada. Razón: ${rejectReason}`,
-                type: 'system'
-            })
+            if (!response.ok) {
+                throw new Error(payload.error || `HTTP_${response.status}`)
+            }
 
-            await sendRejectionEmail(selectedRequest.email, `${selectedRequest.nombre} ${selectedRequest.apellidoPaterno} ${selectedRequest.apellidoMaterno}`, rejectReason)
-
+            await refreshRequests()
+            onDataChanged?.()
             toast({ title: "Usuario Rechazado", description: "Se ha enviado la notificación de rechazo." })
             setSelectedRequest(null)
             setRejectReason('')
@@ -169,7 +237,7 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                                     </TableCell>
                                     <TableCell>{req.matricula}</TableCell>
                                     <TableCell>
-                                        {req.createdAt?.seconds ? new Date(req.createdAt.seconds * 1000).toLocaleDateString() : 'Reciente'}
+                                        {req.createdAtMs ? new Date(req.createdAtMs).toLocaleDateString() : 'Reciente'}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-2">
@@ -225,6 +293,12 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                                     <span className="font-semibold block">Correo:</span>
                                     {selectedRequest.email}
                                 </div>
+                                {selectedRequest.rejectionReason ? (
+                                    <div className="col-span-2">
+                                        <span className="font-semibold block">Motivo de rechazo:</span>
+                                        {selectedRequest.rejectionReason}
+                                    </div>
+                                ) : null}
                             </div>
 
                             <div className="space-y-4">
@@ -245,10 +319,13 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                                                     title="Preview INE"
                                                 />
                                             ) : (
-                                                <img
+                                                <Image
                                                     src={selectedRequest.documents.identificacion}
                                                     alt="Identificación"
-                                                    className="w-full h-full object-cover"
+                                                    fill
+                                                    unoptimized
+                                                    className="object-cover"
+                                                    sizes="(max-width: 640px) 100vw, 50vw"
                                                 />
                                             )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -274,10 +351,13 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                                                     title="Preview Tarjetón"
                                                 />
                                             ) : (
-                                                <img
+                                                <Image
                                                     src={selectedRequest.documents.tarjeton}
                                                     alt="Tarjetón"
-                                                    className="w-full h-full object-cover"
+                                                    fill
+                                                    unoptimized
+                                                    className="object-cover"
+                                                    sizes="(max-width: 640px) 100vw, 50vw"
                                                 />
                                             )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -359,10 +439,13 @@ export default function AdminValidacion({ filterStatus = 'pending' }: AdminValid
                             />
                         ) : (
                             <div className="relative w-full h-full flex items-center justify-center">
-                                <img
-                                    src={viewingDoc?.url}
+                                <Image
+                                    src={viewingDoc?.url || ''}
                                     alt="Documento expandido"
-                                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                    fill
+                                    unoptimized
+                                    className="object-contain rounded-lg shadow-2xl"
+                                    sizes="100vw"
                                 />
                             </div>
                         )}

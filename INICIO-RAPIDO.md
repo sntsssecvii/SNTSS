@@ -11,7 +11,7 @@ El inicio de sesión **se queda cargando indefinidamente**.
 ### Opción 1: Script Automático (Recomendado) 🤖
 
 ```bash
-./scripts/solucionar-login.sh
+./scripts/ops/solucionar-login.sh
 ```
 
 Este script te guiará paso a paso por todo el proceso.
@@ -23,7 +23,7 @@ Este script te guiará paso a paso por todo el proceso.
 #### Paso 1: Habilitar Firestore
 ```bash
 # Abre Firebase Console
-./scripts/abrir-firebase-console.sh
+./scripts/ops/abrir-firebase-console.sh
 
 # O ve directamente a:
 # https://console.firebase.google.com/project/sntss-e2117/firestore
@@ -36,7 +36,7 @@ Este script te guiará paso a paso por todo el proceso.
 
 #### Paso 2: Crear Usuario
 ```bash
-node scripts/crear-usuario-firestore.js
+node scripts/ops/crear-usuario-firestore.js
 ```
 
 #### Paso 3: Aplicar Reglas
@@ -46,7 +46,7 @@ firebase deploy --only firestore:rules
 
 #### Paso 4: Verificar
 ```bash
-./scripts/diagnostico-completo.sh
+./scripts/ops/diagnostico-completo.sh
 ```
 
 ---
@@ -57,9 +57,9 @@ firebase deploy --only firestore:rules
 |---------|-------------|
 | `README-SOLUCION.md` | 📖 Resumen ejecutivo completo |
 | `SOLUCION-FIRESTORE.md` | 📚 Guía detallada paso a paso |
-| `scripts/solucionar-login.sh` | 🤖 Script interactivo guiado |
-| `scripts/diagnostico-completo.sh` | 🔍 Verificar estado actual |
-| `scripts/crear-usuario-firestore.js` | 👤 Crear documento de usuario |
+| `scripts/ops/solucionar-login.sh` | 🤖 Script interactivo guiado |
+| `scripts/ops/diagnostico-completo.sh` | 🔍 Verificar estado actual |
+| `scripts/ops/crear-usuario-firestore.js` | 👤 Crear documento de usuario |
 | `firestore.rules` | 🔒 Reglas de seguridad |
 
 ---
@@ -84,7 +84,7 @@ Contraseña: 123456
 
 ```bash
 # Ejecuta el diagnóstico
-./scripts/diagnostico-completo.sh
+./scripts/ops/diagnostico-completo.sh
 
 # Te dirá exactamente qué falta
 ```
@@ -96,7 +96,7 @@ Contraseña: 123456
 Ejecuta esto para ver el estado:
 
 ```bash
-./scripts/diagnostico-completo.sh
+./scripts/ops/diagnostico-completo.sh
 ```
 
 Deberías ver:
@@ -122,4 +122,4 @@ Después de seguir los pasos:
 
 **Tiempo total: ~5-10 minutos**
 
-¡Empieza ahora! 👉 `./scripts/solucionar-login.sh`
+¡Empieza ahora! 👉 `./scripts/ops/solucionar-login.sh`

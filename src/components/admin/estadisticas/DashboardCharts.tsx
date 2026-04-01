@@ -1,12 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BarChart3, PieChart, TrendingUp, Calendar } from 'lucide-react'
-import {
-  getPropuestasPorMes,
-  getDistribucionPorEstado,
-} from '@/lib/firebase/analytics'
 import { EstadoPropuesta } from '@/types/workflow'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -19,6 +14,11 @@ interface ChartData {
 interface BarChartItem {
   month: string
   cantidad: number
+}
+
+export interface DashboardChartsData {
+  propuestasPorMes: Array<{ mes: string; cantidad: number }>
+  distribucionPorEstado: Record<string, number>
 }
 
 const ESTADO_COLORS: Record<EstadoPropuesta, string> = {
@@ -39,55 +39,35 @@ const ESTADO_LABELS: Record<EstadoPropuesta, string> = {
   [EstadoPropuesta.COMPLETADA]: 'Completadas',
 }
 
-export default function DashboardCharts() {
-  const [barData, setBarData] = useState<BarChartItem[]>([])
-  const [pieData, setPieData] = useState<ChartData[]>([])
-  const [loading, setLoading] = useState(true)
+function buildBarData(data?: DashboardChartsData): BarChartItem[] {
+  return data?.propuestasPorMes?.map(item => ({ month: item.mes, cantidad: item.cantidad })) || []
+}
 
-  useEffect(() => {
-    const cargarDatos = async () => {
-      try {
-        setLoading(true)
-        
-        // Cargar datos en paralelo
-        const [mesData, distribucion] = await Promise.all([
-          getPropuestasPorMes(),
-          getDistribucionPorEstado(),
-        ])
+function buildPieData(data?: DashboardChartsData): ChartData[] {
+  if (!data) {
+    return [
+      { name: 'Aprobadas', value: 0, color: '#10b981' },
+      { name: 'Pendientes', value: 0, color: '#f59e0b' },
+    ]
+  }
 
-        // Formatear datos de barras
-        setBarData(mesData.map(item => ({ month: item.mes, cantidad: item.cantidad })))
+  return Object.entries(data.distribucionPorEstado || {})
+    .filter(([_, value]) => value > 0)
+    .map(([estado, value]) => ({
+      name: ESTADO_LABELS[estado as EstadoPropuesta],
+      value,
+      color: ESTADO_COLORS[estado as EstadoPropuesta],
+    }))
+}
 
-        // Formatear datos de pastel
-        const pieDataFormatted: ChartData[] = Object.entries(distribucion)
-          .filter(([_, value]) => value > 0)
-          .map(([estado, value]) => ({
-            name: ESTADO_LABELS[estado as EstadoPropuesta],
-            value,
-            color: ESTADO_COLORS[estado as EstadoPropuesta],
-          }))
-        
-        setPieData(pieDataFormatted)
-      } catch (error) {
-        console.error('Error cargando datos de gráficos:', error)
-        // Datos por defecto en caso de error
-        setBarData([])
-        setPieData([
-          { name: 'Aprobadas', value: 0, color: '#10b981' },
-          { name: 'Pendientes', value: 0, color: '#f59e0b' },
-        ])
-      } finally {
-        setLoading(false)
-      }
-    }
+interface DashboardChartsProps {
+  data?: DashboardChartsData
+  loading?: boolean
+}
 
-    cargarDatos()
-
-    // Actualizar cada 60 segundos
-    const interval = setInterval(cargarDatos, 60000)
-
-    return () => clearInterval(interval)
-  }, [])
+export default function DashboardCharts({ data, loading = false }: DashboardChartsProps) {
+  const barData = buildBarData(data)
+  const pieData = buildPieData(data)
 
   if (loading) {
     return (
