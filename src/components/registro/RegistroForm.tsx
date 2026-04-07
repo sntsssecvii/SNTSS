@@ -1,16 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createUserWithEmailAndPassword, updateProfile, signOut } from 'firebase/auth'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db, getStorageTools } from '@/lib/firebase/firebase-client'
 import { useToast } from '@/components/ui/use-toast'
-import { useAuth } from '@/contexts/AuthContext'
-import { getAdmins } from '@/lib/firebase/users'
-import { createNotification } from '@/lib/firebase/notifications'
-import { sendRegistrationEmail } from '@/lib/email'
 import StepInfo from './StepInfo'
 import StepDocs from './StepDocs'
 import StepSuccess from './StepSuccess'
@@ -21,8 +13,6 @@ export default function RegistroForm() {
     const [formData, setFormData] = useState<Partial<RegistroFormData>>({})
     const [isSubmitting, setIsSubmitting] = useState(false)
     const { toast } = useToast()
-    const router = useRouter()
-    const { setCreatingUser } = useAuth()
 
     const handleInfoSubmit = (data: Partial<RegistroFormData>) => {
         setFormData(prev => ({ ...prev, ...data }))
@@ -40,111 +30,39 @@ export default function RegistroForm() {
         }
 
         setIsSubmitting(true)
-        setCreatingUser(true)
-        console.log('🚀 [Registro] Iniciando proceso...');
 
         try {
-            // 0. Cargar herramientas de Storage dinámicamente
-            const tools = await getStorageTools();
-            if (!tools) {
-                throw new Error("El servicio de almacenamiento no está disponible actualmente.")
-            }
-            const { storage, ref, uploadBytes, getDownloadURL } = tools;
+            const payload = new FormData()
+            payload.set('nombre', formData.nombre || '')
+            payload.set('apellidoPaterno', formData.apellidoPaterno || '')
+            payload.set('apellidoMaterno', formData.apellidoMaterno || '')
+            payload.set('matricula', formData.matricula || '')
+            payload.set('email', formData.email || '')
+            payload.set('password', formData.password || '')
+            payload.set('confirmPassword', formData.confirmPassword || '')
+            payload.set('identificacion', files.identificacion)
+            payload.set('tarjeton', files.tarjeton)
 
-            // 1. Crear usuario en Auth
-            console.log('📝 [Registro] Creando usuario Auth...');
-            const userCredential = await createUserWithEmailAndPassword(
-                auth,
-                formData.email!,
-                formData.password!
-            )
-            const user = userCredential.user
-            console.log('✅ [Registro] Usuario Auth creado:', user.uid);
-
-            // Actualizar perfil básico
-            await updateProfile(user, {
-                displayName: `${formData.nombre} ${formData.apellidoPaterno} ${formData.apellidoMaterno}`
+            const response = await fetch('/api/registro', {
+                method: 'POST',
+                body: payload,
             })
 
-            // 2. Subir Archivos a Storage
-            const uploadFile = async (file: File, type: string) => {
-                console.log(`📤 [Registro] Subiendo ${type}...`);
-                const ext = file.name.split('.').pop()
-                const path = `uploads/${user.uid}/${type}_${Date.now()}.${ext}`
-                const storageRef = ref(storage, path)
+            const result = await response.json()
 
-                await uploadBytes(storageRef, file)
-                const url = await getDownloadURL(storageRef)
-                console.log(`✅ [Registro] ${type} subida:`, url);
-                return url
+            if (!response.ok) {
+                throw new Error(result?.error || 'Ocurrió un error inesperado.')
             }
-
-            const idUrl = await uploadFile(files.identificacion, 'identificacion')
-            const tarjetonUrl = await uploadFile(files.tarjeton, 'tarjeton')
-
-            // 3. Guardar en Firestore
-            console.log('💾 [Registro] Guardando documento en Firestore...');
-            await setDoc(doc(db, 'users', user.uid), {
-                uid: user.uid,
-                nombre: formData.nombre,
-                apellidoPaterno: formData.apellidoPaterno,
-                apellidoMaterno: formData.apellidoMaterno,
-                matricula: formData.matricula,
-                email: formData.email,
-                role: 'user',
-                status: 'pending',
-                documents: {
-                    identificacion: idUrl,
-                    tarjeton: tarjetonUrl
-                },
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            })
-
-            // 3.1 Notificar a los administradores (In-App)
-            try {
-                const admins = await getAdmins()
-                const notificationPromises = admins.map(admin =>
-                    createNotification({
-                        userId: admin.id,
-                        title: 'Nuevo Registro Pendiente',
-                        message: `El usuario ${formData.nombre} ${formData.apellidoPaterno} se ha registrado y espera validación.`,
-                        type: 'registration',
-                        link: '/admin/validaciones'
-                    })
-                )
-                await Promise.all(notificationPromises)
-                console.log(`🔔 [Registro] Notificación enviada a ${admins.length} administradores`);
-            } catch (notifyError) {
-                console.error('⚠️ [Registro] Error enviando notificación interna:', notifyError)
-            }
-
-            // 3.2 Enviar correo de confirmación al usuario
-            try {
-                await sendRegistrationEmail(formData.email!, formData.nombre!)
-                console.log('📧 [Registro] Correo de confirmación enviado');
-            } catch (emailError) {
-                console.error('⚠️ [Registro] Error enviando correo de confirmación:', emailError)
-            }
-
-            // 4. CERRAR SESIÓN (Best Practice)
-            // Esto evita que Firebase nos autologuee y nos mande al dashboard
-            // antes de que el administrador nos valide.
-            await signOut(auth);
-            console.log('🚪 [Registro] Sesión cerrada tras éxito (evitando auto-login)');
 
             toast({
                 title: "Registro Exitoso",
-                description: "Tu solicitud ha sido enviada para validación.",
+                description: result?.warning || "Tu solicitud ha sido enviada para validación.",
             })
 
             setStep(3) // Mostrar pantalla de éxito
 
         } catch (error: any) {
-            console.error("❌ [Registro] Error crítico:", error)
             let msg = error.message || "Ocurrió un error inesperado."
-            if (error.code === 'auth/email-already-in-use') msg = "Este correo ya está registrado."
-            if (error.code === 'auth/weak-password') msg = "La contraseña es muy debil."
 
             toast({
                 title: "Error al registrar",
@@ -153,7 +71,6 @@ export default function RegistroForm() {
             })
         } finally {
             setIsSubmitting(false)
-            setCreatingUser(false)
         }
     }
 

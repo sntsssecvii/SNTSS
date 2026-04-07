@@ -10,8 +10,8 @@ export const registroBaseSchema = z.object({
         .max(10, 'La matrícula debe tener máximo 10 dígitos')
         .regex(/^\d+$/, 'La matrícula solo puede contener números'),
     email: z.string().email('Correo electrónico inválido'),
-    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
-    confirmPassword: z.string().min(6, 'Confirmar contraseña'),
+    password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'),
+    confirmPassword: z.string().min(8, 'Confirma una contraseña de al menos 8 caracteres'),
 })
 
 export const registroSchema = registroBaseSchema.refine((data) => data.password === data.confirmPassword, {

@@ -8,17 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
 import { useToast } from '@/components/ui/use-toast'
-import { setAdminCredentials } from '@/lib/firebase/auth'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingScreen } from './ui/loading-screen'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-
-// Mapeo de roles a rutas iniciales
-const HOME_ROUTES = {
-  'ADMIN': '/admin',
-  'USER': '/dashboard',
-} as const
+import { getHomeRouteForRole } from '@/lib/auth/roles'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -33,9 +27,7 @@ export default function LoginForm() {
   // Efecto para redirigir si ya hay sesión activa
   useEffect(() => {
     if (user && userData?.role) {
-      // Normalizamos a mayúsculas para coincidir con HOME_ROUTES (ADMIN/USER)
-      const roleKey = userData.role.toUpperCase() as keyof typeof HOME_ROUTES
-      const redirectPath = HOME_ROUTES[roleKey]
+      const redirectPath = getHomeRouteForRole(userData.role)
 
       if (redirectPath) {
         console.log('🔄 Sesión detectada, redirigiendo a:', redirectPath)
@@ -93,10 +85,6 @@ export default function LoginForm() {
         email: userCredential.user.email,
         uid: userCredential.user.uid,
       })
-
-      // Guardar credenciales del admin
-      sessionStorage.setItem('adminPassword', password)
-      setAdminCredentials(email, password)
 
       // Mostrar toast de éxito
       toast({

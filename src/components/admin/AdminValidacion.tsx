@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useDeferredValue, useState, useEffect, useCallback } from 'react'
 import { auth } from '@/lib/firebase/firebase-client'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -36,8 +37,37 @@ interface AdminValidacionProps {
 interface UserRequestsResponse {
     data?: {
         requests?: UserRequest[]
+        pagination?: {
+            total: number
+            limit: number
+            nextCursor: string | null
+            hasMore: boolean
+        }
     }
     error?: string
+}
+
+interface ValidationActionResponse {
+    data?: {
+        uid?: string
+        status?: 'pending' | 'active' | 'rejected'
+    }
+    warning?: string | null
+    error?: string
+}
+
+type PaginationState = {
+    total: number
+    limit: number
+    nextCursor: string | null
+    hasMore: boolean
+}
+
+const DEFAULT_PAGINATION: PaginationState = {
+    total: 0,
+    limit: 25,
+    nextCursor: null,
+    hasMore: false,
 }
 
 export default function AdminValidacion({ filterStatus = 'pending', onDataChanged }: AdminValidacionProps) {
@@ -47,64 +77,37 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
     const [rejectReason, setRejectReason] = useState('')
     const [isProcessing, setIsProcessing] = useState(false)
     const [viewingDoc, setViewingDoc] = useState<{ url: string, title: string } | null>(null)
+    const [pagination, setPagination] = useState<PaginationState>(DEFAULT_PAGINATION)
+    const [cursorStack, setCursorStack] = useState<string[]>([])
+    const [currentCursor, setCurrentCursor] = useState<string | undefined>(undefined)
+    const [query, setQuery] = useState('')
+    const deferredQuery = useDeferredValue(query)
 
     const { toast } = useToast()
 
-    useEffect(() => {
-        let cancelled = false
-
-        const loadRequests = async () => {
-            try {
-                if (!cancelled) setLoading(true)
-
-                const currentUser = auth.currentUser
-                if (!currentUser) {
-                    if (!cancelled) {
-                        setRequests([])
-                        setLoading(false)
-                    }
-                    return
-                }
-
-                const idToken = await currentUser.getIdToken()
-                const response = await fetch(`/api/admin/validaciones/solicitudes?status=${filterStatus}`, {
-                    headers: { Authorization: `Bearer ${idToken}` },
-                    cache: 'no-store',
-                })
-                const payload = await response.json() as UserRequestsResponse
-
-                if (!response.ok) {
-                    throw new Error(payload.error || `HTTP_${response.status}`)
-                }
-
-                if (!cancelled) {
-                    setRequests(payload.data?.requests || [])
-                    setLoading(false)
-                }
-            } catch (error) {
-                console.error('Error fetching validation requests:', error)
-                if (!cancelled) {
-                    setRequests([])
-                    setLoading(false)
-                }
-            }
-        }
-
-        loadRequests()
-        const intervalId = window.setInterval(loadRequests, 45_000)
-
-        return () => {
-            cancelled = true
-            window.clearInterval(intervalId)
-        }
-    }, [filterStatus])
-
-    const refreshRequests = async () => {
+    const loadRequests = useCallback(async (cursor?: string) => {
         const currentUser = auth.currentUser
-        if (!currentUser) return
+        if (!currentUser) {
+            setRequests([])
+            setPagination(DEFAULT_PAGINATION)
+            return
+        }
 
         const idToken = await currentUser.getIdToken()
-        const response = await fetch(`/api/admin/validaciones/solicitudes?status=${filterStatus}`, {
+        const searchParams = new URLSearchParams({
+            status: filterStatus,
+            limit: '25',
+        })
+
+        if (deferredQuery.trim()) {
+            searchParams.set('q', deferredQuery.trim())
+        }
+
+        if (cursor) {
+            searchParams.set('cursor', cursor)
+        }
+
+        const response = await fetch(`/api/admin/validaciones/solicitudes?${searchParams.toString()}`, {
             headers: { Authorization: `Bearer ${idToken}` },
             cache: 'no-store',
         })
@@ -115,6 +118,43 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
         }
 
         setRequests(payload.data?.requests || [])
+        setPagination(payload.data?.pagination || DEFAULT_PAGINATION)
+        setCurrentCursor(cursor)
+    }, [deferredQuery, filterStatus])
+
+    useEffect(() => {
+        let cancelled = false
+
+        const syncRequests = async () => {
+            try {
+                if (!cancelled) setLoading(true)
+                if (!cancelled) {
+                    setCursorStack([])
+                    setCurrentCursor(undefined)
+                    await loadRequests()
+                    setLoading(false)
+                }
+            } catch (error) {
+                console.error('Error fetching validation requests:', error)
+                if (!cancelled) {
+                    setRequests([])
+                    setCurrentCursor(undefined)
+                    setLoading(false)
+                }
+            }
+        }
+
+        syncRequests()
+        const intervalId = window.setInterval(syncRequests, 45_000)
+
+        return () => {
+            cancelled = true
+            window.clearInterval(intervalId)
+        }
+    }, [loadRequests])
+
+    const refreshRequests = async () => {
+        await loadRequests(currentCursor)
     }
 
     const handleApprove = async () => {
@@ -136,7 +176,7 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
                 },
                 body: JSON.stringify({ status: 'active' }),
             })
-            const payload = await response.json()
+            const payload = await response.json() as ValidationActionResponse
 
             if (!response.ok) {
                 throw new Error(payload.error || `HTTP_${response.status}`)
@@ -144,7 +184,10 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
 
             await refreshRequests()
             onDataChanged?.()
-            toast({ title: "Usuario Aprobado", description: "El usuario ha sido notificado." })
+            toast({
+                title: "Usuario Aprobado",
+                description: payload.warning || "El usuario ha sido notificado."
+            })
             setSelectedRequest(null)
         } catch (error) {
             console.error(error)
@@ -173,7 +216,7 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
                 },
                 body: JSON.stringify({ status: 'rejected', rejectionReason: rejectReason }),
             })
-            const payload = await response.json()
+            const payload = await response.json() as ValidationActionResponse
 
             if (!response.ok) {
                 throw new Error(payload.error || `HTTP_${response.status}`)
@@ -181,7 +224,10 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
 
             await refreshRequests()
             onDataChanged?.()
-            toast({ title: "Usuario Rechazado", description: "Se ha enviado la notificación de rechazo." })
+            toast({
+                title: "Usuario Rechazado",
+                description: payload.warning || "Se ha enviado la notificación de rechazo."
+            })
             setSelectedRequest(null)
             setRejectReason('')
         } catch (error) {
@@ -206,8 +252,20 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
                         filterStatus === 'active' ? 'Usuarios Activos' : 'Usuarios Rechazados'}
                 </h2>
                 <Badge variant={filterStatus === 'pending' ? 'default' : filterStatus === 'active' ? 'outline' : 'destructive'} className="text-sm">
-                    {requests.length} {filterStatus === 'pending' ? 'Pendientes' : filterStatus === 'active' ? 'Activos' : 'Rechazados'}
+                    {pagination.total} {filterStatus === 'pending' ? 'Pendientes' : filterStatus === 'active' ? 'Activos' : 'Rechazados'}
                 </Badge>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Buscar por nombre, correo o matrícula"
+                    className="max-w-md"
+                />
+                <p className="text-sm text-slate-500">
+                    La búsqueda consulta al backend y devuelve coincidencias por prefijo.
+                </p>
             </div>
 
             <div className="border rounded-md">
@@ -265,6 +323,37 @@ export default function AdminValidacion({ filterStatus = 'pending', onDataChange
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-500">
+                    Mostrando {requests.length} de {pagination.total} registros.
+                </p>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={async () => {
+                            const nextStack = cursorStack.slice(0, -1)
+                            setCursorStack(nextStack)
+                            await loadRequests(nextStack[nextStack.length - 1])
+                        }}
+                        disabled={cursorStack.length === 0}
+                    >
+                        Anterior
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={async () => {
+                            if (!pagination.nextCursor) return
+                            const currentCursor = cursorStack[cursorStack.length - 1]
+                            setCursorStack(current => [...current, currentCursor || ''])
+                            await loadRequests(pagination.nextCursor)
+                        }}
+                        disabled={!pagination.hasMore || !pagination.nextCursor}
+                    >
+                        Siguiente
+                    </Button>
+                </div>
             </div>
 
             <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>

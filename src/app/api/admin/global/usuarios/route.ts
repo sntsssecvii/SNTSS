@@ -3,18 +3,13 @@ import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 
 import { adminDb } from '@/lib/firebase/admin'
 import { resolveUserSearch } from '@/lib/firebase/user-search'
-import { requireAdminRequest } from '@/lib/firebase/server-auth'
+import { requireSuperAdminRequest } from '@/lib/firebase/server-auth'
+import { normalizeUserRole } from '@/lib/auth/roles'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
 
 export const dynamic = 'force-dynamic'
-
-type UserStatus = 'pending' | 'active' | 'rejected'
 const DEFAULT_PAGE_SIZE = 25
 const MAX_PAGE_SIZE = 100
-
-function isValidStatus(status: string | null): status is UserStatus {
-  return status === 'pending' || status === 'active' || status === 'rejected'
-}
 
 function clampLimit(rawLimit: string | null) {
   const parsed = Number(rawLimit)
@@ -22,13 +17,13 @@ function clampLimit(rawLimit: string | null) {
   return Math.min(MAX_PAGE_SIZE, Math.floor(parsed))
 }
 
-function toCreatedAtMs(value: any) {
+function toMillis(value: any) {
   if (typeof value?.toMillis === 'function') return value.toMillis()
   if (typeof value?.seconds === 'number') return value.seconds * 1000
   return null
 }
 
-function encodeCursor(cursor: { createdAtMs?: number | null; primaryValue?: string; uid: string }) {
+function encodeCursor(cursor: { updatedAtMs?: number | null; primaryValue?: string; uid: string }) {
   return Buffer.from(JSON.stringify(cursor)).toString('base64url')
 }
 
@@ -37,13 +32,12 @@ function decodeCursor(cursor: string | null) {
 
   try {
     const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
-      createdAtMs?: number
+      updatedAtMs?: number
       primaryValue?: string
       uid?: string
     }
 
     if (!parsed.uid) return null
-
     return parsed
   } catch {
     return null
@@ -52,20 +46,33 @@ function decodeCursor(cursor: string | null) {
 
 export async function GET(request: NextRequest) {
   try {
-    enforceRateLimit(request, { bucket: 'api:admin:validaciones:solicitudes', limit: 60, windowMs: 60_000 })
-    await requireAdminRequest(request)
+    enforceRateLimit(request, { bucket: 'api:admin:global:usuarios', limit: 60, windowMs: 60_000 })
+    await requireSuperAdminRequest(request)
 
-    const status = request.nextUrl.searchParams.get('status')
     const limit = clampLimit(request.nextUrl.searchParams.get('limit'))
     const cursor = decodeCursor(request.nextUrl.searchParams.get('cursor'))
+    const statusFilter = request.nextUrl.searchParams.get('status')
+    const roleFilter = request.nextUrl.searchParams.get('role')
     const search = resolveUserSearch(request.nextUrl.searchParams.get('q'))
 
-    if (!isValidStatus(status)) {
-      return NextResponse.json({ error: 'Estatus de validación no válido.' }, { status: 400 })
+    let query = adminDb.collection('users') as FirebaseFirestore.Query
+    let totalQuery = adminDb.collection('users') as FirebaseFirestore.Query
+
+    if (statusFilter && statusFilter !== 'ALL') {
+      query = query.where('status', '==', statusFilter)
+      totalQuery = totalQuery.where('status', '==', statusFilter)
     }
 
-    let query = adminDb.collection('users').where('status', '==', status) as FirebaseFirestore.Query
-    let totalQuery = adminDb.collection('users').where('status', '==', status) as FirebaseFirestore.Query
+    if (roleFilter && roleFilter !== 'ALL') {
+      const roleValues = roleFilter === 'USER'
+        ? ['USER', 'user']
+        : roleFilter === 'ADMIN'
+          ? ['ADMIN', 'admin']
+          : [roleFilter]
+
+      query = query.where('role', 'in', roleValues)
+      totalQuery = totalQuery.where('role', 'in', roleValues)
+    }
 
     if (search) {
       query = query
@@ -80,7 +87,7 @@ export async function GET(request: NextRequest) {
         .where(search.fieldPath, '<=', `${search.value}\uf8ff`)
     } else {
       query = query
-        .orderBy('createdAt', 'desc')
+        .orderBy('updatedAt', 'desc')
         .orderBy(FieldPath.documentId(), 'desc')
         .limit(limit + 1)
     }
@@ -88,37 +95,38 @@ export async function GET(request: NextRequest) {
     if (cursor) {
       query = search && cursor.primaryValue
         ? query.startAfter(cursor.primaryValue, cursor.uid)
-        : cursor.createdAtMs
-          ? query.startAfter(Timestamp.fromMillis(cursor.createdAtMs), cursor.uid)
+        : cursor.updatedAtMs
+          ? query.startAfter(Timestamp.fromMillis(cursor.updatedAtMs), cursor.uid)
           : query
     }
 
-    const [snapshot, totalSnapshot] = await Promise.all([
+    const usersRef = adminDb.collection('users')
+    const [snapshot, totalSnap, superAdminsSnap, activeSnap, pendingSnap] = await Promise.all([
       query.get(),
       totalQuery.count().get(),
+      usersRef.where('role', '==', 'SUPER_ADMIN').count().get(),
+      usersRef.where('status', '==', 'active').count().get(),
+      usersRef.where('status', '==', 'pending').count().get(),
     ])
 
     const docs = snapshot.docs.slice(0, limit)
 
-    const requests = docs
+    const usuarios = docs
       .map((doc) => {
         const data = doc.data()
 
         return {
           uid: doc.id,
+          email: data.email || '',
           nombre: data.nombre || '',
           apellidoPaterno: data.apellidoPaterno || '',
           apellidoMaterno: data.apellidoMaterno || '',
           matricula: data.matricula || '',
-          email: data.email || '',
           curp: data.curp || '',
-          status: data.status || status,
-          rejectionReason: data.rejectionReason || '',
-          documents: {
-            identificacion: data.documents?.identificacion || '',
-            tarjeton: data.documents?.tarjeton || '',
-          },
-          createdAtMs: toCreatedAtMs(data.createdAt),
+          role: normalizeUserRole(data.role),
+          status: data.status || 'pending',
+          createdAtMs: toMillis(data.createdAt),
+          updatedAtMs: toMillis(data.updatedAt),
         }
       })
 
@@ -131,7 +139,7 @@ export async function GET(request: NextRequest) {
               uid: lastDoc.id,
             }
           : {
-              createdAtMs: toCreatedAtMs(lastDoc.data().createdAt),
+              updatedAtMs: toMillis(lastDoc.data().updatedAt) || toMillis(lastDoc.data().createdAt),
               uid: lastDoc.id,
             }
       )
@@ -140,17 +148,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        requests,
+        usuarios,
         pagination: {
-          total: totalSnapshot.data().count,
+          total: totalSnap.data().count,
           limit,
           nextCursor,
           hasMore: Boolean(nextCursor),
         },
+        summary: {
+          total: totalSnap.data().count,
+          superAdmins: superAdminsSnap.data().count,
+          active: activeSnap.data().count,
+          pending: pendingSnap.data().count,
+        },
       },
     })
   } catch (error: any) {
-    console.error('Error obteniendo solicitudes de validación:', error)
+    console.error('Error obteniendo usuarios globales:', error)
 
     if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
       return NextResponse.json(
@@ -164,19 +178,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (error?.message === 'PROFILE_NOT_FOUND') {
-      return NextResponse.json({ error: 'Perfil de administrador no encontrado.' }, { status: 404 })
+      return NextResponse.json({ error: 'Perfil no encontrado.' }, { status: 404 })
     }
 
     if (error?.message === 'ACCOUNT_INACTIVE') {
       return NextResponse.json({ error: 'La cuenta no está activa.' }, { status: 403 })
     }
 
-    if (error?.message === 'ADMIN_REQUIRED') {
-      return NextResponse.json({ error: 'Se requiere perfil de administrador.' }, { status: 403 })
+    if (error?.message === 'SUPER_ADMIN_REQUIRED') {
+      return NextResponse.json({ error: 'Se requiere perfil de admin global.' }, { status: 403 })
     }
 
     return NextResponse.json(
-      { error: 'No se pudieron obtener las solicitudes.', details: error?.message || 'UNKNOWN_ERROR' },
+      { error: 'No se pudieron obtener los usuarios.', details: error?.message || 'UNKNOWN_ERROR' },
       { status: 500 }
     )
   }

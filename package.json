@@ -15,7 +15,9 @@
     "test:coverage": "vitest run --coverage",
     "positions:test": "node --import tsx scripts/tests/test-position-regression.ts",
     "pdf:test": "tsx scripts/tests/test-parsers.ts",
-    "pdf:test:nuevo-ingreso": "tsx scripts/tests/test-nuevo-ingreso.ts"
+    "pdf:test:nuevo-ingreso": "tsx scripts/tests/test-nuevo-ingreso.ts",
+    "contract-chat:index": "tsx scripts/ops/build-contract-chat-index.ts",
+    "users:backfill-search": "tsx scripts/ops/backfill-user-search-fields.ts"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "^4.1.0",

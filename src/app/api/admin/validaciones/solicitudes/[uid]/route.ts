@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { sendApprovalEmail, sendRejectionEmail } from '@/lib/email'
+import { writeAdminAuditLog } from '@/lib/firebase/admin-audit'
 import { adminDb } from '@/lib/firebase/admin'
 import { requireAdminRequest } from '@/lib/firebase/server-auth'
 import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
@@ -18,11 +19,18 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ uid: string }> }
 ) {
+  let actorUid = ''
+  let actorEmail = ''
+  let targetUid = ''
+
   try {
     enforceRateLimit(request, { bucket: 'api:admin:validaciones:accion', limit: 30, windowMs: 60_000 })
-    await requireAdminRequest(request)
+    const adminContext = await requireAdminRequest(request)
+    actorUid = adminContext.uid
+    actorEmail = adminContext.email || ''
 
     const { uid } = await params
+    targetUid = uid
     const body = await request.json().catch(() => ({}))
     const nextStatus = body?.status as UserStatus | undefined
     const rejectionReason = typeof body?.rejectionReason === 'string' ? body.rejectionReason.trim() : ''
@@ -44,6 +52,7 @@ export async function POST(
 
     const userData = userSnap.data() || {}
     const fullName = getFullName(userData)
+    let warning: string | null = null
 
     await userRef.update({
       status: nextStatus,
@@ -65,12 +74,34 @@ export async function POST(
     })
 
     if (userData.email) {
-      if (nextStatus === 'active') {
-        await sendApprovalEmail(userData.email, fullName)
-      } else {
-        await sendRejectionEmail(userData.email, fullName, rejectionReason)
+      try {
+        if (nextStatus === 'active') {
+          await sendApprovalEmail(userData.email, fullName)
+        } else {
+          await sendRejectionEmail(userData.email, fullName, rejectionReason)
+        }
+      } catch (emailError) {
+        console.error('Error enviando correo de validación:', emailError)
+        warning = nextStatus === 'active'
+          ? 'La cuenta se activó, pero no se pudo enviar el correo de aprobación.'
+          : 'La solicitud se actualizó, pero no se pudo enviar el correo de rechazo.'
       }
     }
+
+    await writeAdminAuditLog({
+      action: 'USER_VALIDATION_UPDATED',
+      actorUid,
+      actorEmail,
+      targetType: 'users',
+      targetId: uid,
+      status: 'SUCCESS',
+      ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      metadata: {
+        nextStatus,
+        warning,
+      },
+    })
 
     return NextResponse.json({
       success: true,
@@ -78,9 +109,28 @@ export async function POST(
         uid,
         status: nextStatus,
       },
+      warning,
     })
   } catch (error: any) {
     console.error('Error actualizando validación de usuario:', error)
+
+    if (actorUid && targetUid) {
+      await writeAdminAuditLog({
+        action: 'USER_VALIDATION_UPDATED',
+        actorUid,
+        actorEmail,
+        targetType: 'users',
+        targetId: targetUid,
+        status: 'ERROR',
+        ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        metadata: {
+          error: error?.message || 'UNKNOWN_ERROR',
+        },
+      }).catch((auditError) => {
+        console.error('Error escribiendo auditoría de validación fallida:', auditError)
+      })
+    }
 
     if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
       return NextResponse.json(

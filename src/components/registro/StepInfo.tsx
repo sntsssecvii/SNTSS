@@ -134,7 +134,7 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
                         <Input
                             id="password"
                             type={showPassword ? "text" : "password"}
-                            placeholder="Mínimo 6 caracteres"
+                            placeholder="Mínimo 8 caracteres"
                             {...register('password')}
                             className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500 pr-10"
                         />

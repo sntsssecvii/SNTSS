@@ -16,7 +16,10 @@ Actualizar este documento cuando se agreguen campos o colecciones nuevas.
 | role                     | enum      | si        | SUPER_ADMIN, ADMIN, REVISOR, CAPTURISTA, CONSULTA, USER |
 | status                   | enum      | si        | pending, active, rejected                               |
 | matricula                | string    | si        | Numero de matricula                                     |
+| matriculaNormalized      | string    | no        | Matricula normalizada para búsqueda server-side         |
 | curp                     | string    | no        | CURP                                                    |
+| emailLowercase           | string    | no        | Email normalizado para búsqueda server-side             |
+| nombreCompletoLowercase  | string    | no        | Nombre completo normalizado para búsqueda server-side   |
 | createdAt                | Timestamp | si        | Fecha de creacion                                       |
 | updatedAt                | Timestamp | no        | Ultima actualizacion                                    |
 | rejectionReason          | string    | no        | Razon de rechazo                                        |
@@ -24,6 +27,7 @@ Actualizar este documento cuando se agreguen campos o colecciones nuevas.
 | documents.tarjeton       | string    | no        | URL de tarjeton                                         |
 
 **Acceso:** Usuario propio + admin. No puede auto-actualizar role/status.
+**Indices:** `status + createdAt`, `status + updatedAt`, filtros de `role/status` y búsqueda por `matriculaNormalized`, `emailLowercase`, `nombreCompletoLowercase`.
 **Archivos:** `src/lib/firebase/users.ts`, `src/app/api/admin/validaciones/`
 
 ---
@@ -183,6 +187,23 @@ Campos adicionales varian segun `tipoDocumento` (turno, jornada, residencia, ram
 
 **Acceso:** Solo admin (append-only en practica).
 **Archivos:** `src/lib/firebase/admin-audit.ts`
+
+---
+
+### `registration_audit_logs/{logId}`
+
+| Campo      | Tipo      | Requerido | Descripcion                                  |
+| ---------- | --------- | --------- | -------------------------------------------- |
+| status     | enum      | si        | SUCCESS, ERROR                               |
+| email      | string    | si        | Correo intentado                             |
+| uid        | string    | no        | UID creado si alcanzó a generarse            |
+| ip         | string    | si        | IP estimada del request                      |
+| userAgent  | string    | si        | User agent reportado                         |
+| metadata   | Record    | no        | Error, warning de correo y datos de contexto |
+| createdAt  | Timestamp | si        | Fecha del intento                            |
+
+**Acceso:** Solo admin.
+**Archivos:** `src/app/api/registro/route.ts`
 
 ---
 

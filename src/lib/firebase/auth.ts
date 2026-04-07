@@ -65,10 +65,8 @@ export const createUserAndMaintainSession = async (adminEmail: string, adminPass
 export const createNewUserWithoutSignIn = async (email: string, password: string) => {
   const adminEmail = auth.currentUser?.email;
   const adminPassword = sessionStorage.getItem('adminPassword');
-  if (!adminEmail || !adminPassword) throw new Error('Credenciales de admin no encontradas');
+  if (!adminEmail || !adminPassword) throw new Error('El alta delegada desde cliente fue deshabilitada por seguridad');
   return createUserAndMaintainSession(adminEmail, adminPassword, email, password);
 };
 
-export const setAdminCredentials = (email: string, password: string) => {
-  sessionStorage.setItem('adminPassword', password);
-};
+export const setAdminCredentials = () => {};
