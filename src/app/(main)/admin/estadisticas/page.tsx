@@ -6,7 +6,11 @@ import { useEffect, useState } from 'react'
 import { auth } from '@/lib/firebase/firebase-client'
 import DashboardStats, { DashboardStatsData } from '@/components/admin/estadisticas/DashboardStats'
 import DashboardCharts, { DashboardChartsData } from '@/components/admin/estadisticas/DashboardCharts'
-import NotificationsPanel from '@/components/admin/estadisticas/NotificationsPanel'
+import RegistrationOpsPanel, {
+  RegistrationOpsEvent,
+  RegistrationOpsOverview,
+} from '@/components/admin/estadisticas/RegistrationOpsPanel'
+import { isAdminRole } from '@/lib/auth/roles'
 
 interface EstadisticasResumenResponse {
   success: boolean
@@ -17,22 +21,32 @@ interface EstadisticasResumenResponse {
   error?: string
 }
 
+interface ObservabilidadRegistroResponse {
+  success: boolean
+  data?: {
+    overview?: RegistrationOpsOverview
+    recentEvents?: RegistrationOpsEvent[]
+  }
+  error?: string
+}
+
 export default function EstadisticasPage() {
   const { user, userData, loading } = useAuth()
   const router = useRouter()
   const [statsData, setStatsData] = useState<DashboardStatsData | undefined>()
   const [chartsData, setChartsData] = useState<DashboardChartsData | undefined>()
+  const [opsOverview, setOpsOverview] = useState<RegistrationOpsOverview | undefined>()
+  const [opsEvents, setOpsEvents] = useState<RegistrationOpsEvent[]>([])
   const [loadingResumen, setLoadingResumen] = useState(true)
 
   useEffect(() => {
-    const userRole = userData?.role?.toUpperCase()
-    if (!loading && (!user || userRole !== 'ADMIN')) {
+    if (!loading && (!user || !isAdminRole(userData?.role))) {
       router.push('/login')
     }
   }, [user, userData, loading, router])
 
   useEffect(() => {
-    if (!user || userData?.role?.toUpperCase() !== 'ADMIN') return
+    if (!user || !isAdminRole(userData?.role)) return
 
     let cancelled = false
 
@@ -46,23 +60,41 @@ export default function EstadisticasPage() {
         }
 
         const idToken = await currentUser.getIdToken()
-        const response = await fetch('/api/admin/estadisticas/resumen', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-          },
-          cache: 'no-store',
-        })
+        const [resumenResponse, observabilidadResponse] = await Promise.all([
+          fetch('/api/admin/estadisticas/resumen', {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+            cache: 'no-store',
+          }),
+          fetch('/api/admin/observabilidad/registro', {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+            cache: 'no-store',
+          }),
+        ])
 
-        const payload = await response.json() as EstadisticasResumenResponse
+        const [payload, observabilityPayload] = await Promise.all([
+          resumenResponse.json() as Promise<EstadisticasResumenResponse>,
+          observabilidadResponse.json() as Promise<ObservabilidadRegistroResponse>,
+        ])
 
-        if (!response.ok || !payload?.data?.stats || !payload?.data?.charts) {
+        if (!resumenResponse.ok || !payload?.data?.stats || !payload?.data?.charts) {
           throw new Error(payload?.error || 'No se pudieron cargar las estadísticas.')
+        }
+
+        if (!observabilidadResponse.ok || !observabilityPayload?.data?.overview) {
+          throw new Error(observabilityPayload?.error || 'No se pudo cargar la observabilidad operativa.')
         }
 
         if (!cancelled) {
           setStatsData(payload.data.stats)
           setChartsData(payload.data.charts)
+          setOpsOverview(observabilityPayload.data.overview)
+          setOpsEvents(observabilityPayload.data.recentEvents || [])
           setLoadingResumen(false)
         }
       } catch (error) {
@@ -70,6 +102,8 @@ export default function EstadisticasPage() {
         if (!cancelled) {
           setStatsData(undefined)
           setChartsData(undefined)
+          setOpsOverview(undefined)
+          setOpsEvents([])
           setLoadingResumen(false)
         }
       }
@@ -92,7 +126,7 @@ export default function EstadisticasPage() {
     )
   }
 
-  if (!user || userData?.role?.toUpperCase() !== 'ADMIN') {
+  if (!user || !isAdminRole(userData?.role)) {
     return null
   }
 
@@ -113,8 +147,7 @@ export default function EstadisticasPage() {
       {/* Gráficos y visualizaciones */}
       <DashboardCharts data={chartsData} loading={loadingResumen} />
 
-      {/* Panel de notificaciones */}
-      <NotificationsPanel />
+      <RegistrationOpsPanel overview={opsOverview} recentEvents={opsEvents} loading={loadingResumen} />
     </main>
   )
 }
