@@ -8,6 +8,7 @@ import { Users, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import DashboardChips from '@/components/admin/DashboardChips'
 import BolsaDeTrabajoGrid from '@/components/admin/BolsaDeTrabajoGrid'
+import { isAdminRole, isSuperAdminRole } from '@/lib/auth/roles'
 
 export default function AdminPage() {
   const { user, userData, loading } = useAuth()
@@ -16,9 +17,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     // Normalizamos el rol a mayúsculas para la comparación
-    const userRole = userData?.role?.toUpperCase()
+    const userRole = userData?.role
 
-    if (!loading && (!user || userRole !== 'ADMIN')) {
+    if (!loading && (!user || !isAdminRole(userRole))) {
       router.push('/login')
     }
   }, [user, userData, loading, router])
@@ -56,7 +57,7 @@ export default function AdminPage() {
     )
   }
 
-  if (!user || userData?.role?.toUpperCase() !== 'ADMIN') {
+  if (!user || !isAdminRole(userData?.role)) {
     return null
   }
 
@@ -161,6 +162,40 @@ export default function AdminPage() {
                   </div>
                 </Link>
               </motion.div>
+
+              {isSuperAdminRole(userData?.role) ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  className="flex-1"
+                >
+                  <Link href="/admin/global" className="block h-full group">
+                    <div className="relative h-full bg-white dark:bg-slate-900 rounded-[2rem] p-6 lg:p-8 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 hover:-translate-y-1 hover:border-amber-500/30 flex flex-col justify-center gap-4">
+                      <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+                        <ShieldCheck className="w-40 h-40" />
+                      </div>
+
+                      <div className="relative z-10 flex items-center justify-between gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-inner shrink-0">
+                          <ShieldCheck className="h-8 w-8" />
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-xl lg:text-2xl font-black text-slate-900 dark:text-white leading-tight mb-2">
+                            Admin Global
+                          </h2>
+                          <p className="text-slate-500 dark:text-slate-400 text-xs lg:text-sm leading-relaxed line-clamp-2 font-medium">
+                            Gestiona roles, estatus y gobierno operativo de usuarios internos.
+                          </p>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-amber-500/5 text-amber-600 flex items-center justify-center shrink-0 transition-transform transform group-hover:translate-x-1 group-hover:bg-amber-500 group-hover:text-white">
+                          <ArrowRight className="h-5 w-5" />
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
+              ) : null}
             </div>
           </div>
 
@@ -173,4 +208,3 @@ export default function AdminPage() {
     </main>
   )
 }
-

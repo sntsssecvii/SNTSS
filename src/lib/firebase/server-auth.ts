@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { isAdminRole, isSuperAdminRole, normalizeUserRole } from '@/lib/auth/roles'
 
 interface AdminRequestContext {
   uid: string
@@ -13,10 +14,6 @@ function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader?.startsWith('Bearer ')) return null
   return authHeader.slice('Bearer '.length).trim()
-}
-
-function normalizeRole(role?: string) {
-  return (role || '').trim().toUpperCase()
 }
 
 export async function requireAdminRequest(request: NextRequest): Promise<AdminRequestContext> {
@@ -34,14 +31,14 @@ export async function requireAdminRequest(request: NextRequest): Promise<AdminRe
   }
 
   const userData = userDoc.data() as { role?: string; status?: string; email?: string } | undefined
-  const role = normalizeRole(userData?.role)
+  const role = normalizeUserRole(userData?.role)
   const status = userData?.status
 
   if (status && status !== 'active') {
     throw new Error('ACCOUNT_INACTIVE')
   }
 
-  if (role !== 'ADMIN') {
+  if (!isAdminRole(role)) {
     throw new Error('ADMIN_REQUIRED')
   }
 
@@ -51,4 +48,14 @@ export async function requireAdminRequest(request: NextRequest): Promise<AdminRe
     role,
     status,
   }
+}
+
+export async function requireSuperAdminRequest(request: NextRequest): Promise<AdminRequestContext> {
+  const context = await requireAdminRequest(request)
+
+  if (!isSuperAdminRole(context.role)) {
+    throw new Error('SUPER_ADMIN_REQUIRED')
+  }
+
+  return context
 }
