@@ -19,6 +19,7 @@ import {
   FileBarChart,
   Users,
   ShieldCheck,
+  Crown,
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,7 @@ import seccion7 from '@/assets/seccion7.png'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase/firebase-client'
 import { useToast } from './ui/use-toast'
+import { getRoleLabel, isAdminRole } from '@/lib/auth/roles'
 
 interface NavItem {
   title: string
@@ -41,7 +43,7 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
   // Dashboard según rol
   const roleUpper = rol?.toUpperCase()
 
-  if (roleUpper === 'ADMIN') {
+  if (roleUpper === 'ADMIN' || roleUpper === 'SUPER_ADMIN') {
     baseItems.push({
       title: 'Panel Admin',
       href: '/admin',
@@ -56,7 +58,7 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
   }
 
   // Solo ADMIN puede ver estas secciones en el MVP
-  if (roleUpper === 'ADMIN') {
+  if (roleUpper === 'ADMIN' || roleUpper === 'SUPER_ADMIN') {
     baseItems.push(
       {
         title: 'Bolsa de Trabajo',
@@ -89,8 +91,16 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
     )
   }
 
+  if (roleUpper === 'SUPER_ADMIN') {
+    baseItems.push({
+      title: 'Admin Global',
+      href: '/admin/global',
+      icon: Crown,
+    })
+  }
+
   // Items comunes para todos
-  if (roleUpper === 'ADMIN') {
+  if (roleUpper === 'ADMIN' || roleUpper === 'SUPER_ADMIN') {
     baseItems.push(
       {
         title: 'Mi Perfil',
@@ -122,7 +132,7 @@ export function Sidebar() {
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
-    if (userData?.role?.toUpperCase() !== 'ADMIN') {
+    if (!isAdminRole(userData?.role)) {
       setPendingCount(0)
       return
     }
@@ -258,7 +268,7 @@ export function Sidebar() {
                   <p className="text-[10px] font-bold text-red-200/60 truncate leading-tight mb-1">{user?.email}</p>
                   {userData?.role && (
                     <span className="inline-flex px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-white/10 text-white rounded-md border border-white/10">
-                      {userData.role.toUpperCase() === 'ADMIN' ? 'Administrador' : 'Usuario'}
+                      {getRoleLabel(userData.role)}
                     </span>
                   )}
                 </div>

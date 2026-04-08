@@ -11,6 +11,7 @@ import { FileDown, Calendar, Filter } from 'lucide-react'
 import { getPropuestasPorMes, getDistribucionPorEstado, getTotalPropuestas } from '@/lib/firebase/analytics'
 import { EstadoPropuesta } from '@/types/workflow'
 import { Skeleton } from '@/components/ui/skeleton'
+import { isAdminRole } from '@/lib/auth/roles'
 
 export default function ReportesPage() {
   const { user, userData, loading: authLoading } = useAuth()
@@ -20,8 +21,7 @@ export default function ReportesPage() {
   const [periodo, setPeriodo] = useState('ultimo-mes')
 
   useEffect(() => {
-    const roleUpper = userData?.role?.toUpperCase()
-    if (!authLoading && (!user || roleUpper !== 'ADMIN')) {
+    if (!authLoading && (!user || !isAdminRole(userData?.role))) {
       router.push('/login')
     }
   }, [user, userData, authLoading, router])
@@ -61,7 +61,7 @@ export default function ReportesPage() {
     )
   }
 
-  if (!user || userData?.role?.toUpperCase() !== 'ADMIN') {
+  if (!user || !isAdminRole(userData?.role)) {
     return null
   }
 

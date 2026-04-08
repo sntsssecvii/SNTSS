@@ -20,10 +20,10 @@ import {
   Lock,
   Search,
   BarChart3,
-  Calendar,
-  Bell,
+  Crown,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { getHomeRouteForRole, isAdminRole, isSuperAdminRole } from '@/lib/auth/roles'
 
 interface CommandAction {
   id: string
@@ -51,7 +51,8 @@ export function CommandPalette() {
     return () => document.removeEventListener('keydown', down)
   }, [])
 
-  const isAdmin = userData?.role === 'ADMIN' || userData?.role === 'admin'
+  const isAdmin = isAdminRole(userData?.role)
+  const isSuperAdmin = isSuperAdminRole(userData?.role)
 
   const commands: CommandAction[] = [
     // Navegación principal
@@ -61,8 +62,20 @@ export function CommandPalette() {
       icon: LayoutDashboard,
       shortcut: '⌘D',
       action: () => {
-        router.push(isAdmin ? '/admin' : '/dashboard')
+        router.push(getHomeRouteForRole(userData?.role) || '/dashboard')
         setOpen(false)
+      },
+      group: 'Navegación',
+    },
+    {
+      id: 'admin-global',
+      label: 'Admin Global',
+      icon: Crown,
+      action: () => {
+        if (isSuperAdmin) {
+          router.push('/admin/global')
+          setOpen(false)
+        }
       },
       group: 'Navegación',
     },
@@ -143,6 +156,9 @@ export function CommandPalette() {
 
   // Filtrar comandos según permisos
   const filteredCommands = commands.filter((cmd) => {
+    if (cmd.id === 'admin-global') {
+      return isSuperAdmin
+    }
     if (cmd.id === 'propuestas' || cmd.id === 'estadisticas') {
       return isAdmin
     }
