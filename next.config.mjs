@@ -30,7 +30,7 @@ const nextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
-              "connect-src 'self' *.googleapis.com *.firebaseio.com *.firebaseapp.com *.upstash.io",
+              "connect-src 'self' *.googleapis.com *.firebaseio.com *.firebaseapp.com *.firebasestorage.app *.upstash.io",
               "font-src 'self'",
               "frame-ancestors 'none'",
               "object-src 'none'",
