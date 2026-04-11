@@ -4,6 +4,7 @@ import {
   getBolsaPosicionesMaterializadasPorMatricula,
   hasBolsaPosicionesMaterializadasForSync,
 } from "@/lib/firebase/bolsa-posiciones-materializadas";
+import { assertSameOrigin } from "@/lib/security/cors";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import type {
   Sincronizacion,
@@ -23,6 +24,7 @@ export async function GET(
   { params }: { params: Promise<{ documentoId: string }> },
 ) {
   try {
+    assertSameOrigin(request);
     enforceRateLimit(request, {
       bucket: "api:trabajador:mi-tramite-detalle",
       limit: 90,
@@ -156,6 +158,13 @@ export async function GET(
     });
   } catch (error: any) {
     console.error("Error en detalle de tramite:", error);
+
+    if (error?.message === "CORS_FORBIDDEN") {
+      return NextResponse.json(
+        { error: "Acceso no permitido." },
+        { status: 403 },
+      );
+    }
 
     if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
       return NextResponse.json(

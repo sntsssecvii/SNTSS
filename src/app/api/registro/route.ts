@@ -5,6 +5,7 @@ import { sendRegistrationEmail } from "@/lib/email";
 import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { registroSchema } from "@/lib/schemas/registro";
+import { assertSameOrigin } from "@/lib/security/cors";
 import { RateLimitError } from "@/lib/security/rate-limit";
 import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
 
@@ -112,6 +113,7 @@ export async function POST(request: NextRequest) {
   const userAgent = request.headers.get("user-agent") || "unknown";
 
   try {
+    assertSameOrigin(request);
     await enforceRateLimitRedis(request, {
       bucket: "api:registro:create:ip",
       limit: 40,
@@ -297,6 +299,13 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Error en registro público:", error);
+
+    if (error?.message === "CORS_FORBIDDEN") {
+      return NextResponse.json(
+        { error: "Acceso no permitido." },
+        { status: 403 },
+      );
+    }
 
     if (uploadedPaths.length > 0) {
       const bucket = adminStorage.bucket();
