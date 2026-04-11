@@ -107,8 +107,12 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
     });
   }
 
-  // Items comunes para todos
-  if (roleUpper === "ADMIN" || roleUpper === "SUPER_ADMIN") {
+  // Items comunes para roles admin
+  if (
+    roleUpper === "ADMIN" ||
+    roleUpper === "SUPER_ADMIN" ||
+    roleUpper === "BOLSA"
+  ) {
     baseItems.push(
       {
         title: "Mi Perfil",
