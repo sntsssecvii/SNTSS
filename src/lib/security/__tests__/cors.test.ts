@@ -61,4 +61,14 @@ describe("assertSameOrigin", () => {
     const request = makeMockRequest("https://sub.sntssvii.com");
     expect(() => assertSameOrigin(request)).toThrow("CORS_FORBIDDEN");
   });
+
+  it("rechaza localhost cuando NODE_ENV es production", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    (process.env as any).NODE_ENV = "production";
+    vi.resetModules();
+    const { assertSameOrigin } = await import("@/lib/security/cors");
+    const request = makeMockRequest("http://localhost:3000");
+    expect(() => assertSameOrigin(request)).toThrow("CORS_FORBIDDEN");
+    (process.env as any).NODE_ENV = originalNodeEnv;
+  });
 });
