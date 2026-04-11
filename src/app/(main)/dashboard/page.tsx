@@ -1,10 +1,16 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
-import { getMisTramitesCliente, getMiTramiteDetalleCliente } from '@/lib/firebase/trabajador-portal'
-import { NOMBRES_TIPOS, type TipoBolsaDeTrabajo } from '@/types/bolsa-de-trabajo'
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  getMisTramitesCliente,
+  getMiTramiteDetalleCliente,
+} from "@/lib/firebase/trabajador-portal";
+import {
+  NOMBRES_TIPOS,
+  type TipoBolsaDeTrabajo,
+} from "@/types/bolsa-de-trabajo";
 import {
   AlertCircle,
   ArrowRight,
@@ -21,212 +27,231 @@ import {
   Building2,
   Repeat,
   ChevronRight,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '@/lib/utils'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog";
 
 interface TramiteData {
-  documentoId: string
-  recordId?: string
-  matricula: string
-  nombre: string
-  categoria: string
-  zona: string
-  tipoDocumento: TipoBolsaDeTrabajo
-  tipoContratacion?: string
-  adscripcionNueva?: string
-  turnoNueva?: string // Note: Some fields might vary between list/detail
-  turnoNuevo?: string
-  posicionBase: number
-  posicionInterinato?: number
-  totalEnCategoria: number
-  totalEventualesEnCategoria?: number
+  documentoId: string;
+  recordId?: string;
+  matricula: string;
+  nombre: string;
+  categoria: string;
+  zona: string;
+  tipoDocumento: TipoBolsaDeTrabajo;
+  tipoContratacion?: string;
+  adscripcionNueva?: string;
+  turnoNueva?: string; // Note: Some fields might vary between list/detail
+  turnoNuevo?: string;
+  posicionBase: number;
+  posicionInterinato?: number;
+  totalEnCategoria: number;
+  totalEventualesEnCategoria?: number;
 }
 
 interface Periodo {
-  anio: number
-  mes: number
-  quincena: number
+  anio: number;
+  mes: number;
+  quincena: number;
 }
 
 function getTurnoLabel(turno?: string) {
-  switch ((turno || '').toUpperCase()) {
-    case 'MAT':
-      return 'Turno matutino'
-    case 'VES':
-      return 'Turno vespertino'
-    case 'NOC':
-      return 'Turno nocturno'
+  switch ((turno || "").toUpperCase()) {
+    case "MAT":
+      return "Turno matutino";
+    case "VES":
+      return "Turno vespertino";
+    case "NOC":
+      return "Turno nocturno";
     default:
-      return turno || ''
+      return turno || "";
   }
 }
 
 function getTramiteSubtitle(item: TramiteData) {
   switch (item.tipoDocumento) {
-    case 'CAMBIOS_TURNO_ADSCRIPCION':
+    case "CAMBIOS_TURNO_ADSCRIPCION":
       return item.adscripcionNueva
-        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${getTurnoLabel(item.turnoNuevo)}` : ''}`
-        : 'Trámite vigente'
-    case 'AMPLIACIONES_JORNADA':
+        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${getTurnoLabel(item.turnoNuevo)}` : ""}`
+        : "Trámite vigente";
+    case "AMPLIACIONES_JORNADA":
       return item.adscripcionNueva
-        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${getTurnoLabel(item.turnoNuevo)}` : ''}`
-        : 'Solicitud vigente'
+        ? `${item.adscripcionNueva}${item.turnoNuevo ? ` • ${getTurnoLabel(item.turnoNuevo)}` : ""}`
+        : "Solicitud vigente";
     default:
-      return `${item.categoria} • ${item.zona}`
+      return `${item.categoria} • ${item.zona}`;
   }
 }
 
 function getPrimaryMetric(item: TramiteData) {
-  if (item.tipoDocumento === 'NUEVO_INGRESO' && item.tipoContratacion === '8' && item.posicionInterinato) {
+  if (
+    item.tipoDocumento === "NUEVO_INGRESO" &&
+    item.tipoContratacion === "8" &&
+    item.posicionInterinato
+  ) {
     return {
-      label: 'Posición para interinato',
+      label: "Posición para interinato",
       value: item.posicionInterinato,
       total: item.totalEventualesEnCategoria || item.totalEnCategoria,
-    }
+    };
   }
 
   return {
-    label: 'Posición actual',
+    label: "Posición actual",
     value: item.posicionBase,
     total: item.totalEnCategoria,
-  }
+  };
 }
 
 export default function DashboardPage() {
-  const { user, userData, loading } = useAuth()
-  const router = useRouter()
-  const [tramites, setTramites] = useState<TramiteData[]>([])
-  const [periodo, setPeriodo] = useState<Periodo | null>(null)
-  const [pageLoading, setPageLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [errorStatus, setErrorStatus] = useState<number | null>(null)
-  const [greetingInfo, setGreetingInfo] = useState({ greeting: 'Hola', dayMessage: '' })
-  
+  const { user, userData, loading } = useAuth();
+  const router = useRouter();
+  const [tramites, setTramites] = useState<TramiteData[]>([]);
+  const [periodo, setPeriodo] = useState<Periodo | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [greetingInfo, setGreetingInfo] = useState({
+    greeting: "Hola",
+    dayMessage: "",
+  });
+
   // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [detailData, setDetailData] = useState<TramiteData | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [selectedTramiteId, setSelectedTramiteId] = useState<string | null>(null)
-  const [selectedRecordId, setSelectedRecordId] = useState<string | undefined>(undefined)
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [detailData, setDetailData] = useState<TramiteData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedTramiteId, setSelectedTramiteId] = useState<string | null>(
+    null,
+  );
+  const [selectedRecordId, setSelectedRecordId] = useState<string | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
-    const userRole = userData?.role?.toUpperCase()
-    if (!loading && (!user || userRole !== 'USER')) {
-      router.push('/login')
+    if (!loading && !user) {
+      router.push("/login");
     }
-  }, [user, userData, loading, router])
+  }, [user, loading, router]);
 
   useEffect(() => {
     // Generar saludo dinámico
-    const hour = new Date().getHours()
-    let newGreeting = 'Buenas noches'
-    if (hour >= 5 && hour < 12) newGreeting = 'Buenos días'
-    else if (hour >= 12 && hour < 19) newGreeting = 'Buenas tardes'
+    const hour = new Date().getHours();
+    let newGreeting = "Buenas noches";
+    if (hour >= 5 && hour < 12) newGreeting = "Buenos días";
+    else if (hour >= 12 && hour < 19) newGreeting = "Buenas tardes";
 
     const days = [
-      '¡Feliz Domingo! ☀️',
-      '¡Excelente Lunes! 🚀',
-      '¡Gran Martes! ⚡️',
-      '¡Feliz Miércoles! 🐪',
-      '¡Casi Viernes! Jueves 💪',
-      '¡Por fin es Viernes! 🎉',
-      '¡Gran Sábado! 🍻',
-    ]
-    const dayIndex = new Date().getDay()
-    
+      "¡Feliz Domingo! ☀️",
+      "¡Excelente Lunes! 🚀",
+      "¡Gran Martes! ⚡️",
+      "¡Feliz Miércoles! 🐪",
+      "¡Casi Viernes! Jueves 💪",
+      "¡Por fin es Viernes! 🎉",
+      "¡Gran Sábado! 🍻",
+    ];
+    const dayIndex = new Date().getDay();
+
     setGreetingInfo({
       greeting: newGreeting,
-      dayMessage: days[dayIndex]
-    })
-  }, [])
+      dayMessage: days[dayIndex],
+    });
+  }, []);
 
   useEffect(() => {
     const fetchTramites = async () => {
-      if (!user || userData?.role?.toUpperCase() !== 'USER') return
+      if (!user || userData?.role?.toUpperCase() !== "USER") return;
 
       try {
-        setPageLoading(true)
-        setError(null)
-        setErrorStatus(null)
+        setPageLoading(true);
+        setError(null);
+        setErrorStatus(null);
 
         if (!userData?.matricula?.trim()) {
-          throw new Error('El usuario autenticado no tiene matrícula vinculada.')
+          throw new Error(
+            "El usuario autenticado no tiene matrícula vinculada.",
+          );
         }
 
-        const result = await getMisTramitesCliente()
-        setTramites(result.data || [])
-        setPeriodo(result.periodo || null)
+        const result = await getMisTramitesCliente();
+        setTramites(result.data || []);
+        setPeriodo(result.periodo || null);
       } catch (err: any) {
-        let nextErrorStatus: number | null = null
-        if (err?.message?.includes('matrícula vinculada')) nextErrorStatus = 400
-        else if (err?.message?.includes('No se pudo validar la sesión')) nextErrorStatus = 401
-        else if (err?.message?.includes('No hay información oficial activa')) nextErrorStatus = 404
-        if (nextErrorStatus !== null) setErrorStatus(nextErrorStatus)
-        setError(err.message || 'Error al cargar tus trámites.')
+        let nextErrorStatus: number | null = null;
+        if (err?.message?.includes("matrícula vinculada"))
+          nextErrorStatus = 400;
+        else if (err?.message?.includes("No se pudo validar la sesión"))
+          nextErrorStatus = 401;
+        else if (err?.message?.includes("No hay información oficial activa"))
+          nextErrorStatus = 404;
+        if (nextErrorStatus !== null) setErrorStatus(nextErrorStatus);
+        setError(err.message || "Error al cargar tus trámites.");
       } finally {
-        setPageLoading(false)
+        setPageLoading(false);
       }
-    }
+    };
 
-    fetchTramites()
-  }, [user, userData])
+    fetchTramites();
+  }, [user, userData]);
 
   const handleOpenDetail = useCallback(async (item: TramiteData) => {
-    setSelectedTramiteId(item.documentoId)
-    setSelectedRecordId(item.recordId)
-    setDetailData(item) // Set initial data from the list item to ensure consistency and avoid "1" position flickering
-    setIsModalOpen(true)
-    setDetailLoading(true)
-    
+    setSelectedTramiteId(item.documentoId);
+    setSelectedRecordId(item.recordId);
+    setDetailData(item); // Set initial data from the list item to ensure consistency and avoid "1" position flickering
+    setIsModalOpen(true);
+    setDetailLoading(true);
+
     try {
-      const result = await getMiTramiteDetalleCliente(item.documentoId, item.recordId)
+      const result = await getMiTramiteDetalleCliente(
+        item.documentoId,
+        item.recordId,
+      );
       // Merge official detail data, prioritizing what's returned from the specialized endpoint
       if (result && result.data) {
-        setDetailData(prev => ({ 
-          ...prev, 
+        setDetailData((prev) => ({
+          ...prev,
           ...result.data,
-          // If the list item has a valid position that is different from 1, and the API returns 1, 
+          // If the list item has a valid position that is different from 1, and the API returns 1,
           // we might want to investigate, but for now we prioritize current list data if API seems suspicious.
           // However, usually we trust API. Let's trust API but ensure field mismatch is handled.
-        }))
+        }));
       }
     } catch (err) {
-      console.error('Error loading detail:', err)
+      console.error("Error loading detail:", err);
     } finally {
-      setDetailLoading(false)
+      setDetailLoading(false);
     }
-  }, [])
+  }, []);
 
   if (loading || pageLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <span className="text-sm font-bold text-slate-500 animate-pulse uppercase tracking-widest">Personalizando tu espacio...</span>
+          <span className="text-sm font-bold text-slate-500 animate-pulse uppercase tracking-widest">
+            Personalizando tu espacio...
+          </span>
         </div>
       </div>
-    )
+    );
   }
 
-  if (!user || userData?.role?.toUpperCase() !== 'USER') {
-    return null
+  if (!user || userData?.role?.toUpperCase() !== "USER") {
+    return null;
   }
 
   return (
     <main className="container mx-auto p-4 md:p-8 min-h-[calc(100vh-4rem)] flex flex-col justify-start">
       <div className="max-w-7xl w-full mx-auto my-4 md:my-8 space-y-10">
-        
         {/* HERO HEADER PREMIUM */}
-        <motion.section 
+        <motion.section
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -237,37 +262,55 @@ export default function DashboardPage() {
             SNTSS SECCIÓN VII • {greetingInfo.dayMessage}
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent mb-4 tracking-tighter leading-none">
-            {greetingInfo.greeting}, <span className="text-primary">{userData?.nombre?.split(' ')[0]}</span>
+            {greetingInfo.greeting},{" "}
+            <span className="text-primary">
+              {userData?.nombre?.split(" ")[0]}
+            </span>
           </h1>
           <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto font-bold mb-10 leading-relaxed uppercase tracking-tight">
-            Consulta tus posiciones vigentes y el estado oficial de tus trámites sindicales.
+            Consulta tus posiciones vigentes y el estado oficial de tus trámites
+            sindicales.
           </p>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-xl mx-auto">
-            <motion.div whileHover={{ scale: 1.02 }} transition={{ type: 'spring', stiffness: 400, damping: 10 }}>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            >
               <Card className="border-border/40 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden group border">
                 <CardContent className="flex items-center gap-4 p-5">
                   <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-inner group-hover:bg-primary group-hover:text-white transition-all duration-300">
                     <UserRound className="h-6 w-6" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary transition-colors">Matrícula vinculada</p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">{userData.matricula}</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary transition-colors">
+                      Matrícula vinculada
+                    </p>
+                    <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">
+                      {userData.matricula}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            <motion.div whileHover={{ scale: 1.02 }} transition={{ type: 'spring', stiffness: 400, damping: 10 }}>
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            >
               <Card className="border-border/40 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden group border">
                 <CardContent className="flex items-center gap-4 p-5">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-inner group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
                     <CalendarDays className="h-6 w-6" />
                   </div>
                   <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-emerald-600 transition-colors">Corte oficial activo</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-emerald-600 transition-colors">
+                      Corte oficial activo
+                    </p>
                     <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1 uppercase tracking-tight">
-                      {periodo ? `${periodo.quincena}° Q ${periodo.mes}/${periodo.anio}` : 'S/D'}
+                      {periodo
+                        ? `${periodo.quincena}° Q ${periodo.mes}/${periodo.anio}`
+                        : "S/D"}
                     </p>
                   </div>
                 </CardContent>
@@ -292,20 +335,37 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight uppercase leading-none mb-2">
-                        {errorStatus === 400 ? 'Matrícula no vinculada' :
-                          errorStatus === 401 ? 'Sesión expirada' :
-                            errorStatus === 403 ? 'Acceso restringido' :
-                              errorStatus === 404 ? 'Sin trámites vigentes' :
-                                'Algo salió mal'}
+                        {errorStatus === 400
+                          ? "Matrícula no vinculada"
+                          : errorStatus === 401
+                            ? "Sesión expirada"
+                            : errorStatus === 403
+                              ? "Acceso restringido"
+                              : errorStatus === 404
+                                ? "Sin trámites vigentes"
+                                : "Algo salió mal"}
                       </p>
-                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{error}</p>
+                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                        {error}
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-3">
                     {errorStatus === 401 ? (
-                      <Button onClick={() => router.push('/login')} className="rounded-2xl font-black bg-amber-600 hover:bg-amber-700 px-8 h-12">Iniciar sesión</Button>
+                      <Button
+                        onClick={() => router.push("/login")}
+                        className="rounded-2xl font-black bg-amber-600 hover:bg-amber-700 px-8 h-12"
+                      >
+                        Iniciar sesión
+                      </Button>
                     ) : (
-                      <Button onClick={() => window.location.reload()} variant="outline" className="rounded-2xl font-black border-amber-200 hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40 px-8 h-12">Reintentar</Button>
+                      <Button
+                        onClick={() => window.location.reload()}
+                        variant="outline"
+                        className="rounded-2xl font-black border-amber-200 hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40 px-8 h-12"
+                      >
+                        Reintentar
+                      </Button>
                     )}
                   </div>
                 </CardContent>
@@ -322,20 +382,24 @@ export default function DashboardPage() {
                     <ClipboardList className="h-10 w-10 text-slate-400" />
                   </div>
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">No tienes trámites vigentes</h2>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                      No tienes trámites vigentes
+                    </h2>
                     <p className="text-sm font-bold text-slate-500 max-w-sm mx-auto uppercase tracking-tight leading-relaxed">
-                      Si esperabas ver información aquí, valida con tu representación sindical que tu matrícula aparezca en la sincronización publicada.
+                      Si esperabas ver información aquí, valida con tu
+                      representación sindical que tu matrícula aparezca en la
+                      sincronización publicada.
                     </p>
                   </div>
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                   Solo se muestran datos oficiales vinculados
+                    Solo se muestran datos oficiales vinculados
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           ) : (
-            <motion.section 
+            <motion.section
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -352,14 +416,18 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className={cn(
-                "grid gap-6",
-                tramites.length === 1 ? "grid-cols-1 max-w-3xl mx-auto" : 
-                tramites.length === 2 ? "lg:grid-cols-2 max-w-5xl mx-auto" : 
-                "lg:grid-cols-3"
-              )}>
+              <div
+                className={cn(
+                  "grid gap-6",
+                  tramites.length === 1
+                    ? "grid-cols-1 max-w-3xl mx-auto"
+                    : tramites.length === 2
+                      ? "lg:grid-cols-2 max-w-5xl mx-auto"
+                      : "lg:grid-cols-3",
+                )}
+              >
                 {tramites.map((item, index) => {
-                  const metric = getPrimaryMetric(item)
+                  const metric = getPrimaryMetric(item);
 
                   return (
                     <motion.div
@@ -382,10 +450,10 @@ export default function DashboardPage() {
                                 {getTramiteSubtitle(item)}
                               </h3>
                             </div>
-                            
+
                             <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500 shrink-0">
                               <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
-                                {metric.label.split(' ').pop()}
+                                {metric.label.split(" ").pop()}
                               </p>
                               <div className="flex items-baseline justify-center gap-1">
                                 <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
@@ -428,7 +496,7 @@ export default function DashboardPage() {
                         </div>
                       </Card>
                     </motion.div>
-                  )
+                  );
                 })}
               </div>
             </motion.section>
@@ -436,15 +504,18 @@ export default function DashboardPage() {
         </AnimatePresence>
 
         {/* PREMIUM DETAIL MODAL */}
-        <Dialog open={isModalOpen} onOpenChange={(open) => {
-          setIsModalOpen(open)
-          if (!open) setDetailData(null)
-        }}>
+        <Dialog
+          open={isModalOpen}
+          onOpenChange={(open) => {
+            setIsModalOpen(open);
+            if (!open) setDetailData(null);
+          }}
+        >
           <DialogContent className="max-w-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2.5rem] p-0 overflow-hidden shadow-2xl transition-all duration-500">
             <div className="relative">
               {/* Decorative Background */}
               <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
-              
+
               <div className="relative p-8 lg:p-10">
                 <DialogHeader className="flex flex-row items-center justify-between mb-8">
                   <div className="space-y-1 text-left">
@@ -458,9 +529,9 @@ export default function DashboardPage() {
                       </DialogTitle>
                     )}
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setIsModalOpen(false)}
                     className="rounded-full h-10 w-10 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   >
@@ -470,7 +541,7 @@ export default function DashboardPage() {
 
                 <AnimatePresence mode="wait">
                   {detailLoading ? (
-                    <motion.div 
+                    <motion.div
                       key="loading"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -478,10 +549,12 @@ export default function DashboardPage() {
                       className="flex flex-col items-center justify-center py-20 gap-4"
                     >
                       <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">Obteniendo escalafón oficial...</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">
+                        Obteniendo escalafón oficial...
+                      </p>
                     </motion.div>
                   ) : detailData ? (
-                    <motion.div 
+                    <motion.div
                       key="content"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -492,18 +565,22 @@ export default function DashboardPage() {
                         <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                           <TrendingUp className="w-32 h-32" />
                         </div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 tracking-widest">Tu Posición Vigente</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 tracking-widest">
+                          Tu Posición Vigente
+                        </p>
                         <div className="flex items-center justify-center gap-2">
-                           <span className="text-8xl font-black text-white tracking-tighter leading-none">
-                             {getPrimaryMetric(detailData).value}
-                           </span>
+                          <span className="text-8xl font-black text-white tracking-tighter leading-none">
+                            {getPrimaryMetric(detailData).value}
+                          </span>
                         </div>
                       </div>
 
                       {/* Info Sections */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Categoría Oficial</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                            Categoría Oficial
+                          </p>
                           <div className="flex items-start gap-3">
                             <Briefcase className="h-4 w-4 text-primary mt-1 shrink-0" />
                             <span className="text-base font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
@@ -513,7 +590,9 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Zona Operativa</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                            Zona Operativa
+                          </p>
                           <div className="flex items-start gap-3">
                             <MapPin className="h-4 w-4 text-primary mt-1 shrink-0" />
                             <span className="text-base font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
@@ -524,7 +603,9 @@ export default function DashboardPage() {
 
                         {detailData.adscripcionNueva && (
                           <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 md:col-span-2 space-y-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Detalle de Solicitud</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                              Detalle de Solicitud
+                            </p>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                               <div className="flex items-start gap-3">
                                 <Building2 className="h-4 w-4 text-primary mt-1 shrink-0" />
@@ -532,9 +613,13 @@ export default function DashboardPage() {
                                   {detailData.adscripcionNueva}
                                 </span>
                               </div>
-                              {(detailData.turnoNuevo || detailData.turnoNueva) && (
+                              {(detailData.turnoNuevo ||
+                                detailData.turnoNueva) && (
                                 <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm self-start sm:self-auto border border-primary/20">
-                                  {getTurnoLabel(detailData.turnoNuevo || detailData.turnoNueva)}
+                                  {getTurnoLabel(
+                                    detailData.turnoNuevo ||
+                                      detailData.turnoNueva,
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -546,9 +631,13 @@ export default function DashboardPage() {
                       <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-500/5 border border-emerald-500/10">
                         <ShieldCheck className="h-5 w-5 text-emerald-600 mt-1" />
                         <div className="text-left">
-                          <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-tight mb-1">Información Verificada</p>
+                          <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-tight mb-1">
+                            Información Verificada
+                          </p>
                           <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
-                            Este ranking es calculado según el corte quincenal oficial. Cualquier duda contacta a tu representante sindical de la Sección VII.
+                            Este ranking es calculado según el corte quincenal
+                            oficial. Cualquier duda contacta a tu representante
+                            sindical de la Sección VII.
                           </p>
                         </div>
                       </div>
@@ -570,5 +659,5 @@ export default function DashboardPage() {
         </Dialog>
       </div>
     </main>
-  )
+  );
 }

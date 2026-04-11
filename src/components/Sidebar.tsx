@@ -53,7 +53,7 @@ const getNavItems = (
       href: "/admin",
       icon: LayoutDashboard,
     });
-  } else {
+  } else if (roleUpper !== "BOLSA") {
     baseItems.push({
       title: "Dashboard",
       href: "/dashboard",
