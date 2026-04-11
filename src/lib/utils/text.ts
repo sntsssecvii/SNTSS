@@ -11,7 +11,7 @@ const PARTICULAS = new Set([
 ]);
 
 export function toTitleCase(str: string): string {
-  if (!str) return str;
+  if (!str || !str.trim()) return "";
   return str
     .trim()
     .split(/\s+/)
