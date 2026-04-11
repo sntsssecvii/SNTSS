@@ -17,16 +17,21 @@ export default function MainLayout({
   const pathname = usePathname();
 
   const isBolsa = userData?.role?.toUpperCase() === "BOLSA";
-  const isBolsaRoute = pathname.startsWith("/admin/bolsa-de-trabajo");
+  // BOLSA puede navegar a cualquier /admin/* excepto rutas exclusivas de otros roles
+  const isBolsaAllowed =
+    pathname.startsWith("/admin/bolsa-de-trabajo") ||
+    pathname.startsWith("/admin/perfil") ||
+    pathname.startsWith("/admin/configuracion") ||
+    pathname.startsWith("/admin/cambiar-contrasena");
 
   useEffect(() => {
-    if (isBolsa && !isBolsaRoute) {
+    if (isBolsa && !isBolsaAllowed) {
       router.replace("/admin/bolsa-de-trabajo");
     }
-  }, [isBolsa, isBolsaRoute, router]);
+  }, [isBolsa, isBolsaAllowed, router]);
 
   // Evitar flash de contenido incorrecto mientras se redirige
-  const isRedirecting = !loading && isBolsa && !isBolsaRoute;
+  const isRedirecting = !loading && isBolsa && !isBolsaAllowed;
 
   return (
     <div className="min-h-screen flex bg-background">
