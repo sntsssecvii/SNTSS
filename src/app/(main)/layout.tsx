@@ -12,24 +12,30 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { userData } = useAuth();
+  const { userData, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  const isBolsa = userData?.role?.toUpperCase() === "BOLSA";
+  const isBolsaRoute = pathname.startsWith("/admin/bolsa-de-trabajo");
+
   useEffect(() => {
-    if (userData?.role?.toUpperCase() === "BOLSA") {
-      if (!pathname.startsWith("/admin/bolsa-de-trabajo")) {
-        router.replace("/admin/bolsa-de-trabajo");
-      }
+    if (isBolsa && !isBolsaRoute) {
+      router.replace("/admin/bolsa-de-trabajo");
     }
-  }, [userData, pathname, router]);
+  }, [isBolsa, isBolsaRoute, router]);
+
+  // Evitar flash de contenido incorrecto mientras se redirige
+  const isRedirecting = !loading && isBolsa && !isBolsaRoute;
 
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-64">
         <Navbar />
-        <main className="flex-1 p-3 sm:p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-3 sm:p-4 md:p-6">
+          {isRedirecting ? null : children}
+        </main>
       </div>
       <CommandPalette />
     </div>

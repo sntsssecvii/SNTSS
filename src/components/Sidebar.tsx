@@ -37,7 +37,11 @@ interface NavItem {
   badge?: string;
 }
 
-const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
+const getNavItems = (
+  rol?: string,
+  pendingCount: number = 0,
+  isDeveloper?: boolean,
+): NavItem[] => {
   const baseItems: NavItem[] = [];
 
   // Dashboard según rol
@@ -91,7 +95,7 @@ const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
     );
   }
 
-  if (roleUpper === "SUPER_ADMIN") {
+  if (isDeveloper) {
     baseItems.push({
       title: "Admin Global",
       href: "/admin/global",
@@ -300,7 +304,11 @@ export function Sidebar() {
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5 custom-scrollbar">
-            {getNavItems(userData?.role, pendingCount).map((item) => {
+            {getNavItems(
+              userData?.role,
+              pendingCount,
+              userData?.isDeveloper,
+            ).map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
               return (
