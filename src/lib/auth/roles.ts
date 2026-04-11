@@ -10,7 +10,11 @@ export function isSuperAdminRole(role?: string | null): boolean {
 
 export function isAdminRole(role?: string | null): boolean {
   const normalized = normalizeUserRole(role);
-  return normalized === ROLES.ADMIN || normalized === ROLES.SUPER_ADMIN;
+  return (
+    normalized === ROLES.ADMIN ||
+    normalized === ROLES.SUPER_ADMIN ||
+    normalized === ROLES.BOLSA
+  );
 }
 
 export function isBolsaRole(role?: string | null): boolean {
