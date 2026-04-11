@@ -1,96 +1,105 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Función auxiliar para verificar si el usuario está autenticado
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Función para verificar si el usuario es admin
+
+    // Incluye tanto ADMIN como SUPER_ADMIN
     function isAdmin() {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.upper() == 'ADMIN';
+      return isAuthenticated() &&
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN');
     }
-    
-    // Función para verificar si es el propio usuario
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-    
-    // Colección de usuarios
+
+    // Colección legacy (mantener compatibilidad)
     match /usuarios/{userId} {
-      // Lectura y escritura solo del propio usuario o admin
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) || isAdmin();
+      // Solo admin puede escribir en colección legacy
+      allow write: if isAdmin();
     }
-    
-    // Nueva Colección de usuarios (Registro SNTSS)
+
+    // Colección principal de usuarios
     match /users/{userId} {
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      // Solo admin puede actualizar status/rol
       allow update: if isAuthenticated() && (
-        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])) || 
+        (request.auth.uid == userId &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'uid', 'email'])) ||
         isAdmin()
       );
+      allow delete: if isAdmin();
     }
 
-    // Colección de tramites
     match /tramites/{tramiteId} {
       allow read, write: if isAdmin();
     }
-    
-    // Colección de correspondencia enviada
+
     match /correspondencia-enviada/{corrId} {
       allow read, write: if isAdmin();
     }
-    
-    // Colección de afiliacion
+
     match /afiliacion/{afilId} {
       allow read, write: if isAdmin();
     }
-    
-    // Colección de cambios de consultorio
+
     match /cambios-consultorio/{cambioId} {
       allow read, write: if isAdmin();
     }
-    
-    // Colección de notificaciones
+
     match /notifications/{notifId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
       allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow update: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
       allow delete: if isAdmin();
     }
-    
+
     match /notificaciones/{notifId} {
       allow read, write: if isAdmin();
     }
-    
-    // Colección de contadores (para números de oficio)
+
     match /contadores/{contadorId} {
       allow read, write: if isAdmin();
     }
 
-    // Sincronizaciones de cortes de bolsa de trabajo
     match /sincronizaciones/{syncId} {
       allow read, write: if isAdmin();
     }
 
-    // Documentos de bolsa de trabajo
     match /bolsa_de_trabajo_documentos/{documentoId} {
       allow read, write: if isAdmin();
-
       match /registros/{registroId} {
         allow read, write: if isAdmin();
       }
     }
-    
-    // Cualquier otra colección: solo admin
-    match /{document=**} {
-      allow read: if isAdmin();
+
+    // Posiciones materializadas: lectura autenticada, escritura solo admin (vía Admin SDK)
+    match /bolsa_posiciones_materializadas/{posicionId} {
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    // Logs de auditoría: solo admin, inmutables (no update/delete)
+    match /admin_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /registration_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Denegar todo lo demás explícitamente
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
