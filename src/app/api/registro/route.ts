@@ -77,7 +77,7 @@ function validateRegistrationFile(file: File | null, label: string) {
 async function uploadRegistrationFile(
   userUid: string,
   file: File,
-  type: "identificacion" | "tarjeton",
+  type: "identificacion" | "tarjeton" | "constanciaAfiliacion",
 ) {
   const bucket = adminStorage.bucket();
   const extension = file.name.includes(".") ? file.name.split(".").pop() : "";
@@ -152,6 +152,7 @@ export async function POST(request: NextRequest) {
 
     const identificacion = getFileField(formData, "identificacion");
     const tarjeton = getFileField(formData, "tarjeton");
+    const constanciaAfiliacion = getFileField(formData, "constanciaAfiliacion");
     const searchFields = buildUserSearchFields({
       email: parsed.data.email,
       matricula: parsed.data.matricula,
@@ -162,6 +163,8 @@ export async function POST(request: NextRequest) {
 
     validateRegistrationFile(identificacion, "identificacion");
     validateRegistrationFile(tarjeton, "tarjeton");
+    validateRegistrationFile(constanciaAfiliacion, "constanciaafiliacion");
+    const constanciaAfiliacionFile = constanciaAfiliacion as File;
 
     const identificacionFile = identificacion as File;
     const tarjetonFile = tarjeton as File;
@@ -209,16 +212,26 @@ export async function POST(request: NextRequest) {
     });
     createdUid = authUser.uid;
 
-    const [identificacionUpload, tarjetonUpload] = await Promise.all([
-      uploadRegistrationFile(
-        authUser.uid,
-        identificacionFile,
-        "identificacion",
-      ),
-      uploadRegistrationFile(authUser.uid, tarjetonFile, "tarjeton"),
-    ]);
+    const [identificacionUpload, tarjetonUpload, constanciaUpload] =
+      await Promise.all([
+        uploadRegistrationFile(
+          authUser.uid,
+          identificacionFile,
+          "identificacion",
+        ),
+        uploadRegistrationFile(authUser.uid, tarjetonFile, "tarjeton"),
+        uploadRegistrationFile(
+          authUser.uid,
+          constanciaAfiliacionFile,
+          "constanciaAfiliacion",
+        ),
+      ]);
 
-    uploadedPaths.push(identificacionUpload.path, tarjetonUpload.path);
+    uploadedPaths.push(
+      identificacionUpload.path,
+      tarjetonUpload.path,
+      constanciaUpload.path,
+    );
 
     await adminDb
       .collection("users")
@@ -227,7 +240,7 @@ export async function POST(request: NextRequest) {
         uid: authUser.uid,
         nombre: parsed.data.nombre,
         apellidoPaterno: parsed.data.apellidoPaterno,
-        apellidoMaterno: parsed.data.apellidoMaterno,
+        apellidoMaterno: parsed.data.apellidoMaterno ?? null,
         matricula: parsed.data.matricula,
         email: parsed.data.email,
         role: "user",
@@ -235,6 +248,7 @@ export async function POST(request: NextRequest) {
         documents: {
           identificacion: identificacionUpload.url,
           tarjeton: tarjetonUpload.url,
+          constanciaAfiliacion: constanciaUpload.url,
         },
         ...searchFields,
         createdAt: new Date(),
