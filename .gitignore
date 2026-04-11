@@ -6,6 +6,10 @@
 # Claude Code MCP config (paths locales)
 .mcp.json
 
+# PDFs fuente del chat de contrato (solo se necesitan localmente para regenerar el índice)
+artifacts/contrato-*.pdf
+contrato-*.pdf
+
 # dependencies
 /node_modules
 /.pnp
