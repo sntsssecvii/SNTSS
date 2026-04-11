@@ -212,12 +212,11 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Verificar magic bytes — MIME type y extensión son falsificables por el cliente
-    const expectedMagicType = isPDF
-      ? "pdf"
-      : normalizedName.endsWith(".xlsx")
-        ? "xlsx"
-        : "xls";
-    if (!validateFileMagicBytes(buffer, expectedMagicType)) {
+    const isValidPdf = isPDF && validateFileMagicBytes(buffer, "pdf");
+    const isValidXlsx = !isPDF && validateFileMagicBytes(buffer, "xlsx");
+    const isValidXls = !isPDF && validateFileMagicBytes(buffer, "xls");
+
+    if (isPDF ? !isValidPdf : !(isValidXlsx || isValidXls)) {
       return NextResponse.json(
         { error: "Formato de archivo no válido." },
         { status: 400 },
