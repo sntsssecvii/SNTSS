@@ -3,6 +3,8 @@ import { adminDb } from "@/lib/firebase/admin";
 import { calcularPosiciones } from "@/lib/bolsa-de-trabajo/calculos";
 import { getComparisonRecordsForWorker } from "@/lib/bolsa-de-trabajo/comparison-groups";
 import { getBolsaPosicionesMaterializadasPorMatricula } from "@/lib/firebase/bolsa-posiciones-materializadas";
+import { requireUserRequest } from "@/lib/firebase/server-auth";
+import { assertSameOrigin } from "@/lib/security/cors";
 import { RateLimitError } from "@/lib/security/rate-limit";
 import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
 import type {
@@ -12,30 +14,30 @@ import type {
 
 export const dynamic = "force-dynamic";
 
-function normalizeMatricula(value: string): string {
-  return value.trim().toUpperCase();
-}
-
 function hasUsableMaterializedRecord(record: { recordId?: string | null }) {
   return Boolean(record.recordId?.trim());
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const matriculaParam = searchParams.get("matricula");
-
-  if (!matriculaParam) {
-    return NextResponse.json({ error: "Matrícula requerida" }, { status: 400 });
-  }
-
-  const matricula = normalizeMatricula(matriculaParam);
-
   try {
+    assertSameOrigin(request);
+
     await enforceRateLimitRedis(request, {
-      bucket: "api:trabajador:posicion-publica",
+      bucket: "api:trabajador:posicion",
       limit: 20,
       windowMs: 60_000,
     });
+
+    const context = await requireUserRequest(request);
+    const matricula = context.matricula;
+
+    if (!matricula) {
+      return NextResponse.json(
+        { error: "El usuario autenticado no tiene matrícula vinculada." },
+        { status: 400 },
+      );
+    }
+
     // 1. Obtener la sincronización activa (Fuente de Verdad)
     const syncSnap = await adminDb
       .collection("sincronizaciones")
@@ -175,6 +177,13 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("Error en consulta de posición:", error);
 
+    if (error?.message === "CORS_FORBIDDEN") {
+      return NextResponse.json(
+        { error: "Acceso no permitido." },
+        { status: 403 },
+      );
+    }
+
     if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
       return NextResponse.json(
         { error: "Demasiadas solicitudes. Intenta de nuevo en un momento." },
@@ -184,6 +193,25 @@ export async function GET(request: NextRequest) {
         },
       );
     }
+
+    if (error?.message === "AUTH_REQUIRED") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+
+    if (error?.message === "PROFILE_NOT_FOUND") {
+      return NextResponse.json(
+        { error: "Perfil de usuario no encontrado." },
+        { status: 404 },
+      );
+    }
+
+    if (error?.message === "ACCOUNT_INACTIVE") {
+      return NextResponse.json(
+        { error: "La cuenta no está activa." },
+        { status: 403 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Error interno del servidor." },
       { status: 500 },
