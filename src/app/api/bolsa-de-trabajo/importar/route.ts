@@ -7,6 +7,7 @@ import {
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { requireAdminRequest } from "@/lib/firebase/server-auth";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { validateFileMagicBytes } from "@/lib/security/file-validation";
 import type {
   BolsaDeTrabajoRegistro,
   TipoBolsaDeTrabajo,
@@ -106,6 +107,15 @@ export async function POST(request: NextRequest) {
       if (file) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+
+        const isValidXlsx = validateFileMagicBytes(buffer, "xlsx");
+        const isValidXls = validateFileMagicBytes(buffer, "xls");
+        if (!isValidXlsx && !isValidXls) {
+          return NextResponse.json(
+            { error: "Formato de archivo no válido." },
+            { status: 400 },
+          );
+        }
 
         const workbook = XLSX.read(buffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
