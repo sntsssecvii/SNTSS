@@ -13,15 +13,23 @@ function buildRedisClient() {
 
 const redis = buildRedisClient();
 
+if (!redis) {
+  console.warn(
+    "[rate-limit-redis] Redis no disponible, rate limit distribuido deshabilitado",
+  );
+}
+
 const limiters: Record<string, Ratelimit> = {};
 
-function getLimiter(limit: number, windowSeconds: number): Ratelimit {
+function getLimiter(
+  redisClient: Redis,
+  limit: number,
+  windowSeconds: number,
+): Ratelimit {
   const key = `${limit}:${windowSeconds}`;
   if (!limiters[key]) {
-    if (!redis)
-      throw new Error("Redis no configurado para rate limiting distribuido");
     limiters[key] = new Ratelimit({
-      redis,
+      redis: redisClient,
       limiter: Ratelimit.slidingWindow(limit, `${windowSeconds} s`),
       analytics: false,
     });
@@ -39,15 +47,12 @@ export async function enforceRateLimitRedis(
   },
 ): Promise<void> {
   if (!redis) {
-    console.warn(
-      "[rate-limit-redis] Redis no disponible, rate limit distribuido deshabilitado",
-    );
     return;
   }
 
   const identifier = options.identifier || getClientIp(request);
   const windowSeconds = Math.ceil(options.windowMs / 1000);
-  const limiter = getLimiter(options.limit, windowSeconds);
+  const limiter = getLimiter(redis, options.limit, windowSeconds);
   const { success, reset } = await limiter.limit(
     `${options.bucket}:${identifier}`,
   );
