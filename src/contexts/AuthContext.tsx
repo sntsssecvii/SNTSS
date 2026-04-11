@@ -8,6 +8,7 @@ import { getAuth } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { getCreatingUserState, initializeAuthListener, cleanupAuthListener } from '@/lib/firebase/auth'
 import { LoadingScreen } from '@/components/ui/loading-screen'
+import { getHomeRouteForRole } from '@/lib/auth/roles'
 
 interface AuthUser {
   uid: string
@@ -26,18 +27,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-// Mapeo de roles a rutas iniciales
-const HOME_ROUTES = {
-  'ADMIN': '/admin',
-  'USER': '/dashboard',
-} as const
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [userData, setUserData] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isCreatingUser, setIsCreatingUser] = useState(false)
+  const [, setIsCreatingUser] = useState(false)
 
   useEffect(() => {
     const auth = getAuth();

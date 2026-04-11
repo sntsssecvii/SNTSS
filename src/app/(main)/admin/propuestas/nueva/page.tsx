@@ -4,13 +4,14 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { PropuestaForm } from '@/components/PropuestaForm'
+import { isAdminRole } from '@/lib/auth/roles'
 
 export default function NuevaPropuestaPage() {
   const { user, userData, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && (!user || userData?.role !== 'ADMIN')) {
+    if (!loading && (!user || !isAdminRole(userData?.role))) {
       router.push('/login')
     }
   }, [user, userData, loading, router])
@@ -23,7 +24,7 @@ export default function NuevaPropuestaPage() {
     )
   }
 
-  if (!user || userData?.role !== 'ADMIN') {
+  if (!user || !isAdminRole(userData?.role)) {
     return null
   }
 

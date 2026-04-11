@@ -7,7 +7,7 @@ export interface BaseUserData {
   nombre: string
   apellidoPaterno: string
   apellidoMaterno: string
-  role: 'user' | 'admin' | 'ADMIN' | 'USER'
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'REVISOR' | 'CAPTURISTA' | 'CONSULTA' | 'user' | 'admin' | 'ADMIN' | 'USER'
   status: 'pending' | 'active' | 'rejected'
   matricula: string
   curp?: string

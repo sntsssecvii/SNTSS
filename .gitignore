@@ -3,6 +3,9 @@
 # Firebase service account keys
 *-firebase-adminsdk-*.json
 
+# Claude Code MCP config (paths locales)
+.mcp.json
+
 # dependencies
 /node_modules
 /.pnp
@@ -21,6 +24,7 @@
 # misc
 .DS_Store
 *.pem
+/artifacts
 
 # debug
 npm-debug.log*
@@ -29,6 +33,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env.groq.local
 .env
 
 # vercel

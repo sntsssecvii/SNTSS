@@ -13,6 +13,7 @@ import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
+import { isAdminRole } from '@/lib/auth/roles'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,8 +47,7 @@ export function Navbar() {
     }
   }
 
-  const roleUpper = userData?.role?.toUpperCase()
-  const isAdmin = roleUpper === 'ADMIN'
+  const isAdmin = isAdminRole(userData?.role)
 
   const getNotificationIcon = (type: string) => {
     switch (type) {

@@ -4,14 +4,14 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { PropuestasTable } from '@/components/PropuestasTable'
+import { isAdminRole } from '@/lib/auth/roles'
 
 export default function PropuestasPage() {
   const { user, userData, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    const userRole = userData?.role?.toUpperCase()
-    if (!loading && (!user || userRole !== 'ADMIN')) {
+    if (!loading && (!user || !isAdminRole(userData?.role))) {
       router.push('/login')
     }
   }, [user, userData, loading, router])
@@ -24,7 +24,7 @@ export default function PropuestasPage() {
     )
   }
 
-  if (!user || userData?.role?.toUpperCase() !== 'ADMIN') {
+  if (!user || !isAdminRole(userData?.role)) {
     return null
   }
 

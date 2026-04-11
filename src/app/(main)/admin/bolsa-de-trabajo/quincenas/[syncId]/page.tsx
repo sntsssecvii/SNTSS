@@ -183,8 +183,8 @@ export default function DetalleQuincenaPage() {
   if (!sync) return null;
 
   return (
-    <div className="h-screen bg-[#F8FAFC] dark:bg-[#020617] overflow-hidden flex flex-col p-4 sm:p-6 lg:p-8 gap-6">
-      <div className="mx-auto w-full max-w-7xl flex flex-col h-full gap-6">
+    <div className="min-h-full bg-[#F8FAFC] dark:bg-[#020617] flex flex-col p-4 sm:p-6 lg:p-8 gap-6">
+      <div className="mx-auto w-full max-w-7xl flex flex-col gap-6">
         {/* Header Ultra-Compacto */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shrink-0">
           <div className="flex items-center gap-4">
@@ -249,7 +249,7 @@ export default function DetalleQuincenaPage() {
           </div>
         </div>
 
-        <section className="flex-1 min-h-0 flex flex-col justify-center">
+        <section className="flex flex-col justify-start lg:flex-1 lg:min-h-0 lg:justify-center">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {checklistTipos.map(({ tipo, doc, status }) => (
               <Card
