@@ -4,7 +4,8 @@ import {
   getBolsaPosicionesMaterializadasPorMatricula,
   hasBolsaPosicionesMaterializadasForSync,
 } from "@/lib/firebase/bolsa-posiciones-materializadas";
-import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { RateLimitError } from "@/lib/security/rate-limit";
+import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
 import type { Sincronizacion } from "@/types/bolsa-de-trabajo";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ function hasUsableMaterializedRecord(record: { recordId?: string | null }) {
 
 export async function GET(request: NextRequest) {
   try {
-    enforceRateLimit(request, {
+    await enforceRateLimitRedis(request, {
       bucket: "api:trabajador:mis-tramites",
       limit: 60,
       windowMs: 60_000,

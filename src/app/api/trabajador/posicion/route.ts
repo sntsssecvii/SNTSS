@@ -3,7 +3,8 @@ import { adminDb } from "@/lib/firebase/admin";
 import { calcularPosiciones } from "@/lib/bolsa-de-trabajo/calculos";
 import { getComparisonRecordsForWorker } from "@/lib/bolsa-de-trabajo/comparison-groups";
 import { getBolsaPosicionesMaterializadasPorMatricula } from "@/lib/firebase/bolsa-posiciones-materializadas";
-import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { RateLimitError } from "@/lib/security/rate-limit";
+import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
 import type {
   BolsaDeTrabajoRegistro,
   TipoBolsaDeTrabajo,
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   const matricula = normalizeMatricula(matriculaParam);
 
   try {
-    enforceRateLimit(request, {
+    await enforceRateLimitRedis(request, {
       bucket: "api:trabajador:posicion-publica",
       limit: 20,
       windowMs: 60_000,
