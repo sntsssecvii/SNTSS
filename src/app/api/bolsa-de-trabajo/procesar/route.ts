@@ -5,6 +5,7 @@ import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdminRequest } from "@/lib/firebase/server-auth";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { validateFileMagicBytes } from "@/lib/security/file-validation";
 import type {
   BolsaDeTrabajoDocumento,
   BolsaDeTrabajoRegistro,
@@ -209,6 +210,19 @@ export async function POST(request: NextRequest) {
     // Convertir archivo a buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // Verificar magic bytes — MIME type y extensión son falsificables por el cliente
+    const expectedMagicType = isPDF
+      ? "pdf"
+      : normalizedName.endsWith(".xlsx")
+        ? "xlsx"
+        : "xls";
+    if (!validateFileMagicBytes(buffer, expectedMagicType)) {
+      return NextResponse.json(
+        { error: "Formato de archivo no válido." },
+        { status: 400 },
+      );
+    }
 
     // Detectar tipo de documento si no se proporcionó
     let tipoDocumento = tipo as any;
