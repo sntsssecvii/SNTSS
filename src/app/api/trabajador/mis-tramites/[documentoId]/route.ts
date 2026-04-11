@@ -5,7 +5,8 @@ import {
   hasBolsaPosicionesMaterializadasForSync,
 } from "@/lib/firebase/bolsa-posiciones-materializadas";
 import { assertSameOrigin } from "@/lib/security/cors";
-import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { RateLimitError } from "@/lib/security/rate-limit";
+import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
 import type {
   Sincronizacion,
   TipoBolsaDeTrabajo,
@@ -25,7 +26,7 @@ export async function GET(
 ) {
   try {
     assertSameOrigin(request);
-    enforceRateLimit(request, {
+    await enforceRateLimitRedis(request, {
       bucket: "api:trabajador:mi-tramite-detalle",
       limit: 90,
       windowMs: 60_000,
