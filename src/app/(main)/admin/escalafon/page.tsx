@@ -55,7 +55,7 @@ export default function EscalafonPage() {
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">No hay listados cargados.</p>
           <p className="text-sm mt-1">
-            Usa "Cargar listado" para subir el primer PDF.
+            Usa &ldquo;Cargar listado&rdquo; para subir el primer PDF.
           </p>
         </div>
       )}

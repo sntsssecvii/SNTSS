@@ -70,6 +70,11 @@ const getNavItems = (
         icon: Users,
       },
       {
+        title: "Escalafón",
+        href: "/admin/escalafon",
+        icon: Users,
+      },
+      {
         title: "Validaciones",
         href: "/admin/validaciones",
         icon: ShieldCheck,
@@ -106,7 +111,15 @@ const getNavItems = (
   if (roleUpper === "BOLSA") {
     baseItems.push({
       title: "Bolsa de Trabajo",
-      href: "/admin/bolsa-de-trabajo",
+      href: "/admin/bolsa-de-trabajo/consultar",
+      icon: Users,
+    });
+  }
+
+  if (roleUpper === "ESCALAFON") {
+    baseItems.push({
+      title: "Escalafón",
+      href: "/admin/escalafon",
       icon: Users,
     });
   }
