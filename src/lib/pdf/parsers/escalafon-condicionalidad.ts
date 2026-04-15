@@ -11,50 +11,148 @@ function normalizarTexto(val: string | null | undefined): string {
   return (val ?? "").trim().toUpperCase();
 }
 
-function esFilaEncabezado(row: (string | null)[]): boolean {
-  const cell0 = (row[0] ?? "").trim();
-  return !cell0 || isNaN(Number(cell0));
-}
+/**
+ * pdfplumber fragmenta las columnas de forma impredecible (14-19 cols).
+ * Estrategia: unir toda la fila en un string y parsear con regex usando
+ * la fecha (DD/MM/YYYY) como ancla central.
+ */
+const ROW_PATTERN = new RegExp(
+  [
+    /^(\d+)/.source, // 1: lugar
+    /\s+(PEI|Activo)/i.source, // 2: estatus
+    /\s+(\d{7,10})/.source, // 3: matricula
+    /\s+(.+?)/.source, // 4: nombre (lazy, hasta deleg)
+    /\s+(\d{2})/.source, // 5: delegacion code
+    /\s+(\d{2}\/\d{2}\/\d{4})/.source, // 6: fecha registro
+    /\s+(.+)$/.source, // 7: rest (preferencia)
+  ].join(""),
+);
 
-function esFilaDato(row: (string | null)[]): boolean {
-  const lugar = (row[0] ?? "").trim();
-  const mat = (row[2] ?? "").trim();
-  return /^\d+$/.test(lugar) && /^\d{7,10}$/.test(mat);
-}
+/**
+ * Parsea el "rest" después de la fecha: delegación solicitada, zona,
+ * localidad, adscripción y turno.
+ *
+ * Ejemplos reales:
+ * - "02 BAJA 1 ENSENADA Incondic ional Incondicional I ncondicion"
+ * - "02 BAJA 1 ENSENADA 0203361 02HA230000 HOSPITAL GENERAL 1 Matutino"
+ * - "02 BAJA 7 TIJUANA 0205321 RIO 02HA010000 HOSPITAL GENERAL 1 Matutino"
+ * - "02 BAJA 6 TECATE 0202011 TECATE 02HF060000 HOSPITAL GENERAL 5 Jornada"
+ */
+function parsearPreferenciaDesdeTexto(rest: string): EscalafonPreferencia {
+  // Normalizar fragmentos de "Incondicional" que pdfplumber rompe
+  const normalized = rest
+    .replace(/[Ii]ncondic\s*ional/g, "Incondicional")
+    .replace(/[Ii]n\s*condicional/g, "Incondicional")
+    .replace(/[Ii]\s*ncondicion\w*/g, "Incondicional")
+    .replace(/\s+/g, " ")
+    .trim();
 
-function parsearPreferencia(row: (string | null)[]): EscalafonPreferencia {
-  const adscripcionRaw = normalizarTexto(row[9]);
-  const turnoRaw = normalizarTexto(row[10]);
+  // Delegación solicitada: "NN DESC"
+  const delegMatch = normalized.match(/^(\d{2}\s+\S+)\s+(.+)$/);
+  const delegacionSolicitada = delegMatch?.[1] ?? "Incondicional";
+  const afterDeleg = delegMatch?.[2] ?? normalized;
 
-  // Adscripción puede ser "02HA230000 HOSPITAL GENERAL REGIONAL 23" o "INCONDICIONAL"
-  let adscripcionCode = "Incondicional";
-  let adscripcionDesc = "Incondicional";
-  if (adscripcionRaw && adscripcionRaw !== "INCONDICIONAL") {
-    const match = adscripcionRaw.match(/^(\w+)\s+(.+)$/);
-    if (match) {
-      adscripcionCode = match[1];
-      adscripcionDesc = match[2];
-    } else {
-      adscripcionCode = adscripcionRaw;
-      adscripcionDesc = adscripcionRaw;
+  // Zona solicitada: "N DESC" (1-2 dígitos + nombre)
+  const zonaMatch = afterDeleg.match(/^(\d{1,2}\s+\S+(?:\s+\S+)?)\s+(.+)$/);
+  let zonaSolicitada = "Incondicional";
+  let afterZona = afterDeleg;
+
+  if (zonaMatch) {
+    // zona puede tomar de más - hay que ser cuidadoso
+    // La zona es "N WORD" donde N es 1-2 dígitos y WORD es el nombre de zona
+    const zonaSimple = afterDeleg.match(
+      /^(\d{1,2}\s+[A-Z]+(?:\s+[A-Z]+)?)\s+(.+)$/i,
+    );
+    if (zonaSimple) {
+      // Verify what comes after isn't still part of zone by checking if next is a code or Incondicional
+      const remaining = zonaSimple[2];
+      if (
+        remaining.match(/^\d{7}/) || // localidad code
+        remaining.match(/^Incondicional/i)
+      ) {
+        zonaSolicitada = zonaSimple[1];
+        afterZona = remaining;
+      } else {
+        // Might be multi-word zone like "SAN LUIS" - try broader match
+        const zonaBroad = afterDeleg.match(
+          /^(\d{1,2}\s+[A-Z]+(?:\s+[A-Z]+)*?)\s+((?:\d{7}|Incondicional).*)$/i,
+        );
+        if (zonaBroad) {
+          zonaSolicitada = zonaBroad[1];
+          afterZona = zonaBroad[2];
+        } else {
+          zonaSolicitada = zonaSimple[1];
+          afterZona = remaining;
+        }
+      }
     }
   }
 
-  // Turno puede ser "1 MATUTINO", "INCONDICIONAL", etc.
+  // Ahora afterZona es: localidad + adscripcion + turno
+  // localidad: "NNNNNNN DESC" (7 dígitos + nombre) o "Incondicional"
+  let localidadSolicitada = "Incondicional";
+  let adscripcionCode = "Incondicional";
+  let adscripcionDesc = "Incondicional";
   let turnoNum: number | null = null;
   let turnoDesc = "Incondicional";
-  if (turnoRaw && turnoRaw !== "INCONDICIONAL") {
-    const match = turnoRaw.match(/^(\d+)\s*(.*)$/);
-    if (match) {
-      turnoNum = Number(match[1]);
-      turnoDesc = match[2] || `Turno ${match[1]}`;
+
+  if (/^Incondicional/i.test(afterZona)) {
+    // Todo incondicional a partir de aquí
+    localidadSolicitada = "Incondicional";
+    adscripcionCode = "Incondicional";
+    adscripcionDesc = "Incondicional";
+    turnoDesc = "Incondicional";
+  } else {
+    // localidad: 7-digit code + name
+    const locMatch = afterZona.match(/^(\d{7})\s+(.+)$/);
+    if (locMatch) {
+      const locCode = locMatch[1];
+      const afterLocCode = locMatch[2];
+
+      // Adscripción: 10-char code (e.g. 02HA230000) + desc + turno
+      const adscMatch = afterLocCode.match(
+        /^([A-Z0-9]*?)\s*(\d{2}[A-Z]{2}\d{6})\s+(.+)$/,
+      );
+      if (adscMatch) {
+        // locName is before the adscription code
+        const locName = adscMatch[1].trim();
+        localidadSolicitada = locName ? `${locCode} ${locName}` : locCode;
+        adscripcionCode = adscMatch[2];
+        const adscRest = adscMatch[3];
+
+        // Turno: last part "N Desc" or "Incondicional"
+        const turnoMatch = adscRest.match(/^(.+?)\s+(\d)\s+(\S+)$/);
+        if (turnoMatch) {
+          adscripcionDesc = turnoMatch[1].trim();
+          turnoNum = Number(turnoMatch[2]);
+          turnoDesc = turnoMatch[3];
+        } else if (/Incondicional/i.test(adscRest)) {
+          // Split adscDesc from Incondicional turno
+          const parts = adscRest.split(/\s+Incondicional/i);
+          adscripcionDesc = parts[0].trim() || "Incondicional";
+          turnoDesc = "Incondicional";
+        } else {
+          adscripcionDesc = adscRest;
+        }
+      } else {
+        // No adscription code found - try simpler pattern
+        // Maybe localidad name + Incondicional
+        localidadSolicitada = `${locCode}`;
+        const simpleAdsc = afterLocCode.match(/^(.+?)\s+Incondicional/i);
+        if (simpleAdsc) {
+          const locNamePart = simpleAdsc[1].trim();
+          localidadSolicitada = locNamePart
+            ? `${locCode} ${locNamePart}`
+            : locCode;
+        }
+      }
     }
   }
 
   return {
-    delegacionSolicitada: normalizarTexto(row[6]) || "Incondicional",
-    zonaSolicitada: normalizarTexto(row[7]) || "Incondicional",
-    localidadSolicitada: normalizarTexto(row[8]) || "Incondicional",
+    delegacionSolicitada,
+    zonaSolicitada,
+    localidadSolicitada,
     adscripcionCode,
     adscripcionDesc,
     turnoNum,
@@ -121,6 +219,26 @@ function parsearHeader(lines: string[]): Partial<HeaderData> {
   };
 }
 
+/**
+ * Une una fila de celdas en un string normalizado.
+ * pdfplumber fragmenta celdas de formas impredecibles (14-19 cols),
+ * así que unimos todo y parseamos con regex.
+ */
+function joinRow(row: (string | null)[]): string {
+  return row
+    .map((c) => (c ?? "").trim())
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Detecta si una fila unida es una fila de datos (empieza con número + estatus + matrícula).
+ */
+function esFilaDatoJoined(joined: string): boolean {
+  return ROW_PATTERN.test(joined);
+}
+
 // --- Función principal ---
 
 export async function parsearListadoCondicionalidad(
@@ -149,22 +267,27 @@ export async function parsearListadoCondicionalidad(
         if (!table) continue;
 
         for (const row of table) {
-          if (!row || row.length < 11) continue;
-          if (esFilaEncabezado(row)) continue;
-          if (!esFilaDato(row)) continue;
+          if (!row || row.length < 10) continue;
 
-          const lugar = Number((row[0] ?? "").trim());
+          const joined = joinRow(row);
+          if (!esFilaDatoJoined(joined)) continue;
+
+          const m = joined.match(ROW_PATTERN);
+          if (!m) continue;
+
+          const lugar = Number(m[1]);
           const estatus =
-            normalizarTexto(row[1]) === "PEI"
+            normalizarTexto(m[2]) === "PEI"
               ? ("PEI" as const)
               : ("Activo" as const);
-          const matricula = (row[2] ?? "").trim();
-          const nombre = normalizarTexto(row[3]);
-          const delegacion = (row[4] ?? "").trim();
-          const fechaRegistro = (row[5] ?? "").trim();
+          const matricula = m[3];
+          const nombre = normalizarTexto(m[4]);
+          const delegacion = m[5];
+          const fechaRegistro = m[6];
+          const rest = m[7];
 
           const key = `${lugar}_${matricula}`;
-          const preferencia = parsearPreferencia(row);
+          const preferencia = parsearPreferenciaDesdeTexto(rest);
 
           if (aspirantesMap.has(key)) {
             aspirantesMap.get(key)!.preferencias.push(preferencia);
