@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import React from "react";
+import { getAuth } from "firebase/auth";
 import type { EscalafonListado, EscalafonAspirante } from "@/types/escalafon";
 
 export default function DetalleListadoPage() {
@@ -16,15 +17,21 @@ export default function DetalleListadoPage() {
   const [zonaActiva, setZonaActiva] = useState<string>("");
 
   useEffect(() => {
-    fetch(`/api/escalafon/${listadoId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setListado(data.listado);
-        setAspirantes(data.aspirantes);
+    const currentUser = getAuth().currentUser;
+    if (!currentUser) return;
+    currentUser.getIdToken().then((idToken) =>
+      fetch(`/api/escalafon/${listadoId}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.error) throw new Error(data.error);
+          setListado(data.listado);
+          setAspirantes(data.aspirantes);
+        })
+        .catch((e) => setError(e.message))
+        .finally(() => setLoading(false)),
+    );
   }, [listadoId]);
 
   if (loading) return <div className="p-6 text-gray-500">Cargando...</div>;

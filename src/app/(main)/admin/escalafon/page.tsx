@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getAuth } from "firebase/auth";
 import type { EscalafonListado } from "@/types/escalafon";
 
 export default function EscalafonPage() {
@@ -10,14 +11,20 @@ export default function EscalafonPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/escalafon")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setListados(data.listados);
+    const currentUser = getAuth().currentUser;
+    if (!currentUser) return;
+    currentUser.getIdToken().then((idToken) =>
+      fetch("/api/escalafon", {
+        headers: { Authorization: `Bearer ${idToken}` },
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.error) throw new Error(data.error);
+          setListados(data.listados);
+        })
+        .catch((e) => setError(e.message))
+        .finally(() => setLoading(false)),
+    );
   }, []);
 
   // Agrupar por periodoDecierre
