@@ -5,6 +5,7 @@ import { validateFileMagicBytes } from "@/lib/security/file-validation";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { parsearListadoCondicionalidad } from "@/lib/pdf/parsers/escalafon-condicionalidad";
 import { listadoExiste, guardarListado } from "@/lib/firebase/escalafon";
+import { calcularPosicionesPorZona } from "@/lib/escalafon/position-engine";
 import { writeFile, unlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -95,16 +96,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Calcular zonas únicas del listado
-    const zonasSet = new Set<string>();
-    aspirantes.forEach((a) => {
-      a.preferencias.forEach((p) => {
-        if (p.zonaSolicitada !== "Incondicional") {
-          zonasSet.add(p.zonaSolicitada);
-        }
-      });
-    });
-    const zonas = Array.from(zonasSet).sort();
+    const { aspirantesConPosicion, zonas } =
+      calcularPosicionesPorZona(aspirantes);
 
     const listadoId = await guardarListado(
       {
@@ -114,7 +107,7 @@ export async function POST(req: NextRequest) {
         creadoEn: new Date().toISOString(),
         zonas,
       },
-      aspirantes.map((a) => ({ ...a, listadoId: "" })),
+      aspirantesConPosicion.map((a) => ({ ...a, listadoId: "" })),
     );
 
     await writeAdminAuditLog({
