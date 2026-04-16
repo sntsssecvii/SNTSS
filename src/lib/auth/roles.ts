@@ -37,7 +37,11 @@ export function getHomeRouteForRole(role?: string | null): string | null {
   }
 
   if (normalized === ROLES.BOLSA) {
-    return "/admin/bolsa-de-trabajo";
+    return "/admin/bolsa-de-trabajo/dashboard";
+  }
+
+  if (normalized === ROLES.ESCALAFON) {
+    return "/admin/escalafon";
   }
 
   return null;
@@ -61,6 +65,8 @@ export function getRoleLabel(role?: UserRole | string | null): string {
       return "Usuario";
     case ROLES.BOLSA:
       return "Bolsa de Trabajo";
+    case ROLES.ESCALAFON:
+      return "Escalafón";
     default:
       return normalized || "Sin rol";
   }
