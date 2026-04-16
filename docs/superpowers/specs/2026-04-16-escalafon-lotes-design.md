@@ -195,6 +195,15 @@ MÉDICO FAMILIAR            Medicina Gral B-02    0002        83          16 Abr
 - Sin paginación (50-80 filas con scroll son manejables).
 - Si el lote está CERRADO: no aparece botón "Cerrar lote" ni "+ Cargar".
 
+**Columna de acciones por fila (solo lote ABIERTO):**
+
+```
+[Ver]  [Reemplazar]
+```
+
+- `[Ver]` → navega al detalle del listado.
+- `[Reemplazar]` → navega a `/admin/escalafon/cargar?reemplazar=[listadoId]` con el loteId implícito.
+
 ---
 
 ## UI — Upload `/admin/escalafon/cargar`
@@ -204,6 +213,18 @@ Cambios mínimos:
 - Si hay lote ABIERTO: muestra banner "Subiendo al lote: Abril 2026 · Q1".
 - Si no hay lote ABIERTO: muestra mensaje "Se creará un lote nuevo automáticamente".
 - Al procesar exitosamente, redirige a `/admin/escalafon/[loteId]` (en lugar de `/admin/escalafon/[listadoId]`).
+
+**Modo reemplazar** (`?reemplazar=[listadoId]`):
+
+- Banner diferente: "Reemplazando: ENFERMERA PEDIATRA — confirmar para continuar".
+- El FormData incluye `reemplazarId=[listadoId]`.
+- El API route `/api/escalafon/procesar` detecta `reemplazarId`:
+  1. Elimina el listado existente y sus aspirantes (`eliminarListado(reemplazarId)`).
+  2. Decrementa `totalListados` en el lote.
+  3. Guarda el nuevo listado normalmente (no hay duplicado porque el anterior ya fue eliminado).
+  4. Incrementa `totalListados` en el lote.
+- La detección de duplicados se salta cuando viene `reemplazarId`.
+- Si el nuevo PDF es de una categoría diferente al original, se guarda igual (el admin es responsable de subir el archivo correcto).
 
 ---
 
