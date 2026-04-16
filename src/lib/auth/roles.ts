@@ -13,7 +13,8 @@ export function isAdminRole(role?: string | null): boolean {
   return (
     normalized === ROLES.ADMIN ||
     normalized === ROLES.SUPER_ADMIN ||
-    normalized === ROLES.BOLSA
+    normalized === ROLES.BOLSA ||
+    normalized === ROLES.ESCALAFON
   );
 }
 
