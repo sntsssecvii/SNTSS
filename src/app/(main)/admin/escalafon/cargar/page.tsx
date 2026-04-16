@@ -32,8 +32,7 @@ export default function CargarEscalafonPage() {
         body: formData,
       });
       const text = await res.text();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let data: any;
+      let data: { error?: string; errores?: string[]; listadoId?: string };
       try {
         data = JSON.parse(text);
       } catch {

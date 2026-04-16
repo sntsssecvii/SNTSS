@@ -23,11 +23,22 @@ export default function DetalleListadoPage() {
       fetch(`/api/escalafon/${listadoId}`, {
         headers: { Authorization: `Bearer ${idToken}` },
       })
-        .then((res) => res.json())
-        .then((data) => {
+        .then(async (res) => {
+          const text = await res.text();
+          let data: {
+            error?: string;
+            listado?: EscalafonListado;
+            aspirantes?: EscalafonAspirante[];
+          };
+          try {
+            data = JSON.parse(text);
+          } catch {
+            console.error("[detalle] respuesta no-JSON:", text);
+            throw new Error(`Error del servidor (${res.status})`);
+          }
           if (data.error) throw new Error(data.error);
-          setListado(data.listado);
-          setAspirantes(data.aspirantes);
+          if (data.listado) setListado(data.listado);
+          if (data.aspirantes) setAspirantes(data.aspirantes);
         })
         .catch((e) => setError(e.message))
         .finally(() => setLoading(false)),

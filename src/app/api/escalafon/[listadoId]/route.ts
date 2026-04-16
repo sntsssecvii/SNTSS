@@ -14,14 +14,19 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const listado = await obtenerListado(params.listadoId);
-  if (!listado) {
-    return NextResponse.json(
-      { error: "Listado no encontrado" },
-      { status: 404 },
-    );
-  }
+  try {
+    const listado = await obtenerListado(params.listadoId);
+    if (!listado) {
+      return NextResponse.json(
+        { error: "Listado no encontrado" },
+        { status: 404 },
+      );
+    }
 
-  const aspirantes = await obtenerAspirantes(params.listadoId);
-  return NextResponse.json({ listado, aspirantes });
+    const aspirantes = await obtenerAspirantes(params.listadoId);
+    return NextResponse.json({ listado, aspirantes });
+  } catch (error) {
+    console.error("[escalafon/listadoId]", error);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
 }

@@ -11,6 +11,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const listados = await listarListados();
-  return NextResponse.json({ listados });
+  try {
+    const listados = await listarListados();
+    return NextResponse.json({ listados });
+  } catch (error) {
+    console.error("[escalafon]", error);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
 }
