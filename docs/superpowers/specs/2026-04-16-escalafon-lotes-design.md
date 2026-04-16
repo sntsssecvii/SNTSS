@@ -138,102 +138,165 @@ Lógica:
 
 ## UI — Página Principal `/admin/escalafon`
 
-Reemplaza la lista plana actual de listados.
+**Componentes:** `Card`, `CardContent`, `Badge`, `Button`, `Input` de shadcn. `lucide-react` para iconos. `cn()` de `@/lib/utils`. `auth` de `@/lib/firebase/firebase-client`. `useToast` de `@/components/ui/use-toast`.
 
-**Layout:**
+**Reemplaza** la lista plana actual. El layout replica byte-a-byte el estilo de `bolsa-de-trabajo/page.tsx`:
 
-```
-[Header]
-  Escalafón                              [+ Cargar]
-
-[Stats row]
-  X lotes · Y lote abierto
-
-[Search]
-  🔍 Buscar por nombre, estado...
-
-[Grid de cards — 1-2-3 cols responsive]
-```
-
-**Card de lote:**
+**Header oscuro** — mismo `<header>` con `bg-slate-950`, gradiente `from-primary/10`, blob, título con `text-transparent bg-clip-text bg-gradient-to-r from-primary to-rose-500`:
 
 ```
-┌──────────────────────────────────────┐
-│ Abril 2026 · Q1          [ABIERTO]   │
-│ 23 listados · admin@sntss.mx         │
-│ Última actualización: 16 Abr 2026    │
-│                         [Ver lote →] │
-└──────────────────────────────────────┘
+Control de Lotes Escalafonarios                       [+ Cargar]
+Escalafón de <Condicionalidad>
+Plataforma de gestión de listados escalafonarios...
 ```
 
-Badge ABIERTO → `bg-yellow-100 text-yellow-800`
-Badge CERRADO → `bg-green-100 text-green-800`
+**Stats** — 2 cards idénticas a bolsa:
 
-El card del lote ABIERTO muestra un botón adicional "Cerrar lote" (llama PATCH con `estado: "CERRADO"`).
+- `CalendarClock` + "Lotes Registrados" + total
+- `FolderOpen` + "Lote Activo" + (nombre del lote ABIERTO o "Ninguno")
+
+**Search** — pill `rounded-[2rem]` con `Search` icon, mismo estilo.
+
+**Grid** — `grid gap-4 md:grid-cols-2 xl:grid-cols-3`. Cada card:
+
+```tsx
+// Mismo card que bolsa pero adaptado al lote:
+// - Periodo label → "Lote"
+// - formatPeriodo(sync) → lote.nombre
+// - esFuenteVerdad (oficial) → lote.estado === "ABIERTO"
+// - totalRegistros → lote.totalListados + " listados"
+// - Texto contextual: "Abierto — acepta nuevos uploads." | "Cerrado."
+// - Fecha: lote.actualizadoEn
+```
+
+**Badge de estado:**
+
+```tsx
+function EstadoBadge({ estado }: { estado: "ABIERTO" | "CERRADO" }) {
+  return (
+    <Badge
+      variant={estado === "ABIERTO" ? "warning" : "success"}
+      className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest"
+    >
+      {estado}
+    </Badge>
+  );
+}
+```
+
+Click en card → `router.push(`/admin/escalafon/${lote.id}`)`.
 
 ---
 
 ## UI — Detalle del Lote `/admin/escalafon/[loteId]`
 
-```
-[← Escalafón]
-Abril 2026 · Q1                    [ABIERTO] [Cerrar lote] [+ Cargar]
+**Componentes:** mismos que bolsa quincena detail. Replica `quincenas/[syncId]/page.tsx` en estructura.
 
-23 listados
+**Header compacto** — idéntico:
 
-[Search: 🔍 Buscar por categoría, área, sector...]
-
-[Tabla]
-Categoría                  Área          Sector  N° Listado  Aspirantes  Subido
-ENFERMERA PEDIATRA         Enfermería    B-01    0001        47          16 Abr 2026
-MÉDICO FAMILIAR            Medicina Gral B-02    0002        83          16 Abr 2026
-...
+```tsx
+// ArrowLeft button → router.push("/admin/escalafon")
+// Título: lote.nombre ("Abril 2026 · Q2")
+// Subtítulo: "Listado Escalafonario" + badge estado
+// Stats inline (lg): "X Listados" | "Actualizado: fecha"
+// Botón Cargar → router.push(`/admin/escalafon/cargar?loteId=${loteId}`)
+// Botón "Cerrar lote" (solo ABIERTO) → PATCH /api/escalafon/lotes/[loteId]
 ```
 
-- Search filtra en tiempo real sobre `categoriaDesc`, `areaDesc`, `sector`, `numeroListado`.
-- Click en fila → `/admin/escalafon/[loteId]/[listadoId]`
-- Sin paginación (50-80 filas con scroll son manejables).
-- Si el lote está CERRADO: no aparece botón "Cerrar lote" ni "+ Cargar".
+**Cuerpo — grid de cards de listados** (misma sección `<section>` con mismo grid `grid-cols-1 md:grid-cols-2 lg:grid-cols-4`):
 
-**Columna de acciones por fila (solo lote ABIERTO):**
+Cada card replica el card de tipo de bolsa pero representa un listado:
 
+```tsx
+// h3 → listado.categoriaDesc (font-black tracking-tighter leading-[1.1] line-clamp-3)
+// Registros → listado.aspirantesParsed
+// Estado → siempre "LISTO" (verde checkmark) — un listado subido ya está procesado
+// Nombre archivo no disponible → mostrar listado.areaDesc
+// CTA bar → "Ver" + ArrowRight (igual que "Revisar" en bolsa)
+// Si lote ABIERTO: segunda acción "Reemplazar" en el card (botón secundario debajo del CTA)
 ```
-[Ver]  [Reemplazar]
-```
 
-- `[Ver]` → navega al detalle del listado.
-- `[Reemplazar]` → navega a `/admin/escalafon/cargar?reemplazar=[listadoId]` con el loteId implícito.
+Click en card (o botón "Ver") → `/admin/escalafon/${loteId}/${listado.id}`.
+
+**Nota de adaptación:** con 50-80 listados el grid de 4 cols es perfectamente manejable (similar a tener 50-80 categorías en múltiples páginas de bolsa). No se usa tabla — se mantiene el grid de cards idéntico al de bolsa.
+
+**Search** — pill `rounded-[2rem]` sobre el grid. Filtra en tiempo real sobre `categoriaDesc`, `areaDesc`, `sector`. `useMemo` con búsqueda lowercase.
 
 ---
 
 ## UI — Upload `/admin/escalafon/cargar`
 
-Cambios mínimos:
+Replica `bolsa-de-trabajo/cargar/page.tsx` en estructura y estilo:
 
-- Si hay lote ABIERTO: muestra banner "Subiendo al lote: Abril 2026 · Q1".
-- Si no hay lote ABIERTO: muestra mensaje "Se creará un lote nuevo automáticamente".
-- Al procesar exitosamente, redirige a `/admin/escalafon/[loteId]` (en lugar de `/admin/escalafon/[listadoId]`).
+```tsx
+// ArrowLeft + "Volver" → router.back()
+// Icono: FileUp (lucide) en bg-primary/10 rounded-2xl
+// Título: "Cargar Listado"
+// Descripción: "Carga el PDF del listado escalafonario de condicionalidad."
+```
+
+**Banner de lote activo** (encima del input de archivo):
+
+```tsx
+// Si lote ABIERTO:
+<div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-center gap-3">
+  <FolderOpen className="text-amber-600" />
+  <div>
+    <p className="font-black text-amber-900">Subiendo al lote: {lote.nombre}</p>
+    <p className="text-xs text-amber-700">Este listado se añadirá al lote activo.</p>
+  </div>
+</div>
+// Si no hay lote ABIERTO:
+<div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+  <p className="font-black text-slate-700">Se creará un lote nuevo automáticamente.</p>
+</div>
+```
 
 **Modo reemplazar** (`?reemplazar=[listadoId]`):
 
-- Banner diferente: "Reemplazando: ENFERMERA PEDIATRA — confirmar para continuar".
-- El FormData incluye `reemplazarId=[listadoId]`.
-- El API route `/api/escalafon/procesar` detecta `reemplazarId`:
-  1. Elimina el listado existente y sus aspirantes (`eliminarListado(reemplazarId)`).
-  2. Decrementa `totalListados` en el lote.
-  3. Guarda el nuevo listado normalmente (no hay duplicado porque el anterior ya fue eliminado).
-  4. Incrementa `totalListados` en el lote.
-- La detección de duplicados se salta cuando viene `reemplazarId`.
-- Si el nuevo PDF es de una categoría diferente al original, se guarda igual (el admin es responsable de subir el archivo correcto).
+```tsx
+// Banner: "bg-orange-50 border-orange-200"
+// Texto: "Reemplazando: [listado.categoriaDesc]"
+// Subtexto: "El listado anterior será eliminado al confirmar."
+// FormData incluye: reemplazarId=[listadoId]
+```
+
+El input de archivo y botón "Procesar PDF" son los mismos que el `cargar/page.tsx` actual de escalafón (no BulkFileUpload, ya que es un solo PDF).
+
+Al procesar exitosamente → `router.push(`/admin/escalafon/${loteId}`)`.
+
+**El API route** `/api/escalafon/procesar` detecta `reemplazarId`:
+
+1. Obtiene el listado a reemplazar para saber su `loteId`.
+2. Llama `eliminarListado(reemplazarId)`.
+3. Decrementa `totalListados` en el lote.
+4. Guarda el nuevo listado con el mismo `loteId`, salta detección de duplicados.
+5. Incrementa `totalListados` en el lote.
 
 ---
 
 ## UI — Detalle del Listado `/admin/escalafon/[loteId]/[listadoId]`
 
-Igual al actual `/admin/escalafon/[listadoId]` (tabla de aspirantes, filtro por zona). Solo cambia el breadcrumb:
+El archivo actual `src/app/(main)/admin/escalafon/[listadoId]/page.tsx` se **mueve** a `[loteId]/[listadoId]/page.tsx`.
 
+Header adapta el back button:
+
+```tsx
+// ArrowLeft → router.push(`/admin/escalafon/${loteId}`)
+// Breadcrumb: "← Escalafón / {lote.nombre}"
+// Título: listado.categoriaDesc
+// Mismo layout de tabla de aspirantes + filtro por zona (sin cambios)
 ```
-← Escalafón / Abril 2026 · Q1 / ENFERMERA PEDIATRA
+
+Botón "Reemplazar" en el header (si lote ABIERTO):
+
+```tsx
+<Button
+  variant="outline"
+  onClick={() => router.push(`/admin/escalafon/cargar?reemplazar=${listadoId}`)}
+>
+  Reemplazar
+</Button>
 ```
 
 ---
