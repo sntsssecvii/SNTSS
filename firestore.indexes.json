@@ -225,6 +225,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "escalafon_aspirantes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "listadoId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lugar",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
