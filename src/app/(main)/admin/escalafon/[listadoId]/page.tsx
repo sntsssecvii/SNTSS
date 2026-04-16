@@ -13,6 +13,7 @@ export default function DetalleListadoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [zonaActiva, setZonaActiva] = useState<string>("");
 
   useEffect(() => {
     fetch(`/api/escalafon/${listadoId}`)
@@ -29,6 +30,17 @@ export default function DetalleListadoPage() {
   if (loading) return <div className="p-6 text-gray-500">Cargando...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!listado) return null;
+
+  // Filtrar y ordenar según zona activa
+  const aspirantesFiltrados = zonaActiva
+    ? aspirantes
+        .filter((a) => a.posicionesPorZona?.[zonaActiva] !== undefined)
+        .sort(
+          (a, b) =>
+            (a.posicionesPorZona?.[zonaActiva] ?? 9999) -
+            (b.posicionesPorZona?.[zonaActiva] ?? 9999),
+        )
+    : [...aspirantes].sort((a, b) => a.lugar - b.lugar);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -67,11 +79,47 @@ export default function DetalleListadoPage() {
         </div>
       </div>
 
+      {/* Filtro de zona */}
+      {listado.zonas?.length > 0 && (
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">
+            Filtrar por zona:
+          </label>
+          <select
+            value={zonaActiva}
+            onChange={(e) => {
+              setZonaActiva(e.target.value);
+              setExpandido(null);
+            }}
+            className="text-sm border rounded-md px-3 py-1.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Todas ({aspirantes.length})</option>
+            {listado.zonas.map((z) => {
+              const count = aspirantes.filter(
+                (a) => a.posicionesPorZona?.[z] !== undefined,
+              ).length;
+              return (
+                <option key={z} value={z}>
+                  {z} ({count})
+                </option>
+              );
+            })}
+          </select>
+          {zonaActiva && (
+            <span className="text-xs text-gray-400">
+              {aspirantesFiltrados.length} aspirantes califican
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
             <tr>
-              <th className="px-3 py-2 text-left w-12">Lugar</th>
+              <th className="px-3 py-2 text-left w-12">
+                {zonaActiva ? "Pos." : "Lugar"}
+              </th>
               <th className="px-3 py-2 text-left w-16">Est.</th>
               <th className="px-3 py-2 text-left w-28">Matrícula</th>
               <th className="px-3 py-2 text-left">Nombre</th>
@@ -80,7 +128,7 @@ export default function DetalleListadoPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {aspirantes.map((a) => (
+            {aspirantesFiltrados.map((a) => (
               <React.Fragment key={a.matricula}>
                 <tr
                   className="hover:bg-gray-50 cursor-pointer"
@@ -89,7 +137,9 @@ export default function DetalleListadoPage() {
                   }
                 >
                   <td className="px-3 py-2 font-mono font-semibold">
-                    {a.lugar}
+                    {zonaActiva
+                      ? (a.posicionesPorZona?.[zonaActiva] ?? "—")
+                      : a.lugar}
                   </td>
                   <td className="px-3 py-2">
                     <span
@@ -109,7 +159,9 @@ export default function DetalleListadoPage() {
                   <td className="px-3 py-2 text-gray-500">{a.fechaRegistro}</td>
                   <td className="px-3 py-2 text-gray-400 text-xs">
                     {a.preferencias.length === 1 &&
-                    a.preferencias[0].zonaSolicitada === "INCONDICIONAL"
+                    a.preferencias[0].zonaSolicitada
+                      .replace(/\s/g, "")
+                      .toUpperCase() === "INCONDICIONAL"
                       ? "Incondicional"
                       : `${a.preferencias.length} pref.`}
                   </td>
