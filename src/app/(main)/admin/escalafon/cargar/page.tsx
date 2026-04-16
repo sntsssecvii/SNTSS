@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getAuth } from "firebase/auth";
 
 export default function CargarEscalafonPage() {
   const router = useRouter();
@@ -24,8 +25,10 @@ export default function CargarEscalafonPage() {
     formData.append("file", file);
 
     try {
+      const idToken = await getAuth().currentUser?.getIdToken();
       const res = await fetch("/api/escalafon/procesar", {
         method: "POST",
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
         body: formData,
       });
       const data = await res.json();
