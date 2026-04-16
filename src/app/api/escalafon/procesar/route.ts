@@ -95,12 +95,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Calcular zonas únicas del listado
+    const zonasSet = new Set<string>();
+    aspirantes.forEach((a) => {
+      a.preferencias.forEach((p) => {
+        if (p.zonaSolicitada !== "Incondicional") {
+          zonasSet.add(p.zonaSolicitada);
+        }
+      });
+    });
+    const zonas = Array.from(zonasSet).sort();
+
     const listadoId = await guardarListado(
       {
         ...listado,
         aspirantesParsed: aspirantes.length,
         subidoPor: ctx.uid,
         creadoEn: new Date().toISOString(),
+        zonas,
       },
       aspirantes.map((a) => ({ ...a, listadoId: "" })),
     );
