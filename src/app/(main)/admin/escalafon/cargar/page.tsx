@@ -31,10 +31,19 @@ export default function CargarEscalafonPage() {
         headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
         body: formData,
       });
-      const data = await res.json();
+      const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("[cargar] respuesta no-JSON del servidor:", text);
+        setError(`Error del servidor (${res.status}): respuesta inesperada`);
+        return;
+      }
 
       if (!res.ok) {
-        setError(data.error ?? "Error al procesar el archivo");
+        setError((data.error as string) ?? "Error al procesar el archivo");
         return;
       }
 
