@@ -220,23 +220,10 @@ function parsearHeader(lines: string[]): Partial<HeaderData> {
 }
 
 /**
- * Une una fila de celdas en un string normalizado.
- * pdfplumber fragmenta celdas de formas impredecibles (14-19 cols),
- * así que unimos todo y parseamos con regex.
+ * Detecta si una línea de texto es una fila de datos (empieza con número + estatus + matrícula).
  */
-function joinRow(row: (string | null)[]): string {
-  return row
-    .map((c) => (c ?? "").trim())
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * Detecta si una fila unida es una fila de datos (empieza con número + estatus + matrícula).
- */
-function esFilaDatoJoined(joined: string): boolean {
-  return ROW_PATTERN.test(joined);
+function esLineaDato(line: string): boolean {
+  return ROW_PATTERN.test(line);
 }
 
 // --- Función principal ---
@@ -261,47 +248,39 @@ export async function parsearListadoCondicionalidad(
         headerData = parsearHeader(page.lines);
       }
 
-      if (!page.tables) continue;
+      for (const rawLine of page.lines ?? []) {
+        const line = rawLine.replace(/\s+/g, " ").trim();
+        if (!esLineaDato(line)) continue;
 
-      for (const table of page.tables) {
-        if (!table) continue;
+        const m = line.match(ROW_PATTERN);
+        if (!m) continue;
 
-        for (const row of table) {
-          if (!row || row.length < 10) continue;
+        const lugar = Number(m[1]);
+        const estatus =
+          normalizarTexto(m[2]) === "PEI"
+            ? ("PEI" as const)
+            : ("Activo" as const);
+        const matricula = m[3];
+        const nombre = normalizarTexto(m[4]);
+        const delegacion = m[5];
+        const fechaRegistro = m[6];
+        const rest = m[7];
 
-          const joined = joinRow(row);
-          if (!esFilaDatoJoined(joined)) continue;
+        const key = `${lugar}_${matricula}`;
+        const preferencia = parsearPreferenciaDesdeTexto(rest);
 
-          const m = joined.match(ROW_PATTERN);
-          if (!m) continue;
-
-          const lugar = Number(m[1]);
-          const estatus =
-            normalizarTexto(m[2]) === "PEI"
-              ? ("PEI" as const)
-              : ("Activo" as const);
-          const matricula = m[3];
-          const nombre = normalizarTexto(m[4]);
-          const delegacion = m[5];
-          const fechaRegistro = m[6];
-          const rest = m[7];
-
-          const key = `${lugar}_${matricula}`;
-          const preferencia = parsearPreferenciaDesdeTexto(rest);
-
-          if (aspirantesMap.has(key)) {
-            aspirantesMap.get(key)!.preferencias.push(preferencia);
-          } else {
-            aspirantesMap.set(key, {
-              lugar,
-              estatus,
-              matricula,
-              nombre,
-              delegacion,
-              fechaRegistro,
-              preferencias: [preferencia],
-            });
-          }
+        if (aspirantesMap.has(key)) {
+          aspirantesMap.get(key)!.preferencias.push(preferencia);
+        } else {
+          aspirantesMap.set(key, {
+            lugar,
+            estatus,
+            matricula,
+            nombre,
+            delegacion,
+            fechaRegistro,
+            preferencias: [preferencia],
+          });
         }
       }
     }
