@@ -18,11 +18,12 @@ export interface EscalafonAspirante {
   delegacion: string;
   fechaRegistro: string;
   preferencias: EscalafonPreferencia[];
-  posicionesPorZona?: Record<string, number>; // calculado por position-engine al subir
+  posicionesPorZona?: Record<string, number>;
 }
 
 export interface EscalafonListado {
   id?: string;
+  loteId?: string; // campo opcional para retrocompatibilidad
   delegacion: string;
   numeroListado: string;
   sector: string;
@@ -39,17 +40,28 @@ export interface EscalafonListado {
   aspirantesParsed: number;
   subidoPor: string;
   creadoEn: string;
-  zonas: string[]; // todas las zonas únicas del listado, calculado al subir
+  zonas: string[];
 }
 
 export interface EscalafonParseResult {
   listado: Omit<
     EscalafonListado,
-    "id" | "subidoPor" | "creadoEn" | "aspirantesParsed" | "zonas"
+    "id" | "subidoPor" | "creadoEn" | "aspirantesParsed" | "zonas" | "loteId"
   >;
   aspirantes: Omit<
     EscalafonAspirante,
     "id" | "listadoId" | "posicionesPorZona"
   >[];
   errores: string[];
+}
+
+// NUEVO
+export interface EscalafonLote {
+  id?: string;
+  nombre: string;
+  estado: "ABIERTO" | "CERRADO";
+  totalListados: number;
+  subidoPor: string;
+  creadoEn: string;
+  actualizadoEn: string;
 }
