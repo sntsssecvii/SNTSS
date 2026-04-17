@@ -24,19 +24,31 @@ const db = getFirestore();
 async function run() {
   console.log("Iniciando migración de lotes escalafonarios...");
 
-  // 1. Crear lote "Importaciones previas" en estado CERRADO
-  const loteRef = db.collection("escalafon_lotes").doc();
-  const now = Timestamp.now();
-  await loteRef.set({
-    nombre: "Importaciones previas",
-    estado: "CERRADO",
-    totalListados: 0,
-    subidoPor: "migration-script",
-    creadoEn: now,
-    actualizadoEn: now,
-  });
+  // 1. Crear lote "Importaciones previas" en estado CERRADO (idempotente)
+  const existente = await db
+    .collection("escalafon_lotes")
+    .where("nombre", "==", "Importaciones previas")
+    .limit(1)
+    .get();
+
+  let loteRef: FirebaseFirestore.DocumentReference;
+  if (!existente.empty) {
+    loteRef = existente.docs[0].ref;
+    console.log(`Lote existente reutilizado: ${loteRef.id}`);
+  } else {
+    loteRef = db.collection("escalafon_lotes").doc();
+    const now = Timestamp.now();
+    await loteRef.set({
+      nombre: "Importaciones previas",
+      estado: "CERRADO",
+      totalListados: 0,
+      subidoPor: "migration-script",
+      creadoEn: now,
+      actualizadoEn: now,
+    });
+    console.log(`Lote creado: ${loteRef.id}`);
+  }
   const loteId = loteRef.id;
-  console.log(`Lote creado: ${loteId}`);
 
   // 2. Buscar listados sin loteId
   const snap = await db.collection("escalafon_listados").get();
@@ -44,8 +56,10 @@ async function run() {
   console.log(`Listados sin loteId: ${sinLote.length}`);
 
   if (sinLote.length === 0) {
-    console.log("Nada que migrar. Eliminando lote creado...");
-    await loteRef.delete();
+    console.log(
+      "Nada que migrar (todos los listados ya tienen loteId). Saliendo...",
+    );
+    // No eliminar — si el lote fue reutilizado, puede tener documentos ya asignados
     return;
   }
 
