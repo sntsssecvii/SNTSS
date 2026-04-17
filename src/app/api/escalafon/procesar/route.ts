@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
     const reemplazarId =
       (formData.get("reemplazarId") as string | null) || null;
     const loteIdParam = (formData.get("loteId") as string | null) || null;
+    const nombreLoteParam =
+      (formData.get("nombreLote") as string | null) || null;
 
     if (!file) {
       return NextResponse.json(
@@ -132,7 +134,10 @@ export async function POST(req: NextRequest) {
         if (loteAbierto?.id) {
           loteIdFinal = loteAbierto.id;
         } else {
-          loteIdFinal = await crearLote(generarNombreLote(), ctx!.uid);
+          loteIdFinal = await crearLote(
+            nombreLoteParam ?? generarNombreLote(),
+            ctx!.uid,
+          );
         }
       }
     }

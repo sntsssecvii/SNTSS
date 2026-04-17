@@ -12,7 +12,11 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  LoteSelector,
+  generarNombreLote,
+  type LotePeriodo,
+} from "@/components/escalafon/LoteSelector";
 import type { EscalafonLote, EscalafonListado } from "@/types/escalafon";
 
 interface FileItem {
@@ -29,23 +33,32 @@ async function getIdToken(): Promise<string | null> {
   return user.getIdToken();
 }
 
+function ahora(): LotePeriodo {
+  const d = new Date();
+  return {
+    anio: d.getFullYear(),
+    mes: d.getMonth() + 1,
+    quincena: d.getDate() <= 15 ? 1 : 2,
+  };
+}
+
 function CargarEscalafonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reemplazarId = searchParams.get("reemplazar");
-  const loteIdParam = searchParams.get("loteId");
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Estado del lote
-  const [loteAbierto, setLoteAbierto] = useState<EscalafonLote | null>(null);
+  // Periodo seleccionado (solo en modo normal)
+  const [periodo, setPeriodo] = useState<LotePeriodo>(ahora);
+  const [todosLotes, setTodosLotes] = useState<EscalafonLote[]>([]);
+  const [cargandoMeta, setCargandoMeta] = useState(true);
+
+  // Modo reemplazo
   const [listadoAReemplazar, setListadoAReemplazar] =
     useState<EscalafonListado | null>(null);
-  const [cargandoMeta, setCargandoMeta] = useState(true);
-  const [creandoLote, setCreandoLote] = useState(false);
-  const [nombreNuevoLote, setNombreNuevoLote] = useState("");
 
-  // Estado de archivos
+  // Archivos
   const [items, setItems] = useState<FileItem[]>([]);
   const [processing, setProcessing] = useState(false);
   const [allDone, setAllDone] = useState(false);
@@ -55,6 +68,7 @@ function CargarEscalafonContent() {
   // Cerrar lote
   const [cerrando, setCerrando] = useState(false);
 
+  // Carga inicial
   useEffect(() => {
     const cargar = async () => {
       setCargandoMeta(true);
@@ -76,9 +90,7 @@ function CargarEscalafonContent() {
             cache: "no-store",
           });
           const data = (await res.json()) as { lotes?: EscalafonLote[] };
-          setLoteAbierto(
-            data.lotes?.find((l) => l.estado === "ABIERTO") ?? null,
-          );
+          setTodosLotes(data.lotes ?? []);
         }
       } catch {
         // No crítico
@@ -89,34 +101,13 @@ function CargarEscalafonContent() {
     cargar();
   }, [reemplazarId]);
 
-  async function handleCrearLote() {
-    setCreandoLote(true);
-    try {
-      const idToken = await getIdToken();
-      if (!idToken) throw new Error("Sesión no válida");
-      const res = await fetch("/api/escalafon/lotes", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ nombre: nombreNuevoLote || undefined }),
-      });
-      const data = (await res.json()) as {
-        lote?: EscalafonLote;
-        error?: string;
-      };
-      if (!res.ok) throw new Error(data.error ?? "Error al crear el lote");
-      if (data.lote) setLoteAbierto(data.lote);
-      setNombreNuevoLote("");
-    } catch (err) {
-      setGlobalError(
-        err instanceof Error ? err.message : "Error al crear lote",
-      );
-    } finally {
-      setCreandoLote(false);
-    }
-  }
+  // Lote que corresponde al periodo seleccionado
+  const nombreBuscado = generarNombreLote(periodo);
+  const loteDelPeriodo =
+    todosLotes.find((l) => l.nombre === nombreBuscado) ?? null;
+
+  // Lote abierto actual (puede ser del periodo u otro)
+  const loteAbierto = todosLotes.find((l) => l.estado === "ABIERTO") ?? null;
 
   function addFiles(newFiles: File[]) {
     const pdfs = newFiles.filter(
@@ -157,7 +148,18 @@ function CargarEscalafonContent() {
       return;
     }
 
-    let loteIdFinal: string | null = loteIdParam ?? loteAbierto?.id ?? null;
+    // Determinar loteId de partida:
+    // - Si el periodo ya tiene lote ABIERTO → usarlo
+    // - Si el lote del periodo está CERRADO → no pasar loteId (procesar creará uno nuevo)
+    // - Si no hay lote → no pasar loteId (procesar creará uno con el nombre del periodo)
+    let loteIdFinal: string | null =
+      loteDelPeriodo?.estado === "ABIERTO" ? (loteDelPeriodo.id ?? null) : null;
+
+    // Si no hay lote abierto para el periodo pero sí hay otro lote abierto global,
+    // el admin eligió un periodo diferente al activo — le pasamos el nombre para que
+    // procesar lo cree con ese nombre.
+    const nombreParaCrear =
+      loteIdFinal === null ? generarNombreLote(periodo) : null;
 
     for (const item of items) {
       setItems((prev) =>
@@ -172,6 +174,8 @@ function CargarEscalafonContent() {
         formData.append("file", item.file);
         if (reemplazarId) formData.append("reemplazarId", reemplazarId);
         if (loteIdFinal) formData.append("loteId", loteIdFinal);
+        if (nombreParaCrear && !loteIdFinal)
+          formData.append("nombreLote", nombreParaCrear);
 
         const res = await fetch("/api/escalafon/procesar", {
           method: "POST",
@@ -194,6 +198,7 @@ function CargarEscalafonContent() {
 
         if (!res.ok) throw new Error(data.error ?? "Error al procesar");
 
+        // A partir del primer archivo exitoso, fijamos el loteId para el resto
         if (data.loteId && !loteIdFinal) loteIdFinal = data.loteId;
 
         setItems((prev) =>
@@ -254,7 +259,7 @@ function CargarEscalafonContent() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         {/* Header */}
         <div>
           <Button
@@ -278,81 +283,13 @@ function CargarEscalafonContent() {
               <p className="text-sm text-slate-500 mt-1">
                 {reemplazarId
                   ? "Sube el PDF que reemplazará al listado existente."
-                  : "Selecciona uno o varios PDFs escalafonarios."}
+                  : "Selecciona la quincena y sube uno o varios PDFs escalafonarios."}
               </p>
             </div>
           </div>
         </div>
 
-        {/* ── Paso 1: Lote ── */}
-        {!reemplazarId && !allDone && (
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 space-y-3">
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary">
-                Paso 1
-              </p>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                Selecciona el lote de destino
-              </h3>
-              <p className="text-sm font-medium text-slate-500">
-                Los PDFs se agruparán en un lote por quincena.
-              </p>
-            </div>
-
-            {cargandoMeta ? (
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Consultando lote activo...
-              </div>
-            ) : loteAbierto ? (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3">
-                <FolderOpen className="text-amber-600 shrink-0 h-5 w-5" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-black text-amber-900 truncate">
-                    {loteAbierto.nombre}
-                  </p>
-                  <p className="text-xs text-amber-700">
-                    Lote activo — {loteAbierto.totalListados} listados cargados
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
-                  No hay ningún lote abierto. Crea uno nuevo o se generará
-                  automáticamente al procesar el primer PDF.
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder='Nombre del lote (ej. "Abril 2026 · Q1")'
-                    value={nombreNuevoLote}
-                    onChange={(e) => setNombreNuevoLote(e.target.value)}
-                    className="rounded-xl"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleCrearLote();
-                      }
-                    }}
-                  />
-                  <Button
-                    onClick={handleCrearLote}
-                    disabled={creandoLote}
-                    className="rounded-xl font-black shrink-0"
-                  >
-                    {creandoLote ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Crear"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Modo reemplazo: banner */}
+        {/* ── Modo reemplazo: banner ── */}
         {reemplazarId && !cargandoMeta && (
           <div className="rounded-2xl bg-orange-50 border border-orange-200 p-4 flex items-center gap-3">
             <FolderOpen className="text-orange-600 shrink-0" />
@@ -366,6 +303,16 @@ function CargarEscalafonContent() {
               </p>
             </div>
           </div>
+        )}
+
+        {/* ── Paso 1: Selector de quincena/lote (solo modo normal) ── */}
+        {!reemplazarId && !allDone && (
+          <LoteSelector
+            periodo={periodo}
+            onChange={setPeriodo}
+            loteExistente={loteDelPeriodo}
+            cargando={cargandoMeta}
+          />
         )}
 
         {/* ── Paso 2: Archivos ── */}
@@ -383,7 +330,7 @@ function CargarEscalafonContent() {
             {/* Drop zone */}
             {!processing && (
               <div
-                className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors group"
                 onClick={() => inputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
@@ -391,14 +338,14 @@ function CargarEscalafonContent() {
                   addFiles(Array.from(e.dataTransfer.files));
                 }}
               >
-                <FileUp className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <FileUp className="h-10 w-10 text-slate-300 mx-auto mb-3 group-hover:text-primary transition-colors" />
                 <p className="text-slate-500 font-medium">
                   {reemplazarId
                     ? "Haz clic o arrastra el PDF de reemplazo"
                     : "Haz clic o arrastra uno o varios PDFs"}
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Máx. 25 MB por archivo
+                  Máx. 25 MB por archivo · Solo PDF
                 </p>
                 <input
                   ref={inputRef}
@@ -500,6 +447,19 @@ function CargarEscalafonContent() {
           </div>
         )}
 
+        {/* Aviso si hay otro lote abierto para un periodo diferente */}
+        {!reemplazarId &&
+          !allDone &&
+          loteAbierto &&
+          loteAbierto.nombre !== nombreBuscado && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
+              Hay un lote abierto de otro periodo:{" "}
+              <span className="font-black">{loteAbierto.nombre}</span>. Al
+              procesar, se creará un nuevo lote para{" "}
+              <span className="font-black">{nombreBuscado}</span>.
+            </div>
+          )}
+
         {/* ── Resultado ── */}
         {allDone && (
           <div
@@ -540,12 +500,14 @@ function CargarEscalafonContent() {
                 <Button
                   onClick={handleCerrarLote}
                   disabled={cerrando}
-                  className="w-full h-14 rounded-2xl font-black text-base bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full h-14 rounded-2xl font-black text-base bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20"
                 >
                   {cerrando ? (
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
                   ) : null}
-                  {cerrando ? "Cerrando lote..." : "Cerrar Lote (Oficial)"}
+                  {cerrando
+                    ? "Cerrando lote..."
+                    : "Cerrar Lote — Quincena Oficial"}
                 </Button>
               )}
               {loteIdUsado && (
