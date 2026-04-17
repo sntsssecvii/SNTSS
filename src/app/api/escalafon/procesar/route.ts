@@ -4,7 +4,19 @@ import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { validateFileMagicBytes } from "@/lib/security/file-validation";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { parsearListadoCondicionalidad } from "@/lib/pdf/parsers/escalafon-condicionalidad";
-import { listadoExiste, guardarListado } from "@/lib/firebase/escalafon";
+import {
+  listadoExiste,
+  guardarListado,
+  eliminarListado,
+  obtenerListado,
+} from "@/lib/firebase/escalafon";
+import {
+  obtenerLoteAbierto,
+  crearLote,
+  generarNombreLote,
+  incrementarTotalListados,
+  decrementarTotalListados,
+} from "@/lib/firebase/escalafon-lotes";
 import { calcularPosicionesPorZona } from "@/lib/escalafon/position-engine";
 import { writeFile, unlink } from "fs/promises";
 import { join } from "path";
@@ -13,7 +25,7 @@ import { randomUUID } from "crypto";
 
 export const dynamic = "force-dynamic";
 
-const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
+const MAX_SIZE = 25 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   let ctx: { uid: string; email: string | null } | null = null;
@@ -33,6 +45,9 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+    const reemplazarId =
+      (formData.get("reemplazarId") as string | null) || null;
+    const loteIdParam = (formData.get("loteId") as string | null) || null;
 
     if (!file) {
       return NextResponse.json(
@@ -49,16 +64,13 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-
-    const isValidPdf = validateFileMagicBytes(buffer, "pdf");
-    if (!isValidPdf) {
+    if (!validateFileMagicBytes(buffer, "pdf")) {
       return NextResponse.json(
         { error: "Archivo no es un PDF válido" },
         { status: 400 },
       );
     }
 
-    // Guardar temporalmente para que pdfplumber pueda leerlo
     const tmpPath = join(tmpdir(), `escalafon-${randomUUID()}.pdf`);
     await writeFile(tmpPath, buffer);
 
@@ -82,18 +94,53 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar duplicado
-    const existe = await listadoExiste(
-      listado.categoriaCode,
-      listado.periodoDecierre,
-    );
-    if (existe) {
-      return NextResponse.json(
-        {
-          error: `Ya existe un listado para la categoría ${listado.categoriaCode} en el periodo ${listado.periodoDecierre}.`,
-        },
-        { status: 409 },
+    // --- Determinar loteId ---
+    let loteIdFinal: string;
+    let loteIdDeReemplazo: string | null = null;
+
+    if (reemplazarId) {
+      // Modo reemplazo: usar el lote del listado que se reemplaza
+      const listadoAnterior = await obtenerListado(reemplazarId);
+      if (!listadoAnterior) {
+        return NextResponse.json(
+          { error: "Listado a reemplazar no encontrado" },
+          { status: 404 },
+        );
+      }
+      loteIdFinal = listadoAnterior.loteId ?? "";
+      loteIdDeReemplazo = reemplazarId;
+
+      // Eliminar listado anterior
+      await eliminarListado(reemplazarId);
+      if (loteIdFinal) {
+        await decrementarTotalListados(loteIdFinal);
+      }
+    } else {
+      // Verificar duplicado
+      const existe = await listadoExiste(
+        listado.categoriaCode,
+        listado.periodoDecierre,
       );
+      if (existe) {
+        return NextResponse.json(
+          {
+            error: `Ya existe un listado para la categoría ${listado.categoriaCode} en el periodo ${listado.periodoDecierre}.`,
+          },
+          { status: 409 },
+        );
+      }
+
+      // Resolver lote: parámetro > abierto > crear nuevo
+      if (loteIdParam) {
+        loteIdFinal = loteIdParam;
+      } else {
+        const loteAbierto = await obtenerLoteAbierto();
+        if (loteAbierto?.id) {
+          loteIdFinal = loteAbierto.id;
+        } else {
+          loteIdFinal = await crearLote(generarNombreLote(), ctx!.uid);
+        }
+      }
     }
 
     const { aspirantesConPosicion, zonas } =
@@ -102,18 +149,25 @@ export async function POST(req: NextRequest) {
     const listadoId = await guardarListado(
       {
         ...listado,
+        loteId: loteIdFinal || undefined,
         aspirantesParsed: aspirantes.length,
-        subidoPor: ctx.uid,
+        subidoPor: ctx!.uid,
         creadoEn: new Date().toISOString(),
         zonas,
       },
       aspirantesConPosicion.map((a) => ({ ...a, listadoId: "" })),
     );
 
+    if (loteIdFinal) {
+      await incrementarTotalListados(loteIdFinal);
+    }
+
     await writeAdminAuditLog({
-      action: "ESCALAFON_LISTADO_SUBIDO",
-      actorUid: ctx.uid,
-      actorEmail: ctx.email ?? undefined,
+      action: reemplazarId
+        ? "ESCALAFON_LISTADO_REEMPLAZADO"
+        : "ESCALAFON_LISTADO_SUBIDO",
+      actorUid: ctx!.uid,
+      actorEmail: ctx!.email ?? undefined,
       targetType: "escalafon_listado",
       targetId: listadoId,
       status: "SUCCESS",
@@ -121,11 +175,14 @@ export async function POST(req: NextRequest) {
         categoria: listado.categoriaCode,
         periodo: listado.periodoDecierre,
         aspirantesParsed: aspirantes.length,
+        loteId: loteIdFinal || null,
+        reemplazarId: loteIdDeReemplazo,
       },
     });
 
     return NextResponse.json({
       listadoId,
+      loteId: loteIdFinal || null,
       aspirantesParsed: aspirantes.length,
       errores,
     });
