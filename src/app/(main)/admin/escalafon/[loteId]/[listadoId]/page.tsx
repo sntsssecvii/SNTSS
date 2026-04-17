@@ -219,7 +219,7 @@ export default function DetalleListadoPage() {
       csvCell(a.delegacion),
       csvCell(a.fechaRegistro),
       csvCell(
-        a.preferencias
+        (a.preferencias ?? [])
           .map((p) => `${p.delegacionSolicitada}/${p.zonaSolicitada}`)
           .join(" | "),
       ),
@@ -592,7 +592,10 @@ export default function DetalleListadoPage() {
                 <TableBody>
                   {filasPagina.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-32 text-center">
+                      <TableCell
+                        colSpan={filtroZona !== "all" ? 7 : 6}
+                        className="py-32 text-center"
+                      >
                         <div className="flex flex-col items-center gap-3">
                           <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 shadow-inner dark:bg-slate-800">
                             <Search className="h-8 w-8 text-slate-300 dark:text-slate-600" />
@@ -755,11 +758,17 @@ export default function DetalleListadoPage() {
                   <p className="font-bold">{aspiranteModal.fechaRegistro}</p>
                 </div>
               </div>
-              {aspiranteModal.preferencias?.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                    Preferencias
-                  </p>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                  Preferencias
+                </p>
+                {(aspiranteModal.preferencias?.length ?? 0) === 0 ? (
+                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
+                    <p className="text-sm text-slate-400 font-bold">
+                      Sin preferencias registradas
+                    </p>
+                  </div>
+                ) : (
                   <div className="space-y-1.5">
                     {aspiranteModal.preferencias.map((p, idx) => (
                       <div
@@ -775,8 +784,8 @@ export default function DetalleListadoPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
