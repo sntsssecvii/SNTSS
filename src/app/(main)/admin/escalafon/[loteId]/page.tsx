@@ -93,7 +93,9 @@ export default function DetalleLotePage() {
   const cerrarLote = async () => {
     setCerrando(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Sesión no válida");
+      const idToken = await currentUser.getIdToken();
       const res = await fetch(`/api/escalafon/lotes/${loteId}`, {
         method: "PATCH",
         headers: {
@@ -253,75 +255,77 @@ export default function DetalleLotePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {listadosFiltrados.map((listado) => (
-                <Card
+                <button
                   key={listado.id}
                   onClick={() =>
                     router.push(`/admin/escalafon/${loteId}/${listado.id}`)
                   }
-                  className="group rounded-[2rem] transition-all duration-500 ease-out border-none relative overflow-hidden cursor-pointer flex flex-col shadow-sm bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl ring-1 ring-slate-200/50 dark:ring-slate-800/50 hover:shadow-2xl hover:ring-primary/20"
+                  className="text-left w-full"
                 >
-                  <CardContent className="p-6 flex flex-col space-y-4">
-                    <div className="flex items-start justify-between min-h-[4.5rem]">
-                      <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] line-clamp-3">
-                        {listado.categoriaDesc}
-                      </h3>
-                      <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 animate-in fade-in zoom-in duration-500">
-                        <Check className="h-4 w-4 stroke-[3px]" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 mt-auto">
-                      <div className="flex items-end justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                            Registros
-                          </span>
-                          <span className="text-2xl font-black text-primary tracking-tighter mt-1">
-                            {listado.aspirantesParsed.toLocaleString()}
-                          </span>
+                  <Card className="group rounded-[2rem] transition-all duration-500 ease-out border-none relative overflow-hidden flex flex-col shadow-sm bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl ring-1 ring-slate-200/50 dark:ring-slate-800/50 hover:shadow-2xl hover:ring-primary/20">
+                    <CardContent className="p-6 flex flex-col space-y-4">
+                      <div className="flex items-start justify-between min-h-[4.5rem]">
+                        <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] line-clamp-3">
+                          {listado.categoriaDesc}
+                        </h3>
+                        <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 animate-in fade-in zoom-in duration-500">
+                          <Check className="h-4 w-4 stroke-[3px]" />
                         </div>
-                        <div className="text-right flex flex-col items-end">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                            Estatus
-                          </span>
-                          <div className="mt-1">
-                            <Badge
-                              variant="success"
-                              className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest"
-                            >
-                              Listo
-                            </Badge>
+                      </div>
+
+                      <div className="space-y-4 mt-auto">
+                        <div className="flex items-end justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                              Registros
+                            </span>
+                            <span className="text-2xl font-black text-primary tracking-tighter mt-1">
+                              {listado.aspirantesParsed.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-right flex flex-col items-end">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                              Estatus
+                            </span>
+                            <div className="mt-1">
+                              <Badge
+                                variant="success"
+                                className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest"
+                              >
+                                Listo
+                              </Badge>
+                            </div>
                           </div>
                         </div>
+                        <p className="text-[11px] font-bold text-slate-500 line-clamp-1 italic px-1">
+                          {listado.areaDesc}
+                        </p>
                       </div>
-                      <p className="text-[11px] font-bold text-slate-500 line-clamp-1 italic px-1">
-                        {listado.areaDesc}
-                      </p>
-                    </div>
 
-                    <div className="pt-2 mt-auto flex flex-col gap-2">
-                      <div className="w-full h-12 flex items-center justify-between px-6 rounded-2xl transition-all duration-300 bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white group-hover:shadow-[0_10px_20px_-5px_rgba(225,29,72,0.3)]">
-                        <span className="text-xs font-black uppercase tracking-[0.2em]">
-                          Ver
-                        </span>
-                        <ArrowRight className="h-4 w-4" />
+                      <div className="pt-2 mt-auto flex flex-col gap-2">
+                        <div className="w-full h-12 flex items-center justify-between px-6 rounded-2xl transition-all duration-300 bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white group-hover:shadow-[0_10px_20px_-5px_rgba(225,29,72,0.3)]">
+                          <span className="text-xs font-black uppercase tracking-[0.2em]">
+                            Ver
+                          </span>
+                          <ArrowRight className="h-4 w-4" />
+                        </div>
+                        {lote.estado === "ABIERTO" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(
+                                `/admin/escalafon/cargar?reemplazar=${listado.id}`,
+                              );
+                            }}
+                            className="w-full h-10 flex items-center justify-center px-6 rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                          >
+                            Reemplazar
+                          </button>
+                        )}
                       </div>
-                      {lote.estado === "ABIERTO" && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(
-                              `/admin/escalafon/cargar?reemplazar=${listado.id}`,
-                            );
-                          }}
-                          className="w-full h-10 flex items-center justify-center px-6 rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-                        >
-                          Reemplazar
-                        </button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </button>
               ))}
             </div>
           )}
