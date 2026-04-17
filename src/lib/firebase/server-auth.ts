@@ -12,6 +12,7 @@ interface AdminRequestContext {
   email: string | null;
   role: string;
   status?: string;
+  isDeveloper?: boolean;
 }
 
 function getBearerToken(request: NextRequest) {
@@ -37,7 +38,7 @@ export async function requireAdminRequest(
   }
 
   const userData = userDoc.data() as
-    | { role?: string; status?: string; email?: string }
+    | { role?: string; status?: string; email?: string; isDeveloper?: boolean }
     | undefined;
   const role = normalizeUserRole(userData?.role);
   const status = userData?.status;
@@ -55,6 +56,7 @@ export async function requireAdminRequest(
     email: decodedToken.email || userData?.email || null,
     role,
     status,
+    isDeveloper: userData?.isDeveloper === true,
   };
 }
 
@@ -65,6 +67,18 @@ export async function requireSuperAdminRequest(
 
   if (!isSuperAdminRole(context.role)) {
     throw new Error("SUPER_ADMIN_REQUIRED");
+  }
+
+  return context;
+}
+
+export async function requireDeveloperRequest(
+  request: NextRequest,
+): Promise<AdminRequestContext> {
+  const context = await requireSuperAdminRequest(request);
+
+  if (!context.isDeveloper) {
+    throw new Error("DEVELOPER_REQUIRED");
   }
 
   return context;

@@ -3,6 +3,7 @@ import { detectarTipoDocumento } from "@/lib/pdf/parser";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { requireAdminRequest } from "@/lib/firebase/server-auth";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { validateFileMagicBytes } from "@/lib/security/file-validation";
 import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
@@ -326,6 +327,13 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    if (!validateFileMagicBytes(buffer, "pdf")) {
+      return NextResponse.json(
+        { error: "Formato de archivo no válido." },
+        { status: 400 },
+      );
+    }
 
     const { filas, tipoDocumento: tipoDetectado } = await extraerDatosCrudos(
       buffer,

@@ -1,24 +1,48 @@
-'use client'
+"use client";
 
-import { Sidebar } from '@/components/Sidebar'
-import { Navbar } from '@/components/Navbar'
-import { CommandPalette } from '@/components/CommandPalette'
+import { useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { Sidebar } from "@/components/Sidebar";
+import { Navbar } from "@/components/Navbar";
+import { CommandPalette } from "@/components/CommandPalette";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function MainLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const { userData, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const isBolsa = userData?.role?.toUpperCase() === "BOLSA";
+  // BOLSA puede navegar a cualquier /admin/* excepto rutas exclusivas de otros roles
+  const isBolsaAllowed =
+    pathname.startsWith("/admin/bolsa-de-trabajo") ||
+    pathname.startsWith("/admin/perfil") ||
+    pathname.startsWith("/admin/configuracion") ||
+    pathname.startsWith("/admin/cambiar-contrasena");
+
+  useEffect(() => {
+    if (isBolsa && !isBolsaAllowed) {
+      router.replace("/admin/bolsa-de-trabajo/dashboard");
+    }
+  }, [isBolsa, isBolsaAllowed, router]);
+
+  // Evitar flash de contenido incorrecto mientras se redirige
+  const isRedirecting = !loading && isBolsa && !isBolsaAllowed;
+
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col lg:ml-64">
         <Navbar />
         <main className="flex-1 p-3 sm:p-4 md:p-6">
-          {children}
+          {isRedirecting ? null : children}
         </main>
       </div>
       <CommandPalette />
     </div>
-  )
+  );
 }

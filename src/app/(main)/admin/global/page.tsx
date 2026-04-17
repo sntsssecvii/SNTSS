@@ -1,33 +1,36 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Crown, ShieldCheck } from 'lucide-react'
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Crown, ShieldCheck } from "lucide-react";
 
-import AdminGlobalManager from '@/components/admin/AdminGlobalManager'
-import { useAuth } from '@/contexts/AuthContext'
-import { isSuperAdminRole } from '@/lib/auth/roles'
+import AdminGlobalManager from "@/components/admin/AdminGlobalManager";
+import { useAuth } from "@/contexts/AuthContext";
+import { isSuperAdminRole } from "@/lib/auth/roles";
 
 export default function AdminGlobalPage() {
-  const { user, userData, loading } = useAuth()
-  const router = useRouter()
+  const { user, userData, loading } = useAuth();
+  const router = useRouter();
+
+  const canAccess =
+    isSuperAdminRole(userData?.role) && userData?.isDeveloper === true;
 
   useEffect(() => {
-    if (!loading && (!user || !isSuperAdminRole(userData?.role))) {
-      router.push('/admin')
+    if (!loading && (!user || !canAccess)) {
+      router.push("/admin");
     }
-  }, [loading, router, user, userData])
+  }, [loading, router, user, canAccess]);
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
       </div>
-    )
+    );
   }
 
-  if (!user || !isSuperAdminRole(userData?.role)) {
-    return null
+  if (!user || !canAccess) {
+    return null;
   }
 
   return (
@@ -45,7 +48,9 @@ export default function AdminGlobalPage() {
                 Gobierno operativo de usuarios
               </h1>
               <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-                Este módulo concentra la administración de roles y estatus internos. Los cambios sensibles quedan auditados y la cuenta global no puede autodeshabilitarse desde esta interfaz.
+                Este módulo concentra la administración de roles y estatus
+                internos. Los cambios sensibles quedan auditados y la cuenta
+                global no puede autodeshabilitarse desde esta interfaz.
               </p>
             </div>
           </div>
@@ -59,5 +64,5 @@ export default function AdminGlobalPage() {
 
       <AdminGlobalManager />
     </main>
-  )
+  );
 }

@@ -2,7 +2,11 @@ import type { NextRequest } from "next/server";
 
 function getAllowedOrigins(): string[] {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sntssvii.com";
-  return [appUrl, "http://localhost:3000"];
+  const origins = [appUrl];
+  if (process.env.NODE_ENV !== "production") {
+    origins.push("http://localhost:3000");
+  }
+  return origins;
 }
 
 export function assertSameOrigin(request: NextRequest): void {
