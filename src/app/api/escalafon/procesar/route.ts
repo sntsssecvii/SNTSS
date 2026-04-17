@@ -109,12 +109,6 @@ export async function POST(req: NextRequest) {
       }
       loteIdFinal = listadoAnterior.loteId ?? "";
       loteIdDeReemplazo = reemplazarId;
-
-      // Eliminar listado anterior
-      await eliminarListado(reemplazarId);
-      if (loteIdFinal) {
-        await decrementarTotalListados(loteIdFinal);
-      }
     } else {
       // Verificar duplicado
       const existe = await listadoExiste(
@@ -160,6 +154,14 @@ export async function POST(req: NextRequest) {
 
     if (loteIdFinal) {
       await incrementarTotalListados(loteIdFinal);
+    }
+
+    // Eliminar listado anterior DESPUÉS de guardar el nuevo (evita pérdida de datos si falla)
+    if (reemplazarId) {
+      await eliminarListado(reemplazarId);
+      if (loteIdFinal) {
+        await decrementarTotalListados(loteIdFinal);
+      }
     }
 
     await writeAdminAuditLog({
