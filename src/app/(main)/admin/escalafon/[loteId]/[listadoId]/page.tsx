@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import React from "react";
-import { getAuth } from "firebase/auth";
+import { auth } from "@/lib/firebase/firebase-client";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { EscalafonListado, EscalafonAspirante } from "@/types/escalafon";
 
 export default function DetalleListadoPage() {
-  const { listadoId } = useParams<{ listadoId: string }>();
+  const params = useParams<{ loteId: string; listadoId: string }>();
+  const loteId = String(params.loteId || "");
+  const listadoId = String(params.listadoId || "");
+  const router = useRouter();
+
   const [listado, setListado] = useState<EscalafonListado | null>(null);
   const [aspirantes, setAspirantes] = useState<EscalafonAspirante[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,9 +22,9 @@ export default function DetalleListadoPage() {
   const [zonaActiva, setZonaActiva] = useState<string>("");
 
   useEffect(() => {
-    const currentUser = getAuth().currentUser;
+    const currentUser = auth.currentUser;
     if (!currentUser) return;
-    currentUser.getIdToken().then((idToken) =>
+    currentUser.getIdToken().then((idToken: string) =>
       fetch(`/api/escalafon/${listadoId}`, {
         headers: { Authorization: `Bearer ${idToken}` },
       })
@@ -49,7 +54,6 @@ export default function DetalleListadoPage() {
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!listado) return null;
 
-  // Filtrar y ordenar según zona activa
   const aspirantesFiltrados = zonaActiva
     ? aspirantes
         .filter((a) => a.posicionesPorZona?.[zonaActiva] !== undefined)
@@ -62,39 +66,50 @@ export default function DetalleListadoPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <Link
-          href="/admin/escalafon"
-          className="text-sm text-blue-600 hover:underline"
-        >
-          ← Escalafón
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">
-          {listado.categoriaDesc}
-        </h1>
-        <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-1">
-          <span>
-            Área: <strong>{listado.areaDesc}</strong>
-          </span>
-          <span>
-            Sector: <strong>{listado.sector}</strong>
-          </span>
-          <span>
-            Listado: <strong>{listado.numeroListado}</strong>
-          </span>
-          <span>
-            Conv: <strong>{listado.convocatoria}</strong>
-          </span>
-          <span>
-            Vigencia:{" "}
-            <strong>
-              {listado.vigenciaInicio} — {listado.vigenciaFin}
-            </strong>
-          </span>
-          <span>
-            Aspirantes: <strong>{listado.aspirantesParsed}</strong>
-          </span>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <button
+            onClick={() => router.push(`/admin/escalafon/${loteId}`)}
+            className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Escalafón / {loteId}
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900 mt-2">
+            {listado.categoriaDesc}
+          </h1>
+          <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-1">
+            <span>
+              Área: <strong>{listado.areaDesc}</strong>
+            </span>
+            <span>
+              Sector: <strong>{listado.sector}</strong>
+            </span>
+            <span>
+              Listado: <strong>{listado.numeroListado}</strong>
+            </span>
+            <span>
+              Conv: <strong>{listado.convocatoria}</strong>
+            </span>
+            <span>
+              Vigencia:{" "}
+              <strong>
+                {listado.vigenciaInicio} — {listado.vigenciaFin}
+              </strong>
+            </span>
+            <span>
+              Aspirantes: <strong>{listado.aspirantesParsed}</strong>
+            </span>
+          </div>
         </div>
+        <Button
+          variant="outline"
+          onClick={() =>
+            router.push(`/admin/escalafon/cargar?reemplazar=${listadoId}`)
+          }
+        >
+          Reemplazar
+        </Button>
       </div>
 
       {/* Filtro de zona */}
