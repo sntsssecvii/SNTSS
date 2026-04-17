@@ -3,8 +3,16 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase/firebase-client";
-import { ArrowLeft, CheckCircle2, FileUp, FolderOpen, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  FileUp,
+  FolderOpen,
+  Loader2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { EscalafonLote, EscalafonListado } from "@/types/escalafon";
 
 interface FileItem {
@@ -15,6 +23,12 @@ interface FileItem {
   advertencias?: string[];
 }
 
+async function getIdToken(): Promise<string | null> {
+  const user = auth.currentUser;
+  if (!user) return null;
+  return user.getIdToken();
+}
+
 function CargarEscalafonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,22 +36,30 @@ function CargarEscalafonContent() {
   const loteIdParam = searchParams.get("loteId");
 
   const inputRef = useRef<HTMLInputElement>(null);
-  // Modo reemplazo: un solo archivo; modo normal: múltiples
-  const [items, setItems] = useState<FileItem[]>([]);
-  const [processing, setProcessing] = useState(false);
-  const [done, setDone] = useState(false);
-  const [globalError, setGlobalError] = useState<string | null>(null);
 
+  // Estado del lote
   const [loteAbierto, setLoteAbierto] = useState<EscalafonLote | null>(null);
   const [listadoAReemplazar, setListadoAReemplazar] =
     useState<EscalafonListado | null>(null);
   const [cargandoMeta, setCargandoMeta] = useState(true);
+  const [creandoLote, setCreandoLote] = useState(false);
+  const [nombreNuevoLote, setNombreNuevoLote] = useState("");
+
+  // Estado de archivos
+  const [items, setItems] = useState<FileItem[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [allDone, setAllDone] = useState(false);
+  const [loteIdUsado, setLoteIdUsado] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
+  // Cerrar lote
+  const [cerrando, setCerrando] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
       setCargandoMeta(true);
       try {
-        const idToken = await auth.currentUser?.getIdToken();
+        const idToken = await getIdToken();
         const headers: Record<string, string> = idToken
           ? { Authorization: `Bearer ${idToken}` }
           : {};
@@ -67,13 +89,41 @@ function CargarEscalafonContent() {
     cargar();
   }, [reemplazarId]);
 
+  async function handleCrearLote() {
+    setCreandoLote(true);
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Sesión no válida");
+      const res = await fetch("/api/escalafon/lotes", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ nombre: nombreNuevoLote || undefined }),
+      });
+      const data = (await res.json()) as {
+        lote?: EscalafonLote;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? "Error al crear el lote");
+      if (data.lote) setLoteAbierto(data.lote);
+      setNombreNuevoLote("");
+    } catch (err) {
+      setGlobalError(
+        err instanceof Error ? err.message : "Error al crear lote",
+      );
+    } finally {
+      setCreandoLote(false);
+    }
+  }
+
   function addFiles(newFiles: File[]) {
     const pdfs = newFiles.filter(
       (f) =>
         f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
     );
     if (reemplazarId) {
-      // Modo reemplazo: solo un archivo
       const f = pdfs[0];
       if (!f) return;
       setItems([{ id: crypto.randomUUID(), file: f, status: "pending" }]);
@@ -100,14 +150,14 @@ function CargarEscalafonContent() {
     setProcessing(true);
     setGlobalError(null);
 
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    const user = auth.currentUser;
+    if (!user) {
       setGlobalError("Sesión no válida. Por favor recarga la página.");
       setProcessing(false);
       return;
     }
 
-    let loteIdFinal: string | null = null;
+    let loteIdFinal: string | null = loteIdParam ?? loteAbierto?.id ?? null;
 
     for (const item of items) {
       setItems((prev) =>
@@ -117,12 +167,10 @@ function CargarEscalafonContent() {
       );
 
       try {
-        const idToken = await currentUser.getIdToken();
+        const idToken = await user.getIdToken();
         const formData = new FormData();
         formData.append("file", item.file);
         if (reemplazarId) formData.append("reemplazarId", reemplazarId);
-        if (loteIdParam) formData.append("loteId", loteIdParam);
-        // Si ya procesamos el primer archivo y sabemos el loteId, lo pasamos
         if (loteIdFinal) formData.append("loteId", loteIdFinal);
 
         const res = await fetch("/api/escalafon/procesar", {
@@ -144,9 +192,7 @@ function CargarEscalafonContent() {
           throw new Error(`Error del servidor (${res.status})`);
         }
 
-        if (!res.ok) {
-          throw new Error(data.error ?? "Error al procesar el archivo");
-        }
+        if (!res.ok) throw new Error(data.error ?? "Error al procesar");
 
         if (data.loteId && !loteIdFinal) loteIdFinal = data.loteId;
 
@@ -173,24 +219,38 @@ function CargarEscalafonContent() {
       }
     }
 
+    setLoteIdUsado(loteIdFinal);
     setProcessing(false);
-    setDone(true);
-
-    // Redirigir solo si no hay errores
-    const hayErrores = items.some((it) => it.status === "error");
-    if (!hayErrores) {
-      if (loteIdFinal) {
-        router.push(`/admin/escalafon/${loteIdFinal}`);
-      } else {
-        router.push("/admin/escalafon");
-      }
-    }
+    setAllDone(true);
   };
 
-  const pendingCount = items.filter((it) => it.status === "pending").length;
+  async function handleCerrarLote() {
+    if (!loteIdUsado) return;
+    setCerrando(true);
+    try {
+      const idToken = await getIdToken();
+      if (!idToken) throw new Error("Sesión no válida");
+      const res = await fetch(`/api/escalafon/lotes/${loteIdUsado}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ estado: "CERRADO" }),
+      });
+      if (!res.ok) throw new Error("Error al cerrar el lote");
+      router.push(`/admin/escalafon/${loteIdUsado}`);
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Error al cerrar");
+    } finally {
+      setCerrando(false);
+    }
+  }
+
   const doneCount = items.filter((it) => it.status === "done").length;
   const errorCount = items.filter((it) => it.status === "error").length;
   const canSubmit = items.length > 0 && !processing;
+  const allSuccess = allDone && errorCount === 0;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] p-4 sm:p-6 lg:p-8">
@@ -224,149 +284,202 @@ function CargarEscalafonContent() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          {/* Banner de modo */}
-          {!cargandoMeta && (
-            <>
-              {reemplazarId ? (
-                <div className="rounded-2xl bg-orange-50 border border-orange-200 p-4 flex items-center gap-3">
-                  <FolderOpen className="text-orange-600 shrink-0" />
-                  <div>
-                    <p className="font-black text-orange-900">
-                      Reemplazando:{" "}
-                      {listadoAReemplazar?.categoriaDesc ?? reemplazarId}
-                    </p>
-                    <p className="text-xs text-orange-700">
-                      El listado anterior será eliminado al confirmar.
-                    </p>
-                  </div>
-                </div>
-              ) : loteAbierto ? (
-                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-center gap-3">
-                  <FolderOpen className="text-amber-600 shrink-0" />
-                  <div>
-                    <p className="font-black text-amber-900">
-                      Subiendo al lote: {loteAbierto.nombre}
-                    </p>
-                    <p className="text-xs text-amber-700">
-                      Los listados se añadirán al lote activo.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
-                  <p className="font-black text-slate-700">
-                    Se creará un lote nuevo automáticamente.
+        {/* ── Paso 1: Lote ── */}
+        {!reemplazarId && !allDone && (
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 space-y-3">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                Paso 1
+              </p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                Selecciona el lote de destino
+              </h3>
+              <p className="text-sm font-medium text-slate-500">
+                Los PDFs se agruparán en un lote por quincena.
+              </p>
+            </div>
+
+            {cargandoMeta ? (
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Consultando lote activo...
+              </div>
+            ) : loteAbierto ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3">
+                <FolderOpen className="text-amber-600 shrink-0 h-5 w-5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-amber-900 truncate">
+                    {loteAbierto.nombre}
+                  </p>
+                  <p className="text-xs text-amber-700">
+                    Lote activo — {loteAbierto.totalListados} listados cargados
                   </p>
                 </div>
-              )}
-            </>
-          )}
-
-          {/* Drop zone */}
-          {!processing && !done && (
-            <div
-              className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
-              onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                addFiles(Array.from(e.dataTransfer.files));
-              }}
-            >
-              <p className="text-gray-500">
-                {reemplazarId
-                  ? "Haz clic para seleccionar un PDF"
-                  : "Haz clic o arrastra uno o varios PDFs"}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Máx. 25 MB por archivo
-              </p>
-              <input
-                ref={inputRef}
-                type="file"
-                accept="application/pdf"
-                multiple={!reemplazarId}
-                className="hidden"
-                onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
-              />
-            </div>
-          )}
-
-          {/* Lista de archivos */}
-          {items.length > 0 && (
-            <div className="space-y-2">
-              {processing && (
-                <p className="text-xs font-semibold text-slate-500 text-center">
-                  Procesando {doneCount + errorCount}/{items.length}...
-                </p>
-              )}
-              {done && errorCount > 0 && (
-                <p className="text-xs font-semibold text-red-600 text-center">
-                  {doneCount} procesados · {errorCount} con error
-                </p>
-              )}
-              {items.map((it) => (
-                <div
-                  key={it.id}
-                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
-                    it.status === "done"
-                      ? "border-green-200 bg-green-50"
-                      : it.status === "error"
-                        ? "border-red-200 bg-red-50"
-                        : it.status === "processing"
-                          ? "border-primary/30 bg-primary/5"
-                          : "border-slate-200 bg-white"
-                  }`}
-                >
-                  {it.status === "done" ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                  ) : it.status === "error" ? (
-                    <span className="text-red-500 shrink-0 font-black text-xs">
-                      ✕
-                    </span>
-                  ) : it.status === "processing" ? (
-                    <span className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
-                  ) : (
-                    <FileUp className="h-4 w-4 text-slate-400 shrink-0" />
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">
-                      {it.file.name}
-                    </p>
-                    {it.status === "error" && it.error && (
-                      <p className="text-xs text-red-600 mt-0.5">{it.error}</p>
-                    )}
-                    {it.status === "done" && it.advertencias?.length ? (
-                      <p className="text-xs text-amber-600 mt-0.5">
-                        {it.advertencias[0]}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {it.status === "pending" && !processing && (
-                    <button
-                      type="button"
-                      onClick={() => removeItem(it.id)}
-                      className="text-slate-400 hover:text-slate-700 shrink-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+                  No hay ningún lote abierto. Crea uno nuevo o se generará
+                  automáticamente al procesar el primer PDF.
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder='Nombre del lote (ej. "Abril 2026 · Q1")'
+                    value={nombreNuevoLote}
+                    onChange={(e) => setNombreNuevoLote(e.target.value)}
+                    className="rounded-xl"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCrearLote();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={handleCrearLote}
+                    disabled={creandoLote}
+                    className="rounded-xl font-black shrink-0"
+                  >
+                    {creandoLote ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Crear"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-          {globalError && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
-              {globalError}
+        {/* Modo reemplazo: banner */}
+        {reemplazarId && !cargandoMeta && (
+          <div className="rounded-2xl bg-orange-50 border border-orange-200 p-4 flex items-center gap-3">
+            <FolderOpen className="text-orange-600 shrink-0" />
+            <div>
+              <p className="font-black text-orange-900">
+                Reemplazando:{" "}
+                {listadoAReemplazar?.categoriaDesc ?? reemplazarId}
+              </p>
+              <p className="text-xs text-orange-700">
+                El listado anterior será eliminado al confirmar.
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Botón de acción */}
-          {!done ? (
+        {/* ── Paso 2: Archivos ── */}
+        {!allDone && (
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 space-y-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                {reemplazarId ? "Archivo" : "Paso 2"}
+              </p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                {reemplazarId ? "Nuevo PDF" : "Archivos PDF"}
+              </h3>
+            </div>
+
+            {/* Drop zone */}
+            {!processing && (
+              <div
+                className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => inputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  addFiles(Array.from(e.dataTransfer.files));
+                }}
+              >
+                <FileUp className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 font-medium">
+                  {reemplazarId
+                    ? "Haz clic o arrastra el PDF de reemplazo"
+                    : "Haz clic o arrastra uno o varios PDFs"}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Máx. 25 MB por archivo
+                </p>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept="application/pdf"
+                  multiple={!reemplazarId}
+                  className="hidden"
+                  onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
+                />
+              </div>
+            )}
+
+            {/* Lista de archivos */}
+            {items.length > 0 && (
+              <div className="space-y-2">
+                {processing && (
+                  <p className="text-xs font-semibold text-slate-500 text-center">
+                    Procesando {doneCount + errorCount}/{items.length}...
+                  </p>
+                )}
+                {items.map((it) => (
+                  <div
+                    key={it.id}
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
+                      it.status === "done"
+                        ? "border-green-200 bg-green-50"
+                        : it.status === "error"
+                          ? "border-red-200 bg-red-50"
+                          : it.status === "processing"
+                            ? "border-primary/30 bg-primary/5"
+                            : "border-slate-200 bg-slate-50"
+                    }`}
+                  >
+                    {it.status === "done" ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    ) : it.status === "error" ? (
+                      <span className="text-red-500 shrink-0 font-black text-xs">
+                        ✕
+                      </span>
+                    ) : it.status === "processing" ? (
+                      <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+                    ) : (
+                      <FileUp className="h-4 w-4 text-slate-400 shrink-0" />
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 truncate">
+                        {it.file.name}
+                      </p>
+                      {it.status === "error" && it.error && (
+                        <p className="text-xs text-red-600 mt-0.5">
+                          {it.error}
+                        </p>
+                      )}
+                      {it.status === "done" && it.advertencias?.length ? (
+                        <p className="text-xs text-amber-600 mt-0.5">
+                          {it.advertencias[0]}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {it.status === "pending" && !processing && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(it.id)}
+                        className="text-slate-400 hover:text-slate-700 shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {globalError && !allDone && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                {globalError}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
               <Button
                 type="submit"
@@ -376,41 +489,97 @@ function CargarEscalafonContent() {
                 {processing
                   ? `Procesando ${doneCount + errorCount + 1}/${items.length}...`
                   : items.length === 0
-                    ? "Selecciona PDFs primero"
+                    ? reemplazarId
+                      ? "Selecciona un PDF primero"
+                      : "Selecciona PDFs primero"
                     : items.length === 1
                       ? "Procesar PDF"
                       : `Procesar ${items.length} PDFs`}
               </Button>
             </form>
-          ) : errorCount > 0 ? (
-            <div className="space-y-2">
-              <Button
-                onClick={() => {
-                  setItems((prev) =>
-                    prev
-                      .filter((it) => it.status === "error")
-                      .map((it) => ({
-                        ...it,
-                        status: "pending" as const,
-                        error: undefined,
-                      })),
-                  );
-                  setDone(false);
-                }}
-                className="w-full h-12 rounded-2xl font-black text-base"
-                variant="outline"
+          </div>
+        )}
+
+        {/* ── Resultado ── */}
+        {allDone && (
+          <div
+            className={`rounded-3xl border p-8 space-y-6 ${
+              allSuccess
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <div
+              className={`flex items-center gap-4 ${allSuccess ? "text-emerald-700" : "text-amber-700"}`}
+            >
+              <div
+                className={`p-3 rounded-2xl ${allSuccess ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}
               >
-                Reintentar archivos con error
-              </Button>
-              <Button
-                onClick={() => router.push("/admin/escalafon")}
-                className="w-full h-12 rounded-2xl font-black text-base bg-primary hover:bg-primary/90 text-white"
-              >
-                Ir a escalafón
-              </Button>
+                <CheckCircle2 className="h-8 w-8" />
+              </div>
+              <div>
+                <h4 className="font-black text-2xl tracking-tight">
+                  {allSuccess
+                    ? "¡Procesamiento completo!"
+                    : "Procesamiento con errores"}
+                </h4>
+                <p className="font-medium opacity-80">
+                  {doneCount} procesados · {errorCount} con error
+                </p>
+              </div>
             </div>
-          ) : null}
-        </div>
+
+            {globalError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                {globalError}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              {allSuccess && loteIdUsado && (
+                <Button
+                  onClick={handleCerrarLote}
+                  disabled={cerrando}
+                  className="w-full h-14 rounded-2xl font-black text-base bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {cerrando ? (
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  ) : null}
+                  {cerrando ? "Cerrando lote..." : "Cerrar Lote (Oficial)"}
+                </Button>
+              )}
+              {loteIdUsado && (
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/admin/escalafon/${loteIdUsado}`)}
+                  className="w-full h-12 rounded-2xl font-black"
+                >
+                  Ver lote sin cerrar
+                </Button>
+              )}
+              {errorCount > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setItems((prev) =>
+                      prev
+                        .filter((it) => it.status === "error")
+                        .map((it) => ({
+                          ...it,
+                          status: "pending" as const,
+                          error: undefined,
+                        })),
+                    );
+                    setAllDone(false);
+                  }}
+                  className="w-full h-12 rounded-2xl font-black text-red-600"
+                >
+                  Reintentar {errorCount} archivo(s) con error
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
