@@ -26,7 +26,7 @@ export default function MainLayout({
 
   useEffect(() => {
     if (isBolsa && !isBolsaAllowed) {
-      router.replace("/admin/bolsa-de-trabajo");
+      router.replace("/admin/bolsa-de-trabajo/dashboard");
     }
   }, [isBolsa, isBolsaAllowed, router]);
 

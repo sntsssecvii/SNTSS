@@ -109,11 +109,18 @@ const getNavItems = (
   }
 
   if (roleUpper === "BOLSA") {
-    baseItems.push({
-      title: "Bolsa de Trabajo",
-      href: "/admin/bolsa-de-trabajo/consultar",
-      icon: Users,
-    });
+    baseItems.push(
+      {
+        title: "Dashboard",
+        href: "/admin/bolsa-de-trabajo/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "Bolsa de Trabajo",
+        href: "/admin/bolsa-de-trabajo",
+        icon: Users,
+      },
+    );
   }
 
   if (roleUpper === "ESCALAFON") {
