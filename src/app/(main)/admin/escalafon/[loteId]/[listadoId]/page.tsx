@@ -712,7 +712,7 @@ export default function DetalleListadoPage() {
             </DialogTitle>
           </DialogHeader>
           {aspiranteModal && (
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
@@ -770,7 +770,7 @@ export default function DetalleListadoPage() {
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    {aspiranteModal.preferencias.map((p, idx) => (
+                    {(aspiranteModal.preferencias ?? []).map((p, idx) => (
                       <div
                         key={idx}
                         className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl"
