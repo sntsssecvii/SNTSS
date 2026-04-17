@@ -230,7 +230,9 @@ export default function DetalleListadoPage() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `escalafon-${listado.categoriaCode}-${listado.periodoDecierre}.csv`;
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 100);
   }, [aspirantesFiltrados, listado]);
 
@@ -756,6 +758,33 @@ export default function DetalleListadoPage() {
                     Fecha Registro
                   </p>
                   <p className="font-bold">{aspiranteModal.fechaRegistro}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                    Posiciones por Zona
+                  </p>
+                  {Object.keys(aspiranteModal.posicionesPorZona ?? {})
+                    .length === 0 ? (
+                    <p className="text-xs text-slate-400 font-bold">
+                      Sin zonas
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(
+                        aspiranteModal.posicionesPorZona ?? {},
+                      ).map(([zona, pos]) => (
+                        <span
+                          key={zona}
+                          className="inline-flex items-center gap-1 text-[9px] font-black bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-lg"
+                        >
+                          {zona}:{" "}
+                          <span className="text-emerald-900 dark:text-emerald-300">
+                            {pos}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               {/* Preferencias */}
