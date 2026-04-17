@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase/firebase-client";
 import { ArrowLeft, FileUp, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { EscalafonLote, EscalafonListado } from "@/types/escalafon";
 
-export default function CargarEscalafonPage() {
+function CargarEscalafonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reemplazarId = searchParams.get("reemplazar");
@@ -239,5 +239,13 @@ export default function CargarEscalafonPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function CargarEscalafonPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-500">Cargando...</div>}>
+      <CargarEscalafonContent />
+    </Suspense>
   );
 }

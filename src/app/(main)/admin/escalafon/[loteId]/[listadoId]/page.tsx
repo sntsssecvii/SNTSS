@@ -23,7 +23,11 @@ export default function DetalleListadoPage() {
 
   useEffect(() => {
     const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    if (!currentUser) {
+      setError("Sesión no válida. Por favor recarga la página.");
+      setLoading(false);
+      return;
+    }
     currentUser.getIdToken().then((idToken: string) =>
       fetch(`/api/escalafon/${listadoId}`, {
         headers: { Authorization: `Bearer ${idToken}` },
