@@ -494,15 +494,293 @@ export default function DetalleListadoPage() {
           </Tabs>
         </aside>
 
-        {/* ── MAIN ── se completa en Task 3 */}
         <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#020617] h-full overflow-hidden">
-          <div className="p-8 text-slate-400 text-sm">
-            Tabla en construcción...
-          </div>
+          {/* ── Toolbar ── */}
+          <motion.div
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="px-4 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0"
+          >
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+              {/* Búsqueda */}
+              <div className="w-full xl:max-w-md relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Busca por nombre o matrícula..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="pl-10 h-10 border-none bg-transparent shadow-none focus-visible:ring-0 rounded-xl font-bold text-xs"
+                />
+              </div>
+
+              <div className="hidden h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 xl:block" />
+
+              {/* Paginación + total */}
+              <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2 xl:px-0 xl:pb-0">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3">
+                  {aspirantesFiltrados.length} resultado
+                  {aspirantesFiltrados.length !== 1 ? "s" : ""}
+                </span>
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg"
+                    disabled={paginaActual === 1}
+                    onClick={() => setPaginaActual((p) => p - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="px-3 text-[10px] font-black text-slate-500 uppercase">
+                    {paginaActual}{" "}
+                    <span className="text-slate-300 dark:text-slate-600 mx-1">
+                      /
+                    </span>{" "}
+                    {totalPaginas}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg"
+                    disabled={paginaActual >= totalPaginas}
+                    onClick={() => setPaginaActual((p) => p + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* ── Tabla ── */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="flex-1 p-4 lg:p-6 bg-slate-50/50 dark:bg-[#020617]/50 relative min-h-0"
+          >
+            <div className="absolute inset-4 lg:inset-6 overflow-auto bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.05)]">
+              <Table className="border-separate border-spacing-0 min-w-[900px]">
+                <TableHeader className="sticky top-0 z-20 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">
+                      Lugar
+                    </TableHead>
+                    {filtroZona !== "all" && (
+                      <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800 text-center">
+                        Pos. en Zona
+                      </TableHead>
+                    )}
+                    <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">
+                      Estatus
+                    </TableHead>
+                    <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">
+                      Matrícula
+                    </TableHead>
+                    <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">
+                      Nombre / Delegación
+                    </TableHead>
+                    <TableHead className="py-5 px-6 font-black text-[10px] uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">
+                      Fecha Registro
+                    </TableHead>
+                    <TableHead className="w-16 border-b border-slate-200 dark:border-slate-800" />
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {filasPagina.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-32 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 shadow-inner dark:bg-slate-800">
+                            <Search className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                              No se encontraron aspirantes
+                            </p>
+                            <p className="text-sm font-bold text-slate-500 max-w-sm uppercase tracking-tight">
+                              Intenta con otros filtros o términos de búsqueda.
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filasPagina.map((a, i) => (
+                      <TableRow
+                        key={a.id ?? `${a.matricula}-${i}`}
+                        className={cn(
+                          "group border-b border-slate-100 dark:border-slate-800",
+                          i % 2 === 0
+                            ? "bg-white dark:bg-[#020617]"
+                            : "bg-slate-50/30 dark:bg-slate-950/20",
+                        )}
+                      >
+                        {/* Lugar global */}
+                        <TableCell className="py-4 px-6">
+                          <span className="font-mono text-sm font-black text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+                            {a.lugar}
+                          </span>
+                        </TableCell>
+
+                        {/* Posición en zona (solo si filtro zona activo) */}
+                        {filtroZona !== "all" && (
+                          <TableCell className="py-4 px-6 text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/50 min-w-[32px] text-center shadow-sm">
+                                {a.posicionesPorZona?.[filtroZona] ?? "—"}
+                              </span>
+                              <span className="text-[8px] font-bold text-emerald-500 mt-1 uppercase tracking-widest">
+                                Zona
+                              </span>
+                            </div>
+                          </TableCell>
+                        )}
+
+                        {/* Estatus */}
+                        <TableCell className="py-4 px-6">
+                          <Badge
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border-0",
+                              a.estatus === "Activo"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                                : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
+                            )}
+                          >
+                            {a.estatus}
+                          </Badge>
+                        </TableCell>
+
+                        {/* Matrícula */}
+                        <TableCell className="py-4 px-6 font-mono font-bold text-xs text-slate-600 dark:text-slate-300">
+                          {a.matricula}
+                        </TableCell>
+
+                        {/* Nombre / Delegación */}
+                        <TableCell className="py-4 px-6">
+                          <p className="font-extrabold text-sm text-slate-900 dark:text-slate-200 group-hover:text-primary transition-colors leading-none">
+                            {a.nombre}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight truncate max-w-[240px]">
+                            {a.delegacion}
+                          </p>
+                        </TableCell>
+
+                        {/* Fecha Registro */}
+                        <TableCell className="py-4 px-6 text-xs font-bold text-slate-500">
+                          {a.fechaRegistro}
+                        </TableCell>
+
+                        {/* Ojo */}
+                        <TableCell className="py-4 px-4">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10"
+                            onClick={() => setAspiranteModal(a)}
+                          >
+                            <Eye className="h-4 w-4 text-primary" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </motion.div>
         </main>
       </div>
 
-      {/* Modal — se completa en Task 3 */}
+      {/* Modal detalle aspirante */}
+      <Dialog
+        open={aspiranteModal !== null}
+        onOpenChange={(open) => {
+          if (!open) setAspiranteModal(null);
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-black text-base">
+              {aspiranteModal?.nombre}
+            </DialogTitle>
+          </DialogHeader>
+          {aspiranteModal && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                    Matrícula
+                  </p>
+                  <p className="font-mono font-bold">
+                    {aspiranteModal.matricula}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                    Lugar
+                  </p>
+                  <p className="font-black">{aspiranteModal.lugar}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                    Estatus
+                  </p>
+                  <Badge
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border-0",
+                      aspiranteModal.estatus === "Activo"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
+                    )}
+                  >
+                    {aspiranteModal.estatus}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                    Delegación
+                  </p>
+                  <p className="font-bold text-xs uppercase">
+                    {aspiranteModal.delegacion}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+                    Fecha Registro
+                  </p>
+                  <p className="font-bold">{aspiranteModal.fechaRegistro}</p>
+                </div>
+              </div>
+              {aspiranteModal.preferencias?.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                    Preferencias
+                  </p>
+                  <div className="space-y-1.5">
+                    {aspiranteModal.preferencias.map((p, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl"
+                      >
+                        <span className="text-[9px] font-black text-slate-400 w-4">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          {p.delegacionSolicitada} / {p.zonaSolicitada}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
