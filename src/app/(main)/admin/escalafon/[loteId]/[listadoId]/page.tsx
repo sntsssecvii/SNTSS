@@ -198,6 +198,10 @@ export default function DetalleListadoPage() {
   // ── CSV export ──
   const exportarCSV = useCallback(() => {
     if (!listado) return;
+    function csvCell(v: unknown): string {
+      const s = String(v ?? "").replace(/"/g, '""');
+      return /[,"\n\r]/.test(s) || /^[=+\-@]/.test(s) ? `"${s}"` : s;
+    }
     const headers = [
       "Lugar",
       "Estatus",
@@ -208,13 +212,17 @@ export default function DetalleListadoPage() {
       "Preferencias",
     ];
     const rows = aspirantesFiltrados.map((a) => [
-      a.lugar,
-      a.estatus,
-      a.matricula,
-      `"${a.nombre}"`,
-      `"${a.delegacion}"`,
-      a.fechaRegistro,
-      `"${a.preferencias.map((p) => `${p.delegacionSolicitada}/${p.zonaSolicitada}`).join(" | ")}"`,
+      csvCell(a.lugar),
+      csvCell(a.estatus),
+      csvCell(a.matricula),
+      csvCell(a.nombre),
+      csvCell(a.delegacion),
+      csvCell(a.fechaRegistro),
+      csvCell(
+        a.preferencias
+          .map((p) => `${p.delegacionSolicitada}/${p.zonaSolicitada}`)
+          .join(" | "),
+      ),
     ]);
     const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -223,7 +231,7 @@ export default function DetalleListadoPage() {
     a.href = url;
     a.download = `escalafon-${listado.categoriaCode}-${listado.periodoDecierre}.csv`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }, [aspirantesFiltrados, listado]);
 
   // ── Estados de carga / error ──
