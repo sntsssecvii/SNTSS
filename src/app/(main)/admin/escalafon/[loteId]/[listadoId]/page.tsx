@@ -758,9 +758,10 @@ export default function DetalleListadoPage() {
                   <p className="font-bold">{aspiranteModal.fechaRegistro}</p>
                 </div>
               </div>
+              {/* Preferencias */}
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Preferencias
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                  Preferencias ({aspiranteModal.preferencias?.length ?? 0})
                 </p>
                 {(aspiranteModal.preferencias?.length ?? 0) === 0 ? (
                   <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
@@ -769,20 +770,70 @@ export default function DetalleListadoPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
-                    {(aspiranteModal.preferencias ?? []).map((p, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-xl"
-                      >
-                        <span className="text-[9px] font-black text-slate-400 w-4">
-                          {idx + 1}
-                        </span>
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                          {p.delegacionSolicitada} / {p.zonaSolicitada}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 dark:bg-slate-800">
+                        <tr>
+                          {[
+                            "#",
+                            "Delegación",
+                            "Zona",
+                            "Localidad",
+                            "Adscripción",
+                            "Turno",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              className="py-2.5 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-500"
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(aspiranteModal.preferencias ?? []).map((p, idx) => (
+                          <tr
+                            key={idx}
+                            className={cn(
+                              "border-t border-slate-100 dark:border-slate-800",
+                              idx % 2 === 0
+                                ? "bg-white dark:bg-slate-900"
+                                : "bg-slate-50/50 dark:bg-slate-800/30",
+                            )}
+                          >
+                            <td className="py-2.5 px-3 font-mono font-black text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                              {p.delegacionSolicitada || "—"}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                              {p.zonaSolicitada || "—"}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                              {p.localidadSolicitada || "—"}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <p className="font-bold text-slate-700 dark:text-slate-300">
+                                {p.adscripcionCode}
+                              </p>
+                              <p className="text-[9px] text-slate-400 font-bold truncate max-w-[140px]">
+                                {p.adscripcionDesc}
+                              </p>
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-600 dark:text-slate-300">
+                              {p.turnoNum != null ? `T${p.turnoNum}` : "—"}
+                              {p.turnoDesc && (
+                                <span className="block text-[9px] text-slate-400">
+                                  {p.turnoDesc}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
