@@ -109,18 +109,11 @@ const getNavItems = (
   }
 
   if (roleUpper === "BOLSA") {
-    baseItems.push(
-      {
-        title: "Dashboard",
-        href: "/admin/bolsa-de-trabajo/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "Bolsa de Trabajo",
-        href: "/admin/bolsa-de-trabajo",
-        icon: Users,
-      },
-    );
+    baseItems.push({
+      title: "Dashboard",
+      href: "/admin/bolsa-de-trabajo/dashboard",
+      icon: LayoutDashboard,
+    });
   }
 
   if (roleUpper === "ESCALAFON") {
@@ -227,7 +220,11 @@ export function Sidebar() {
   };
 
   const isActive = (href: string) => {
-    if (href === "/dashboard" || href === "/admin") {
+    if (
+      href === "/dashboard" ||
+      href === "/admin" ||
+      href === "/admin/bolsa-de-trabajo"
+    ) {
       return pathname === href;
     }
     return pathname?.startsWith(href);
