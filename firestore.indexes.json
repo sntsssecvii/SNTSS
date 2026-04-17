@@ -267,6 +267,24 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "escalafon_listados",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoriaCode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "areaCode",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "periodoDecierre",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -5,14 +5,16 @@ import type { EscalafonListado, EscalafonAspirante } from "@/types/escalafon";
 const COL_LISTADOS = "escalafon_listados";
 const COL_ASPIRANTES = "escalafon_aspirantes";
 
-// Verifica si ya existe un listado para esa categoría y periodo
+// Verifica si ya existe un listado para esa categoría, área y periodo
 export async function listadoExiste(
   categoriaCode: string,
+  areaCode: string,
   periodoDecierre: string,
 ): Promise<boolean> {
   const snap = await adminDb
     .collection(COL_LISTADOS)
     .where("categoriaCode", "==", categoriaCode)
+    .where("areaCode", "==", areaCode)
     .where("periodoDecierre", "==", periodoDecierre)
     .limit(1)
     .get();

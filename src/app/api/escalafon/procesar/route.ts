@@ -115,12 +115,13 @@ export async function POST(req: NextRequest) {
       // Verificar duplicado
       const existe = await listadoExiste(
         listado.categoriaCode,
+        listado.areaCode,
         listado.periodoDecierre,
       );
       if (existe) {
         return NextResponse.json(
           {
-            error: `Ya existe un listado para la categoría ${listado.categoriaCode} en el periodo ${listado.periodoDecierre}.`,
+            error: `Ya existe un listado para la categoría ${listado.categoriaCode} / área ${listado.areaCode} en el periodo ${listado.periodoDecierre}.`,
           },
           { status: 409 },
         );
