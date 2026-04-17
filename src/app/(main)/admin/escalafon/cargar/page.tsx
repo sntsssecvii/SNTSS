@@ -3,9 +3,17 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase/firebase-client";
-import { ArrowLeft, FileUp, FolderOpen } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileUp, FolderOpen, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { EscalafonLote, EscalafonListado } from "@/types/escalafon";
+
+interface FileItem {
+  id: string;
+  file: File;
+  status: "pending" | "processing" | "done" | "error";
+  error?: string;
+  advertencias?: string[];
+}
 
 function CargarEscalafonContent() {
   const router = useRouter();
@@ -14,10 +22,11 @@ function CargarEscalafonContent() {
   const loteIdParam = searchParams.get("loteId");
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [advertencias, setAdvertencias] = useState<string[]>([]);
+  // Modo reemplazo: un solo archivo; modo normal: múltiples
+  const [items, setItems] = useState<FileItem[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [done, setDone] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   const [loteAbierto, setLoteAbierto] = useState<EscalafonLote | null>(null);
   const [listadoAReemplazar, setListadoAReemplazar] =
@@ -34,25 +43,23 @@ function CargarEscalafonContent() {
           : {};
 
         if (reemplazarId) {
-          // Obtener info del listado a reemplazar
           const res = await fetch(`/api/escalafon/${reemplazarId}`, {
             headers,
           });
           const data = (await res.json()) as { listado?: EscalafonListado };
           setListadoAReemplazar(data.listado ?? null);
         } else {
-          // Obtener lote abierto actual
           const res = await fetch("/api/escalafon/lotes", {
             headers,
             cache: "no-store",
           });
           const data = (await res.json()) as { lotes?: EscalafonLote[] };
-          const abierto =
-            data.lotes?.find((l) => l.estado === "ABIERTO") ?? null;
-          setLoteAbierto(abierto);
+          setLoteAbierto(
+            data.lotes?.find((l) => l.estado === "ABIERTO") ?? null,
+          );
         }
       } catch {
-        // No crítico — el API de procesar maneja la lógica
+        // No crítico
       } finally {
         setCargandoMeta(false);
       }
@@ -60,62 +67,130 @@ function CargarEscalafonContent() {
     cargar();
   }, [reemplazarId]);
 
+  function addFiles(newFiles: File[]) {
+    const pdfs = newFiles.filter(
+      (f) =>
+        f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+    );
+    if (reemplazarId) {
+      // Modo reemplazo: solo un archivo
+      const f = pdfs[0];
+      if (!f) return;
+      setItems([{ id: crypto.randomUUID(), file: f, status: "pending" }]);
+    } else {
+      setItems((prev) => [
+        ...prev,
+        ...pdfs.map((f) => ({
+          id: crypto.randomUUID(),
+          file: f,
+          status: "pending" as const,
+        })),
+      ]);
+    }
+  }
+
+  function removeItem(id: string) {
+    setItems((prev) => prev.filter((it) => it.id !== id));
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
+    if (items.length === 0 || processing) return;
 
-    setLoading(true);
-    setError(null);
-    setAdvertencias([]);
+    setProcessing(true);
+    setGlobalError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    if (reemplazarId) formData.append("reemplazarId", reemplazarId);
-    if (loteIdParam) formData.append("loteId", loteIdParam);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setGlobalError("Sesión no válida. Por favor recarga la página.");
+      setProcessing(false);
+      return;
+    }
 
-    try {
-      const idToken = await auth.currentUser?.getIdToken();
-      const res = await fetch("/api/escalafon/procesar", {
-        method: "POST",
-        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
-        body: formData,
-      });
-      const text = await res.text();
-      let data: {
-        error?: string;
-        errores?: string[];
-        listadoId?: string;
-        loteId?: string;
-      };
+    let loteIdFinal: string | null = null;
+
+    for (const item of items) {
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id ? { ...it, status: "processing" } : it,
+        ),
+      );
+
       try {
-        data = JSON.parse(text);
-      } catch {
-        console.error("[cargar] respuesta no-JSON:", text);
-        setError(`Error del servidor (${res.status}): respuesta inesperada`);
-        return;
-      }
+        const idToken = await currentUser.getIdToken();
+        const formData = new FormData();
+        formData.append("file", item.file);
+        if (reemplazarId) formData.append("reemplazarId", reemplazarId);
+        if (loteIdParam) formData.append("loteId", loteIdParam);
+        // Si ya procesamos el primer archivo y sabemos el loteId, lo pasamos
+        if (loteIdFinal) formData.append("loteId", loteIdFinal);
 
-      if (!res.ok) {
-        setError((data.error as string) ?? "Error al procesar el archivo");
-        return;
-      }
+        const res = await fetch("/api/escalafon/procesar", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${idToken}` },
+          body: formData,
+        });
 
-      if (data.errores?.length) {
-        setAdvertencias(data.errores);
-      }
+        const text = await res.text();
+        let data: {
+          error?: string;
+          errores?: string[];
+          listadoId?: string;
+          loteId?: string;
+        };
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`Error del servidor (${res.status})`);
+        }
 
-      // Redirigir al lote si hay loteId, si no a la lista
-      if (data.loteId) {
-        router.push(`/admin/escalafon/${data.loteId}`);
+        if (!res.ok) {
+          throw new Error(data.error ?? "Error al procesar el archivo");
+        }
+
+        if (data.loteId && !loteIdFinal) loteIdFinal = data.loteId;
+
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? { ...it, status: "done", advertencias: data.errores ?? [] }
+              : it,
+          ),
+        );
+      } catch (err) {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? {
+                  ...it,
+                  status: "error",
+                  error:
+                    err instanceof Error ? err.message : "Error desconocido",
+                }
+              : it,
+          ),
+        );
+      }
+    }
+
+    setProcessing(false);
+    setDone(true);
+
+    // Redirigir solo si no hay errores
+    const hayErrores = items.some((it) => it.status === "error");
+    if (!hayErrores) {
+      if (loteIdFinal) {
+        router.push(`/admin/escalafon/${loteIdFinal}`);
       } else {
         router.push("/admin/escalafon");
       }
-    } catch {
-      setError("Error de red al subir el archivo");
-    } finally {
-      setLoading(false);
     }
   };
+
+  const pendingCount = items.filter((it) => it.status === "pending").length;
+  const doneCount = items.filter((it) => it.status === "done").length;
+  const errorCount = items.filter((it) => it.status === "error").length;
+  const canSubmit = items.length > 0 && !processing;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#020617] p-4 sm:p-6 lg:p-8">
@@ -138,16 +213,18 @@ function CargarEscalafonContent() {
             </div>
             <div>
               <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">
-                Cargar Listado
+                {reemplazarId ? "Reemplazar Listado" : "Cargar Listados"}
               </h1>
               <p className="text-sm text-slate-500 mt-1">
-                Carga el PDF del listado escalafonario de condicionalidad.
+                {reemplazarId
+                  ? "Sube el PDF que reemplazará al listado existente."
+                  : "Selecciona uno o varios PDFs escalafonarios."}
               </p>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {/* Banner de modo */}
           {!cargandoMeta && (
             <>
@@ -172,7 +249,7 @@ function CargarEscalafonContent() {
                       Subiendo al lote: {loteAbierto.nombre}
                     </p>
                     <p className="text-xs text-amber-700">
-                      Este listado se añadirá al lote activo.
+                      Los listados se añadirán al lote activo.
                     </p>
                   </div>
                 </div>
@@ -186,57 +263,154 @@ function CargarEscalafonContent() {
             </>
           )}
 
-          {/* File input */}
-          <div
-            className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
-            onClick={() => inputRef.current?.click()}
-          >
-            {file ? (
-              <div>
-                <p className="font-medium text-gray-800">{file.name}</p>
-                <p className="text-sm text-gray-500">
-                  {(file.size / 1024).toFixed(1)} KB
-                </p>
-              </div>
-            ) : (
-              <div>
-                <p className="text-gray-500">
-                  Haz clic para seleccionar un PDF
-                </p>
-                <p className="text-xs text-gray-400 mt-1">Máx. 25 MB</p>
-              </div>
-            )}
-            <input
-              ref={inputRef}
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
-              {error}
+          {/* Drop zone */}
+          {!processing && !done && (
+            <div
+              className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center cursor-pointer hover:border-primary/40 transition-colors"
+              onClick={() => inputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                addFiles(Array.from(e.dataTransfer.files));
+              }}
+            >
+              <p className="text-gray-500">
+                {reemplazarId
+                  ? "Haz clic para seleccionar un PDF"
+                  : "Haz clic o arrastra uno o varios PDFs"}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Máx. 25 MB por archivo
+              </p>
+              <input
+                ref={inputRef}
+                type="file"
+                accept="application/pdf"
+                multiple={!reemplazarId}
+                className="hidden"
+                onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
+              />
             </div>
           )}
 
-          {advertencias.length > 0 && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-800 space-y-1">
-              {advertencias.map((a, i) => (
-                <p key={i}>{a}</p>
+          {/* Lista de archivos */}
+          {items.length > 0 && (
+            <div className="space-y-2">
+              {processing && (
+                <p className="text-xs font-semibold text-slate-500 text-center">
+                  Procesando {doneCount + errorCount}/{items.length}...
+                </p>
+              )}
+              {done && errorCount > 0 && (
+                <p className="text-xs font-semibold text-red-600 text-center">
+                  {doneCount} procesados · {errorCount} con error
+                </p>
+              )}
+              {items.map((it) => (
+                <div
+                  key={it.id}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
+                    it.status === "done"
+                      ? "border-green-200 bg-green-50"
+                      : it.status === "error"
+                        ? "border-red-200 bg-red-50"
+                        : it.status === "processing"
+                          ? "border-primary/30 bg-primary/5"
+                          : "border-slate-200 bg-white"
+                  }`}
+                >
+                  {it.status === "done" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  ) : it.status === "error" ? (
+                    <span className="text-red-500 shrink-0 font-black text-xs">
+                      ✕
+                    </span>
+                  ) : it.status === "processing" ? (
+                    <span className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
+                  ) : (
+                    <FileUp className="h-4 w-4 text-slate-400 shrink-0" />
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-800 truncate">
+                      {it.file.name}
+                    </p>
+                    {it.status === "error" && it.error && (
+                      <p className="text-xs text-red-600 mt-0.5">{it.error}</p>
+                    )}
+                    {it.status === "done" && it.advertencias?.length ? (
+                      <p className="text-xs text-amber-600 mt-0.5">
+                        {it.advertencias[0]}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {it.status === "pending" && !processing && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(it.id)}
+                      className="text-slate-400 hover:text-slate-700 shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           )}
 
-          <Button
-            type="submit"
-            disabled={!file || loading}
-            className="w-full h-12 rounded-2xl font-black text-base bg-primary hover:bg-primary/90 text-white"
-          >
-            {loading ? "Procesando..." : "Procesar PDF"}
-          </Button>
-        </form>
+          {globalError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
+              {globalError}
+            </div>
+          )}
+
+          {/* Botón de acción */}
+          {!done ? (
+            <form onSubmit={handleSubmit}>
+              <Button
+                type="submit"
+                disabled={!canSubmit}
+                className="w-full h-12 rounded-2xl font-black text-base bg-primary hover:bg-primary/90 text-white"
+              >
+                {processing
+                  ? `Procesando ${doneCount + errorCount + 1}/${items.length}...`
+                  : items.length === 0
+                    ? "Selecciona PDFs primero"
+                    : items.length === 1
+                      ? "Procesar PDF"
+                      : `Procesar ${items.length} PDFs`}
+              </Button>
+            </form>
+          ) : errorCount > 0 ? (
+            <div className="space-y-2">
+              <Button
+                onClick={() => {
+                  setItems((prev) =>
+                    prev
+                      .filter((it) => it.status === "error")
+                      .map((it) => ({
+                        ...it,
+                        status: "pending" as const,
+                        error: undefined,
+                      })),
+                  );
+                  setDone(false);
+                }}
+                className="w-full h-12 rounded-2xl font-black text-base"
+                variant="outline"
+              >
+                Reintentar archivos con error
+              </Button>
+              <Button
+                onClick={() => router.push("/admin/escalafon")}
+                className="w-full h-12 rounded-2xl font-black text-base bg-primary hover:bg-primary/90 text-white"
+              >
+                Ir a escalafón
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
