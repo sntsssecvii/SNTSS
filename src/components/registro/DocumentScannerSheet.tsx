@@ -71,10 +71,18 @@ export default function DocumentScannerSheet({
         return;
       }
 
-      // Sync canvas size to video
-      if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
-      if (canvas.height !== video.videoHeight)
-        canvas.height = video.videoHeight;
+      // Canvas interno = tamaño del contenedor para evitar stretch.
+      // El video se escala con letterboxing para mantener su aspect ratio.
+      const cw = canvas.parentElement?.clientWidth || canvas.clientWidth;
+      const ch = canvas.parentElement?.clientHeight || canvas.clientHeight;
+      if (canvas.width !== cw) canvas.width = cw;
+      if (canvas.height !== ch) canvas.height = ch;
+
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const scale = Math.min(cw / vw, ch / vh);
+      const dx = (cw - vw * scale) / 2;
+      const dy = (ch - vh * scale) / 2;
 
       const shouldProcess =
         timestamp - lastProcessRef.current >= DETECTION_INTERVAL_MS;
@@ -82,23 +90,24 @@ export default function DocumentScannerSheet({
       if (shouldProcess) {
         lastProcessRef.current = timestamp;
 
+        // tmp en resolución nativa del video para que jscanify detecte bien
         const tmp = document.createElement("canvas");
-        tmp.width = video.videoWidth;
-        tmp.height = video.videoHeight;
+        tmp.width = vw;
+        tmp.height = vh;
         tmp.getContext("2d")!.drawImage(video, 0, 0);
 
         try {
           const highlighted = scannerRef.current.highlightPaper(tmp);
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(highlighted, 0, 0);
+          ctx.clearRect(0, 0, cw, ch);
+          ctx.drawImage(highlighted, dx, dy, vw * scale, vh * scale);
           setDocumentDetected(true);
         } catch {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(video, 0, 0);
+          ctx.clearRect(0, 0, cw, ch);
+          ctx.drawImage(video, dx, dy, vw * scale, vh * scale);
           setDocumentDetected(false);
         }
       } else {
-        ctx.drawImage(video, 0, 0);
+        ctx.drawImage(video, dx, dy, vw * scale, vh * scale);
       }
 
       rafRef.current = requestAnimationFrame(loop);
@@ -406,7 +415,7 @@ export default function DocumentScannerSheet({
               <Button
                 variant="outline"
                 onClick={handleRetry}
-                className="border-white/20 text-white hover:bg-white/10"
+                className="border-white/20 text-white bg-transparent hover:bg-white/10"
               >
                 Reintentar
               </Button>
@@ -446,7 +455,7 @@ export default function DocumentScannerSheet({
               <Button
                 variant="outline"
                 onClick={handleRetry}
-                className="flex-1 border-white/20 text-white hover:bg-white/10 gap-2"
+                className="flex-1 border-white/20 text-white bg-transparent hover:bg-white/10 gap-2"
               >
                 <RotateCcw className="w-4 h-4" />
                 Repetir
