@@ -185,14 +185,20 @@ export default function DashboardPage() {
         setPeriodo(result.periodo || null);
       } catch (err: any) {
         let nextErrorStatus: number | null = null;
-        if (err?.message?.includes("matrícula vinculada"))
-          nextErrorStatus = 400;
-        else if (err?.message?.includes("No se pudo validar la sesión"))
+        const msg = err?.message || "";
+        if (msg.includes("matrícula vinculada")) nextErrorStatus = 400;
+        else if (msg.includes("No se pudo validar la sesión"))
           nextErrorStatus = 401;
-        else if (err?.message?.includes("No hay información oficial activa"))
+        else if (msg.includes("no está activa")) nextErrorStatus = 403;
+        else if (
+          msg.includes("No hay información oficial activa") ||
+          msg.includes("No se encontraron trámites vigentes")
+        )
           nextErrorStatus = 404;
-        if (nextErrorStatus !== null) setErrorStatus(nextErrorStatus);
-        setError(err.message || "Error al cargar tus trámites.");
+        else if (msg.includes("todavía se está preparando"))
+          nextErrorStatus = 503;
+        setErrorStatus(nextErrorStatus);
+        setError(msg || "Error al cargar tus trámites.");
       } finally {
         setPageLoading(false);
       }
@@ -340,10 +346,12 @@ export default function DashboardPage() {
                           : errorStatus === 401
                             ? "Sesión expirada"
                             : errorStatus === 403
-                              ? "Acceso restringido"
+                              ? "Cuenta no activa"
                               : errorStatus === 404
-                                ? "Sin trámites vigentes"
-                                : "Algo salió mal"}
+                                ? "Sin movimientos registrados"
+                                : errorStatus === 503
+                                  ? "Datos en preparación"
+                                  : "Error al cargar tu información"}
                       </p>
                       <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
                         {error}
