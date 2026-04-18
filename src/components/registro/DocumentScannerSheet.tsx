@@ -291,10 +291,10 @@ export default function DocumentScannerSheet({
               exit={{ opacity: 0 }}
               className="absolute inset-0"
             >
-              {/* Video oculto — fuente de frames */}
+              {/* Video fuente de frames — no usar display:none en iOS Safari (bloquea el decoder) */}
               <video
                 ref={videoRef}
-                className="hidden"
+                className="absolute opacity-0 pointer-events-none w-px h-px"
                 playsInline
                 muted
                 autoPlay
