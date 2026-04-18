@@ -114,9 +114,11 @@ export async function POST(request: NextRequest) {
 
   try {
     assertSameOrigin(request);
+    // Límite por IP generoso para cubrir redes compartidas (delegaciones, hospitales).
+    // El límite real de abuso está en el bucket por email (3/hr).
     await enforceRateLimitRedis(request, {
       bucket: "api:registro:create:ip",
-      limit: 40,
+      limit: 200,
       windowMs: 5 * 60_000,
     });
 
@@ -203,6 +205,22 @@ export async function POST(request: NextRequest) {
         { error: "Ya existe una solicitud registrada para esta matrícula." },
         { status: 409 },
       );
+    }
+
+    // Recuperar usuario huérfano: puede existir en Auth sin doc en Firestore si un
+    // request anterior fue interrumpido (timeout, caída de red) después de createUser
+    // pero antes de escribir en Firestore. En ese caso lo eliminamos para permitir
+    // que el usuario vuelva a registrarse correctamente.
+    try {
+      const orphanedAuthUser = await adminAuth.getUserByEmail(
+        parsed.data.email,
+      );
+      await adminAuth.deleteUser(orphanedAuthUser.uid);
+    } catch (authLookupError: any) {
+      if (authLookupError?.code !== "auth/user-not-found") {
+        throw authLookupError;
+      }
+      // No existe en Auth → flujo normal
     }
 
     const authUser = await adminAuth.createUser({
@@ -376,6 +394,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Este correo ya está registrado." },
         { status: 409 },
+      );
+    }
+
+    if (error?.code === "auth/weak-password") {
+      return NextResponse.json(
+        {
+          error:
+            "La contraseña no cumple los requisitos de seguridad de Firebase. Usa al menos 8 caracteres con letras y números.",
+        },
+        { status: 400 },
       );
     }
 

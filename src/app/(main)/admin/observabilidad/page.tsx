@@ -1,0 +1,362 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  Users,
+  RefreshCw,
+  ShieldCheck,
+  UserCheck,
+  Activity,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase/firebase-client";
+import { useAuth } from "@/contexts/AuthContext";
+import { isAdminRole } from "@/lib/auth/roles";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+interface OverviewData {
+  pendingValidations: number;
+  activeUsers: number;
+  registrationsToday: number;
+  registrationErrorsToday: number;
+  registrationsLastHour: number;
+  registrationErrorsLastHour: number;
+  registrationWarningsLastHour: number;
+  approvalsLastHour: number;
+  rejectionsLastHour: number;
+}
+
+interface RecentEvent {
+  id: string;
+  source: "registration" | "admin";
+  status: "success" | "warning" | "error";
+  title: string;
+  message: string;
+  createdAt: string | null;
+}
+
+interface ObservabilidadData {
+  overview: OverviewData;
+  recentEvents: RecentEvent[];
+}
+
+const REFRESH_INTERVAL_MS = 30_000;
+
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return `hace ${secs}s`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `hace ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  return `hace ${hrs}h`;
+}
+
+function KpiCard({
+  label,
+  value,
+  icon: Icon,
+  variant = "neutral",
+  sublabel,
+}: {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  variant?: "neutral" | "success" | "error" | "warning" | "info";
+  sublabel?: string;
+}) {
+  const colors = {
+    neutral: "bg-slate-50 border-slate-200 text-slate-700",
+    success: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    error: "bg-red-50 border-red-200 text-red-700",
+    warning: "bg-amber-50 border-amber-200 text-amber-700",
+    info: "bg-blue-50 border-blue-200 text-blue-700",
+  };
+  const iconColors = {
+    neutral: "text-slate-400",
+    success: "text-emerald-500",
+    error: "text-red-500",
+    warning: "text-amber-500",
+    info: "text-blue-500",
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-5 flex flex-col gap-3",
+        colors[variant],
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-widest opacity-70">
+          {label}
+        </span>
+        <Icon className={cn("w-4 h-4", iconColors[variant])} />
+      </div>
+      <div>
+        <span className="text-4xl font-black tabular-nums">{value}</span>
+        {sublabel && <p className="text-xs opacity-60 mt-1">{sublabel}</p>}
+      </div>
+    </div>
+  );
+}
+
+function EventRow({ event }: { event: RecentEvent }) {
+  const icon = {
+    success: (
+      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+    ),
+    warning: (
+      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+    ),
+    error: <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />,
+  }[event.status];
+
+  const rowBg = {
+    success: "",
+    warning: "bg-amber-50/50",
+    error: "bg-red-50/60",
+  }[event.status];
+
+  return (
+    <div className={cn("flex items-start gap-3 px-4 py-3 rounded-xl", rowBg)}>
+      {icon}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold text-slate-800">
+            {event.title}
+          </span>
+          <Badge
+            variant="outline"
+            className="text-[10px] h-4 px-1.5 font-medium"
+          >
+            {event.source === "registration" ? "registro" : "admin"}
+          </Badge>
+        </div>
+        <p className="text-xs text-slate-500 mt-0.5 truncate">
+          {event.message}
+        </p>
+      </div>
+      <span className="text-[10px] text-slate-400 shrink-0 pt-0.5 tabular-nums">
+        {formatRelativeTime(event.createdAt)}
+      </span>
+    </div>
+  );
+}
+
+export default function ObservabilidadPage() {
+  const { user, userData, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [data, setData] = useState<ObservabilidadData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && (!user || !isAdminRole(userData?.role))) {
+      router.push("/login");
+    }
+  }, [user, userData, authLoading, router]);
+
+  const fetchData = useCallback(async (isManual = false) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    if (isManual) setRefreshing(true);
+
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/admin/observabilidad/registro", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP_${res.status}`);
+      setData(json.data);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Error al cargar datos");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => fetchData(), REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+          className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full"
+        />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <XCircle className="w-10 h-10 text-red-500" />
+        <p className="text-slate-600 text-sm">{error}</p>
+        <Button variant="outline" size="sm" onClick={() => fetchData(true)}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+
+  const ov = data?.overview;
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Activity className="w-6 h-6 text-red-600" />
+            Monitor de Registros
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Actualización automática cada 30 segundos
+            {lastUpdated && (
+              <span className="ml-2 text-slate-400">
+                · última:{" "}
+                {lastUpdated.toLocaleTimeString("es-MX", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </span>
+            )}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchData(true)}
+          disabled={refreshing}
+          className="gap-1.5"
+        >
+          <RefreshCw
+            className={cn("w-3.5 h-3.5", refreshing && "animate-spin")}
+          />
+          Actualizar
+        </Button>
+      </div>
+
+      {/* KPIs — hoy */}
+      <section>
+        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+          Hoy
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard
+            label="Registros exitosos"
+            value={ov?.registrationsToday ?? 0}
+            icon={CheckCircle2}
+            variant={ov?.registrationsToday ? "success" : "neutral"}
+            sublabel="solicitudes recibidas"
+          />
+          <KpiCard
+            label="Errores"
+            value={ov?.registrationErrorsToday ?? 0}
+            icon={XCircle}
+            variant={ov?.registrationErrorsToday ? "error" : "neutral"}
+            sublabel="intentos fallidos"
+          />
+          <KpiCard
+            label="Pendientes"
+            value={ov?.pendingValidations ?? 0}
+            icon={Clock}
+            variant={ov?.pendingValidations ? "warning" : "neutral"}
+            sublabel="esperando validación"
+          />
+          <KpiCard
+            label="Usuarios activos"
+            value={ov?.activeUsers ?? 0}
+            icon={Users}
+            variant="info"
+            sublabel="cuentas aprobadas"
+          />
+        </div>
+      </section>
+
+      {/* KPIs — última hora */}
+      <section>
+        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+          Última hora
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard
+            label="Registros"
+            value={ov?.registrationsLastHour ?? 0}
+            icon={UserCheck}
+            variant={ov?.registrationsLastHour ? "success" : "neutral"}
+          />
+          <KpiCard
+            label="Errores"
+            value={ov?.registrationErrorsLastHour ?? 0}
+            icon={XCircle}
+            variant={ov?.registrationErrorsLastHour ? "error" : "neutral"}
+          />
+          <KpiCard
+            label="Aprobados"
+            value={ov?.approvalsLastHour ?? 0}
+            icon={ShieldCheck}
+            variant={ov?.approvalsLastHour ? "success" : "neutral"}
+          />
+          <KpiCard
+            label="Rechazados"
+            value={ov?.rejectionsLastHour ?? 0}
+            icon={AlertTriangle}
+            variant={ov?.rejectionsLastHour ? "warning" : "neutral"}
+          />
+        </div>
+      </section>
+
+      {/* Feed de eventos */}
+      <section>
+        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+          Actividad reciente
+        </h2>
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
+          <AnimatePresence initial={false}>
+            {data?.recentEvents.length ? (
+              data.recentEvents.map((event) => (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <EventRow event={event} />
+                </motion.div>
+              ))
+            ) : (
+              <div className="py-12 text-center text-slate-400 text-sm">
+                Sin actividad reciente
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </section>
+    </div>
+  );
+}
