@@ -96,7 +96,7 @@ export default function RegistroForm() {
     <div className="w-full max-w-lg mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
       {/* Hero compacto */}
       <div
-        className="px-4 py-3 flex items-center gap-3"
+        className="px-4 py-3 min-h-[64px] flex items-center gap-3"
         style={{
           background: "linear-gradient(135deg, #CC1B1B 0%, #7F0000 100%)",
         }}
