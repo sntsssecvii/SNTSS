@@ -309,8 +309,8 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
             >
               Términos de Uso
             </button>
-            . Declaro bajo protesta de decir verdad que soy trabajador del IMSS
-            agremiado a SNTSS Sección VII.
+            . Declaro bajo protesta de decir verdad que soy trabajador
+            sindicalizado del IMSS.
           </span>
         </label>
 
@@ -343,12 +343,13 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
               <p>
                 <strong>Datos recabados:</strong> nombre completo, matrícula
                 IMSS, correo electrónico y documentos de identificación (INE,
-                tarjetón sindical y constancia de afiliación).
+                tarjetón de pago y constancia de afiliación).
               </p>
               <p>
-                <strong>Finalidad:</strong> Validar tu membresía sindical y
-                gestionar tu acceso al Portal del Agremiado. Tus datos serán
-                tratados exclusivamente para estos fines.
+                <strong>Finalidad:</strong> Validar que eres trabajador
+                sindicalizado del IMSS y gestionar tu acceso al Portal del
+                Sindicalizado. Tus datos serán tratados exclusivamente para
+                estos fines.
               </p>
               <p>
                 <strong>Conservación de documentos:</strong> Los documentos de
@@ -371,10 +372,10 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
           {showDoc === "terminos" && (
             <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
               <p>
-                <strong>Acceso exclusivo para agremiados:</strong> El Portal del
-                Agremiado es una herramienta de gestión interna del SNTSS
-                Sección VII, exclusiva para trabajadores del IMSS con membresía
-                sindical vigente.
+                <strong>Acceso exclusivo para sindicalizados:</strong> El Portal
+                del Sindicalizado es una herramienta de gestión interna del
+                SNTSS Sección VII, exclusiva para trabajadores sindicalizados
+                del IMSS.
               </p>
               <p>
                 <strong>Veracidad de la información:</strong> Al registrarte,

@@ -41,7 +41,7 @@ export default function RegistroPage() {
                 Sección VII
               </span>
               <span className="text-xs font-bold text-slate-500">
-                Acceso para agremiados
+                Acceso para sindicalizados
               </span>
             </div>
           </Link>
@@ -66,7 +66,7 @@ export default function RegistroPage() {
                 className="inline-block"
               >
                 <span className="rounded-full bg-red-100 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-red-700 border border-red-200/50">
-                  Registro de Agremiados
+                  Registro de Sindicalizados
                 </span>
                 <h2 className="mt-6 text-5xl md:text-6xl font-black tracking-tighter text-slate-950 leading-[0.95]">
                   Solicita tu acceso <br />
@@ -84,7 +84,7 @@ export default function RegistroPage() {
               >
                 Registra tus datos para solicitar acceso a los servicios,
                 trámites e información oficial que el sindicato pone a
-                disposición de sus agremiados.
+                disposición de sus sindicalizados.
               </motion.p>
             </div>
 
