@@ -65,7 +65,8 @@ export default function DocumentScannerSheet({
     if (!ctx) return;
 
     const loop = (timestamp: number) => {
-      if (video.readyState < video.HAVE_ENOUGH_DATA) {
+      // HAVE_CURRENT_DATA = 2; iOS Safari rara vez llega a HAVE_ENOUGH_DATA = 4
+      if (video.readyState < 2 || video.videoWidth === 0) {
         rafRef.current = requestAnimationFrame(loop);
         return;
       }
@@ -136,6 +137,12 @@ export default function DocumentScannerSheet({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Esperar metadata antes de play para que videoWidth/Height estén disponibles
+        await new Promise<void>((resolve) => {
+          const v = videoRef.current!;
+          if (v.videoWidth > 0) return resolve();
+          v.addEventListener("loadedmetadata", () => resolve(), { once: true });
+        });
         await videoRef.current.play();
       }
 
