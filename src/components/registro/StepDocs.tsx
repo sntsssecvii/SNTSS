@@ -18,7 +18,10 @@ interface StepDocsProps {
   isSubmitting: boolean;
 }
 
-const MAX_REGISTRATION_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+// Para imágenes se comprime client-side a ~1MB, así que el límite de entrada
+// puede ser mayor. El servidor igual valida a 5MB como tope de seguridad.
+const MAX_IMAGE_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB — cubre fotos de iPhone/Android
+const MAX_PDF_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB — PDFs no se comprimen
 const ALLOWED_REGISTRATION_FILE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -56,17 +59,28 @@ export default function StepDocs({
 
     // Validar tipo
     if (!ALLOWED_REGISTRATION_FILE_TYPES.includes(file.type)) {
+      const isHeic =
+        file.name.toLowerCase().endsWith(".heic") ||
+        file.name.toLowerCase().endsWith(".heif");
       setErrors((prev) => ({
         ...prev,
-        [type]: "Solo imágenes (JPG, PNG) o PDF son permitidos",
+        [type]: isHeic
+          ? "Foto en formato HEIC (iPhone). Abre la imagen en Fotos → comparte → selecciona 'JPG'."
+          : "Solo se aceptan imágenes JPG, PNG o archivos PDF.",
       }));
       return;
     }
 
-    if (file.size <= 0 || file.size > MAX_REGISTRATION_FILE_SIZE_BYTES) {
+    const maxSize =
+      file.type === "application/pdf"
+        ? MAX_PDF_FILE_SIZE_BYTES
+        : MAX_IMAGE_FILE_SIZE_BYTES;
+
+    if (file.size <= 0 || file.size > maxSize) {
+      const limitLabel = file.type === "application/pdf" ? "5 MB" : "20 MB";
       setErrors((prev) => ({
         ...prev,
-        [type]: "El archivo debe pesar máximo 5 MB",
+        [type]: `El archivo es demasiado grande. Máximo ${limitLabel}.`,
       }));
       return;
     }
@@ -194,7 +208,7 @@ export default function StepDocs({
             <div>
               <p className="font-medium text-slate-900">{label}</p>
               <p className="text-xs text-slate-500 mt-1">
-                JPG, PNG o PDF (Máx. 5MB)
+                JPG, PNG o PDF · Imágenes hasta 20MB, PDF hasta 5MB
               </p>
             </div>
             <Button
