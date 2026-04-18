@@ -500,7 +500,7 @@ export default function PublicHomePage() {
               ¿Tienes dudas con tu acceso?
             </p>
             <Link
-              href="mailto:soporte@sntss-seccion7.mx"
+              href="mailto:admin@sntssvii.com"
               className="inline-flex items-center text-sm font-bold text-red-700 hover:underline"
             >
               Contactar a soporte <ArrowRight className="ml-1 h-3 w-3" />

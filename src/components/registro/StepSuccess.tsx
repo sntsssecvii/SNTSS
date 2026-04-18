@@ -58,7 +58,7 @@ export default function StepSuccess() {
             </h4>
             <p className="text-xs text-slate-500 mt-0.5">
               Nuestro equipo administrativo verificará tus documentos y
-              matrícula.
+              matrícula en un plazo de <strong>1 a 2 días hábiles</strong>.
             </p>
           </div>
         </div>
