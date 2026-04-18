@@ -97,28 +97,6 @@ export default function LoginPage() {
                 tu cuenta para consultar la información y los servicios
                 disponibles para la base trabajadora.
               </motion.p>
-
-              <motion.div
-                variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-                className="grid grid-cols-2 gap-8 pt-6"
-              >
-                <div className="space-y-1">
-                  <p className="text-3xl font-black text-white tracking-tighter">
-                    16,000
-                  </p>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                    Trabajadores
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-black text-white tracking-tighter">
-                    Sección VII
-                  </p>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                    Baja California
-                  </p>
-                </div>
-              </motion.div>
             </div>
           </div>
 
