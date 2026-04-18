@@ -24,7 +24,6 @@ interface StepInfoProps {
   initialData?: Partial<RegistroFormData>;
 }
 
-// Separate schema for this step to validate only these fields before moving on
 const stepInfoSchema = registroBaseSchema
   .pick({
     nombre: true,
@@ -40,6 +39,9 @@ const stepInfoSchema = registroBaseSchema
     path: ["confirmPassword"],
   });
 
+const inputCls =
+  "h-12 text-base transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500";
+
 export default function StepInfo({ onNext, initialData }: StepInfoProps) {
   const {
     register,
@@ -53,19 +55,13 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
   });
 
   const [sinApellidoMaterno, setSinApellidoMaterno] = useState(false);
-
-  // Estados para funcionalidades mejoradas
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Watch para validaciones en tiempo real
   const password = watch("password");
   const confirmPassword = watch("confirmPassword");
 
-  // Evaluar fortaleza de contraseña
   const passwordStrength = password ? evaluarFortalezaPassword(password) : null;
-
-  // Validar coincidencia de contraseñas
   const passwordMatch =
     confirmPassword && password
       ? passwordsCoinciden(password, confirmPassword)
@@ -76,15 +72,9 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
   };
 
   return (
-    <motion.form
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      className="space-y-6"
-      onSubmit={handleSubmit(onSubmit)}
-    >
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
+    <form className="px-5 py-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-1.5">
           <Label htmlFor="nombre">Nombre(s)</Label>
           <Input
             id="nombre"
@@ -95,13 +85,13 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
                   setValue("nombre", toTitleCase(e.target.value));
               },
             })}
-            className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+            className={inputCls}
           />
           {errors.nombre && (
-            <p className="text-sm text-red-500">{errors.nombre.message}</p>
+            <p className="text-xs text-red-500">{errors.nombre.message}</p>
           )}
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="apellidoPaterno">Apellido Paterno</Label>
           <Input
             id="apellidoPaterno"
@@ -112,17 +102,17 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
                   setValue("apellidoPaterno", toTitleCase(e.target.value));
               },
             })}
-            className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+            className={inputCls}
           />
           {errors.apellidoPaterno && (
-            <p className="text-sm text-red-500">
+            <p className="text-xs text-red-500">
               {errors.apellidoPaterno.message}
             </p>
           )}
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="apellidoMaterno">Apellido Materno</Label>
         <Input
           id="apellidoMaterno"
@@ -130,12 +120,11 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
           disabled={sinApellidoMaterno}
           {...register("apellidoMaterno", {
             onBlur: (e) => {
-              if (!sinApellidoMaterno && e.target.value) {
+              if (!sinApellidoMaterno && e.target.value)
                 setValue("apellidoMaterno", toTitleCase(e.target.value));
-              }
             },
           })}
-          className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`${inputCls} disabled:opacity-50 disabled:cursor-not-allowed`}
         />
         <label className="flex items-center gap-2 cursor-pointer select-none mt-1">
           <input
@@ -147,158 +136,151 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
             }}
             className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
           />
-          <span className="text-sm text-slate-600">
+          <span className="text-sm text-slate-500">
             No tengo apellido materno
           </span>
         </label>
         {errors.apellidoMaterno && (
-          <p className="text-sm text-red-500">
+          <p className="text-xs text-red-500">
             {errors.apellidoMaterno.message}
           </p>
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <Label htmlFor="matricula">Matrícula</Label>
         <Input
           id="matricula"
           placeholder="Máximo 10 dígitos numéricos"
           maxLength={10}
           {...register("matricula")}
-          className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+          className={inputCls}
         />
         {errors.matricula && (
-          <p className="text-sm text-red-500">{errors.matricula.message}</p>
+          <p className="text-xs text-red-500">{errors.matricula.message}</p>
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="email">
-          Correo Electrónico Institucional / Personal
-        </Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="email">Correo Electrónico</Label>
         <Input
           id="email"
           type="email"
           placeholder="nombre@ejemplo.com"
           {...register("email")}
-          className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+          className={inputCls}
         />
         {errors.email && (
-          <p className="text-sm text-red-500">{errors.email.message}</p>
+          <p className="text-xs text-red-500">{errors.email.message}</p>
         )}
       </div>
 
-      {/* Contraseñas mejoradas */}
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="password">Contraseña</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder="Mínimo 8 caracteres"
-              {...register("password")}
-              className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500 pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              {showPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
-            </button>
-          </div>
-          {errors.password && (
-            <p className="text-sm text-red-500">{errors.password.message}</p>
-          )}
-
-          {/* Indicador de fortaleza */}
-          {passwordStrength && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(passwordStrength.score + 1) * 25}%` }}
-                    className={`h-full ${passwordStrength.color} transition-all duration-300`}
-                  />
-                </div>
-                <span className="text-xs font-medium text-slate-600">
-                  {passwordStrength.label}
-                </span>
+      <div className="space-y-1.5">
+        <Label htmlFor="password">Contraseña</Label>
+        <div className="relative">
+          <Input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Mínimo 8 caracteres"
+            {...register("password")}
+            className={`${inputCls} pr-11`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            {showPassword ? (
+              <EyeOff className="w-5 h-5" />
+            ) : (
+              <Eye className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+        {errors.password && (
+          <p className="text-xs text-red-500">{errors.password.message}</p>
+        )}
+        {passwordStrength && (
+          <div className="space-y-1.5 mt-1">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(passwordStrength.score + 1) * 25}%` }}
+                  className={`h-full ${passwordStrength.color} transition-all duration-300`}
+                />
               </div>
-              {passwordStrength.suggestions.length > 0 && (
-                <div className="text-xs text-slate-500 space-y-1">
-                  {passwordStrength.suggestions.map((suggestion, idx) => (
-                    <p key={idx}>• {suggestion}</p>
-                  ))}
-                </div>
-              )}
+              <span className="text-xs font-medium text-slate-600 shrink-0">
+                {passwordStrength.label}
+              </span>
             </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-          <div className="relative">
-            <Input
-              id="confirmPassword"
-              type={showConfirmPassword ? "text" : "password"}
-              placeholder="Repite tu contraseña"
-              {...register("confirmPassword")}
-              className="transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500 pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              {showConfirmPassword ? (
-                <EyeOff className="w-5 h-5" />
-              ) : (
-                <Eye className="w-5 h-5" />
-              )}
-            </button>
+            {passwordStrength.suggestions.length > 0 && (
+              <div className="text-xs text-slate-400 space-y-0.5">
+                {passwordStrength.suggestions.map((s, i) => (
+                  <p key={i}>• {s}</p>
+                ))}
+              </div>
+            )}
           </div>
-          {errors.confirmPassword && (
-            <p className="text-sm text-red-500">
-              {errors.confirmPassword.message}
-            </p>
-          )}
-
-          {/* Indicador de coincidencia */}
-          {confirmPassword && (
-            <div
-              className={`text-xs flex items-center gap-1 ${passwordMatch ? "text-green-600" : "text-red-500"}`}
-            >
-              {passwordMatch ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  Las contraseñas coinciden
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-4 h-4" />
-                  Las contraseñas no coinciden
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
-      <div className="pt-4 flex justify-end">
+      <div className="space-y-1.5">
+        <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+        <div className="relative">
+          <Input
+            id="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
+            placeholder="Repite tu contraseña"
+            {...register("confirmPassword")}
+            className={`${inputCls} pr-11`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            {showConfirmPassword ? (
+              <EyeOff className="w-5 h-5" />
+            ) : (
+              <Eye className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+        {errors.confirmPassword && (
+          <p className="text-xs text-red-500">
+            {errors.confirmPassword.message}
+          </p>
+        )}
+        {confirmPassword && (
+          <div
+            className={`text-xs flex items-center gap-1 mt-1 ${
+              passwordMatch ? "text-emerald-600" : "text-red-500"
+            }`}
+          >
+            {passwordMatch ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Las contraseñas coinciden
+              </>
+            ) : (
+              <>
+                <XCircle className="w-3.5 h-3.5" />
+                Las contraseñas no coinciden
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="pt-1">
         <Button
           type="submit"
-          className="w-full md:w-auto bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white shadow-lg transform active:scale-95 transition-all"
+          className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg shadow-red-500/20 active:scale-95 transition-transform"
         >
-          Siguiente: Documentación
+          Continuar →
         </Button>
       </div>
-    </motion.form>
+    </form>
   );
 }

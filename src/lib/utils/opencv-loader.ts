@@ -4,7 +4,7 @@
  * El archivo WASM pesa ~8MB y se carga una sola vez por sesión.
  */
 
-const OPENCV_URL = "https://docs.opencv.org/4.9.0/opencv.js";
+const OPENCV_URL = "/opencv.js";
 const LOAD_TIMEOUT_MS = 40_000;
 
 let loadPromise: Promise<void> | null = null;

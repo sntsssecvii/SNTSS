@@ -10,13 +10,20 @@ import type { RegistroFormData } from "@/lib/schemas/registro";
 
 export default function RegistroForm() {
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1);
   const [formData, setFormData] = useState<Partial<RegistroFormData>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const handleInfoSubmit = (data: Partial<RegistroFormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
+    setDirection(1);
     setStep(2);
+  };
+
+  const handleBack = () => {
+    setDirection(-1);
+    setStep(1);
   };
 
   const handleDocsSubmit = async (files: {
@@ -65,13 +72,12 @@ export default function RegistroForm() {
           result?.warning || "Tu solicitud ha sido enviada para validación.",
       });
 
-      setStep(3); // Mostrar pantalla de éxito
+      setDirection(1);
+      setStep(3);
     } catch (error: any) {
-      let msg = error.message || "Ocurrió un error inesperado.";
-
       toast({
         title: "Error al registrar",
-        description: msg,
+        description: error.message || "Ocurrió un error inesperado.",
         variant: "destructive",
       });
     } finally {
@@ -79,56 +85,78 @@ export default function RegistroForm() {
     }
   };
 
+  const heroTitle =
+    step === 1
+      ? "Datos personales"
+      : step === 2
+        ? "Documentos requeridos"
+        : "Registro completado";
+
   return (
-    <div className="w-full max-w-2xl mx-auto bg-white/95 backdrop-blur-sm dark:bg-slate-900/90 rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
-      {/* Progress Bar */}
-      <div className="h-2 bg-slate-100 w-full relative">
-        <motion.div
-          className="absolute top-0 left-0 h-full bg-gradient-to-r from-red-600 to-red-800"
-          initial={{ width: "0%" }}
-          animate={{ width: step === 1 ? "50%" : "100%" }}
-          transition={{ duration: 0.5 }}
-        />
+    <div className="w-full bg-white overflow-hidden">
+      {/* Hero compacto */}
+      <div
+        className="px-4 py-3 min-h-[64px] flex items-center gap-3"
+        style={{
+          background: "linear-gradient(135deg, #CC1B1B 0%, #7F0000 100%)",
+        }}
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold text-white/60 uppercase tracking-wider">
+            SNTSS · Sección VII
+          </p>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={step}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="text-sm font-bold text-white"
+            >
+              {heroTitle}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+        {step <= 2 && (
+          <div className="flex gap-1 flex-shrink-0">
+            {[1, 2].map((s) => (
+              <motion.div
+                key={s}
+                className="h-0.5 w-5 rounded-full"
+                animate={{
+                  backgroundColor:
+                    step >= s ? "#ffffff" : "rgba(255,255,255,0.3)",
+                }}
+                transition={{ duration: 0.3 }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="p-8 md:p-10">
-        <div className="mb-8 text-center">
-          <motion.h2
-            key={step}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-700 to-red-900 dark:from-red-400 dark:to-red-600"
-          >
-            {step === 1
-              ? "Información Personal"
-              : step === 2
-                ? "Documentación"
-                : "¡Todo listo!"}
-          </motion.h2>
-          <p className="text-slate-500 text-sm mt-2">
-            {step <= 2 ? `Paso ${step} de 2` : "Registro completado"}
-          </p>
-        </div>
-
-        <AnimatePresence mode="wait">
+      {/* Contenido del paso */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={step}
+          initial={{ x: direction * 40, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: direction * -40, opacity: 0 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
           {step === 1 ? (
-            <StepInfo
-              key="step1"
-              onNext={handleInfoSubmit}
-              initialData={formData}
-            />
+            <StepInfo onNext={handleInfoSubmit} initialData={formData} />
           ) : step === 2 ? (
             <StepDocs
-              key="step2"
-              onBack={() => setStep(1)}
+              onBack={handleBack}
               onSubmit={handleDocsSubmit}
               isSubmitting={isSubmitting}
             />
           ) : (
-            <StepSuccess key="step3" />
+            <StepSuccess />
           )}
-        </AnimatePresence>
-      </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
