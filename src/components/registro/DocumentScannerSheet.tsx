@@ -120,7 +120,7 @@ export default function DocumentScannerSheet({
       await loadOpenCV();
 
       setLoadingMsg("Iniciando cámara...");
-      const jscanifyModule = await import("jscanify");
+      const jscanifyModule = await import("jscanify/client");
       const jscanify = jscanifyModule.default ?? jscanifyModule;
       scannerRef.current = new (jscanify as any)();
 

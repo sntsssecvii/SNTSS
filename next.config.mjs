@@ -1,6 +1,30 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["framer-motion"],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        net: false,
+        tls: false,
+        fs: false,
+        child_process: false,
+        dns: false,
+        os: false,
+        path: false,
+        crypto: false,
+        stream: false,
+        http: false,
+        https: false,
+        zlib: false,
+        url: false,
+        util: false,
+        assert: false,
+        buffer: false,
+      };
+    }
+    return config;
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

@@ -1,4 +1,4 @@
-declare module "jscanify" {
+declare module "jscanify/client" {
   class jscanify {
     highlightPaper(
       image: HTMLCanvasElement | HTMLImageElement,
