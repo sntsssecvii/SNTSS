@@ -20,6 +20,7 @@ import {
   Users,
   ShieldCheck,
   Crown,
+  Activity,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -79,6 +80,11 @@ const getNavItems = (
         href: "/admin/validaciones",
         icon: ShieldCheck,
         badge: pendingCount > 0 ? pendingCount.toString() : undefined,
+      },
+      {
+        title: "Monitor",
+        href: "/admin/observabilidad",
+        icon: Activity,
       },
       /* Oculto para MVP:
       {
