@@ -34,6 +34,8 @@ const ALLOWED_REGISTRATION_FILE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
   "application/pdf",
 ];
 
@@ -71,15 +73,15 @@ export default function StepDocs({
     if (!file) return;
 
     // Validar tipo
-    if (!ALLOWED_REGISTRATION_FILE_TYPES.includes(file.type)) {
-      const isHeic =
-        file.name.toLowerCase().endsWith(".heic") ||
-        file.name.toLowerCase().endsWith(".heif");
+    const isHeicByExtension =
+      file.name.toLowerCase().endsWith(".heic") ||
+      file.name.toLowerCase().endsWith(".heif");
+    const isAllowed =
+      ALLOWED_REGISTRATION_FILE_TYPES.includes(file.type) || isHeicByExtension;
+    if (!isAllowed) {
       setErrors((prev) => ({
         ...prev,
-        [type]: isHeic
-          ? "Foto en formato HEIC (iPhone). Abre la imagen en Fotos → comparte → selecciona 'JPG'."
-          : "Solo se aceptan imágenes JPG, PNG o archivos PDF.",
+        [type]: "Solo se aceptan imágenes JPG, PNG, HEIC o archivos PDF.",
       }));
       return;
     }
@@ -207,7 +209,7 @@ export default function StepDocs({
         ref={inputRef}
         onChange={(e) => handleFileChange(e, type)}
         className="hidden"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/pdf"
       />
 
       <div className="flex flex-col items-center justify-center text-center space-y-3">
@@ -253,7 +255,7 @@ export default function StepDocs({
             <div>
               <p className="font-medium text-slate-900">{label}</p>
               <p className="text-xs text-slate-500 mt-1">
-                JPG, PNG o PDF · Imágenes hasta 20MB, PDF hasta 5MB
+                JPG, PNG, HEIC o PDF · Imágenes hasta 20MB, PDF hasta 5MB
               </p>
             </div>
             <div className="flex flex-col items-center gap-2 w-full">
