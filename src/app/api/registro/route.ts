@@ -114,9 +114,11 @@ export async function POST(request: NextRequest) {
 
   try {
     assertSameOrigin(request);
+    // Límite por IP generoso para cubrir redes compartidas (delegaciones, hospitales).
+    // El límite real de abuso está en el bucket por email (3/hr).
     await enforceRateLimitRedis(request, {
       bucket: "api:registro:create:ip",
-      limit: 40,
+      limit: 200,
       windowMs: 5 * 60_000,
     });
 
