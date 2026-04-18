@@ -18,6 +18,12 @@ import {
 } from "@/lib/utils/password";
 import { toTitleCase } from "@/lib/utils/text";
 import { Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface StepInfoProps {
   onNext: (data: Partial<RegistroFormData>) => void;
@@ -57,6 +63,10 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
   const [sinApellidoMaterno, setSinApellidoMaterno] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showDoc, setShowDoc] = useState<"privacidad" | "terminos" | null>(
+    null,
+  );
 
   const password = watch("password");
   const confirmPassword = watch("confirmPassword");
@@ -273,14 +283,127 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
         )}
       </div>
 
-      <div className="pt-1">
+      {/* Términos y condiciones */}
+      <div className="space-y-3">
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="mt-0.5 w-4 h-4 shrink-0 rounded border-slate-300 text-red-600 focus:ring-red-500"
+          />
+          <span className="text-sm text-slate-600 leading-snug">
+            He leído y acepto el{" "}
+            <button
+              type="button"
+              onClick={() => setShowDoc("privacidad")}
+              className="text-red-600 font-semibold underline underline-offset-2 hover:text-red-700"
+            >
+              Aviso de Privacidad
+            </button>{" "}
+            y los{" "}
+            <button
+              type="button"
+              onClick={() => setShowDoc("terminos")}
+              className="text-red-600 font-semibold underline underline-offset-2 hover:text-red-700"
+            >
+              Términos de Uso
+            </button>
+            . Declaro bajo protesta de decir verdad que soy trabajador del IMSS
+            agremiado a SNTSS Sección VII.
+          </span>
+        </label>
+
         <Button
           type="submit"
-          className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg shadow-red-500/20 active:scale-95 transition-transform"
+          disabled={!termsAccepted}
+          className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl shadow-lg shadow-red-500/20 active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
         >
           Continuar →
         </Button>
       </div>
+
+      {/* Modal documentos legales */}
+      <Dialog open={showDoc !== null} onOpenChange={() => setShowDoc(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {showDoc === "privacidad"
+                ? "Aviso de Privacidad"
+                : "Términos de Uso"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {showDoc === "privacidad" && (
+            <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
+              <p>
+                <strong>Responsable:</strong> Sindicato Nacional de Trabajadores
+                del Seguro Social (SNTSS), Sección VII — Baja California.
+              </p>
+              <p>
+                <strong>Datos recabados:</strong> nombre completo, matrícula
+                IMSS, correo electrónico y documentos de identificación (INE,
+                tarjetón sindical y constancia de afiliación).
+              </p>
+              <p>
+                <strong>Finalidad:</strong> Validar tu membresía sindical y
+                gestionar tu acceso al Portal del Agremiado. Tus datos serán
+                tratados exclusivamente para estos fines.
+              </p>
+              <p>
+                <strong>Conservación de documentos:</strong> Los documentos de
+                identificación que subas serán eliminados de forma permanente
+                una vez que tu registro sea validado por el sindicato.
+              </p>
+              <p>
+                <strong>Derechos ARCO:</strong> Puedes solicitar acceso,
+                rectificación, cancelación u oposición al tratamiento de tus
+                datos personales comunicándote con el administrador del
+                sindicato a través del portal.
+              </p>
+              <p>
+                <strong>Fundamento legal:</strong> Ley Federal de Protección de
+                Datos Personales en Posesión de los Particulares (LFPDPPP).
+              </p>
+            </div>
+          )}
+
+          {showDoc === "terminos" && (
+            <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
+              <p>
+                <strong>Acceso exclusivo para agremiados:</strong> El Portal del
+                Agremiado es una herramienta de gestión interna del SNTSS
+                Sección VII, exclusiva para trabajadores del IMSS con membresía
+                sindical vigente.
+              </p>
+              <p>
+                <strong>Veracidad de la información:</strong> Al registrarte,
+                declaras bajo protesta de decir verdad que los datos y
+                documentos que proporcionas son auténticos y verídicos. La
+                falsedad en la información constituye causa suficiente para
+                denegar o revocar tu acceso de forma permanente.
+              </p>
+              <p>
+                <strong>Verificación:</strong> El sindicato se reserva el
+                derecho de verificar tu información con los registros oficiales
+                del IMSS y de la sección sindical.
+              </p>
+              <p>
+                <strong>Revocación de acceso:</strong> El mal uso de la
+                plataforma, el acceso no autorizado a información de terceros o
+                cualquier conducta contraria a los principios sindicales
+                resultará en la revocación inmediata de tu acceso, sin perjuicio
+                de las acciones legales que correspondan.
+              </p>
+              <p>
+                <strong>Responsabilidad:</strong> Eres responsable de mantener
+                la confidencialidad de tu contraseña. Cualquier actividad
+                realizada con tus credenciales es de tu entera responsabilidad.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }
