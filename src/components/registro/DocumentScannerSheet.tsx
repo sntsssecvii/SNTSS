@@ -82,7 +82,6 @@ export default function DocumentScannerSheet({
       if (shouldProcess) {
         lastProcessRef.current = timestamp;
 
-        // Dibuja frame actual en canvas temporal para detección
         const tmp = document.createElement("canvas");
         tmp.width = video.videoWidth;
         tmp.height = video.videoHeight;
@@ -94,13 +93,11 @@ export default function DocumentScannerSheet({
           ctx.drawImage(highlighted, 0, 0);
           setDocumentDetected(true);
         } catch {
-          // Sin detección — muestra el frame limpio
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(video, 0, 0);
           setDocumentDetected(false);
         }
       } else {
-        // Entre detecciones: solo redibuja el video para que se vea fluido
         ctx.drawImage(video, 0, 0);
       }
 
@@ -109,6 +106,13 @@ export default function DocumentScannerSheet({
 
     rafRef.current = requestAnimationFrame(loop);
   }, []);
+
+  // Arrancar el loop DESPUÉS de que React haya renderizado el canvas (fase camera)
+  useEffect(() => {
+    if (phase === "camera") {
+      startDetectionLoop();
+    }
+  }, [phase, startDetectionLoop]);
 
   const initScanner = useCallback(async () => {
     setPhase("loading");
@@ -135,19 +139,21 @@ export default function DocumentScannerSheet({
       });
       streamRef.current = stream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        // Esperar metadata antes de play para que videoWidth/Height estén disponibles
-        await new Promise<void>((resolve) => {
-          const v = videoRef.current!;
-          if (v.videoWidth > 0) return resolve();
-          v.addEventListener("loadedmetadata", () => resolve(), { once: true });
+      // videoRef siempre está montado (fuera del condicional de fase)
+      const video = videoRef.current!;
+      video.srcObject = stream;
+
+      // Esperar metadata antes de play para que videoWidth/Height estén disponibles
+      await new Promise<void>((resolve) => {
+        if (video.videoWidth > 0) return resolve();
+        video.addEventListener("loadedmetadata", () => resolve(), {
+          once: true,
         });
-        await videoRef.current.play();
-      }
+      });
+      await video.play();
 
       setPhase("camera");
-      startDetectionLoop();
+      // El loop arranca vía useEffect cuando phase === "camera" se renderiza
     } catch (err: any) {
       const msg = err?.message || "";
       if (
@@ -169,7 +175,7 @@ export default function DocumentScannerSheet({
       }
       setPhase("error");
     }
-  }, [startDetectionLoop]);
+  }, []);
 
   // Abrir/cerrar
   useEffect(() => {
@@ -188,7 +194,6 @@ export default function DocumentScannerSheet({
     const video = videoRef.current;
     if (!video || !scannerRef.current) return;
 
-    // Parar el loop de detección
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -207,7 +212,7 @@ export default function DocumentScannerSheet({
         video.videoHeight,
       );
     } catch {
-      resultCanvas = tmp; // sin corrección si falla
+      resultCanvas = tmp;
     }
 
     resultCanvas.toBlob(
@@ -263,6 +268,25 @@ export default function DocumentScannerSheet({
 
       {/* Contenido */}
       <div className="flex-1 relative overflow-hidden">
+        {/*
+          Video y canvas siempre montados — crítico para iOS Safari.
+          Si están dentro de un condicional de fase, videoRef es null cuando
+          initScanner corre (fase "loading") y srcObject nunca se asigna.
+        */}
+        <video
+          ref={videoRef}
+          className="absolute opacity-0 pointer-events-none w-px h-px"
+          playsInline
+          muted
+          autoPlay
+        />
+        <canvas
+          ref={displayCanvasRef}
+          className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${
+            phase === "camera" ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
         <AnimatePresence mode="wait">
           {/* Cargando */}
           {phase === "loading" && (
@@ -282,7 +306,7 @@ export default function DocumentScannerSheet({
             </motion.div>
           )}
 
-          {/* Cámara activa */}
+          {/* Cámara activa — solo los overlays; video y canvas están fuera */}
           {phase === "camera" && (
             <motion.div
               key="camera"
@@ -291,23 +315,8 @@ export default function DocumentScannerSheet({
               exit={{ opacity: 0 }}
               className="absolute inset-0"
             >
-              {/* Video fuente de frames — no usar display:none en iOS Safari (bloquea el decoder) */}
-              <video
-                ref={videoRef}
-                className="absolute opacity-0 pointer-events-none w-px h-px"
-                playsInline
-                muted
-                autoPlay
-              />
-
-              {/* Canvas con video + detección */}
-              <canvas
-                ref={displayCanvasRef}
-                className="w-full h-full object-contain"
-              />
-
               {/* Indicador de detección */}
-              <div className="absolute top-14 left-1/2 -translate-x-1/2">
+              <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10">
                 <motion.div
                   animate={
                     documentDetected
@@ -332,7 +341,6 @@ export default function DocumentScannerSheet({
               {/* Guía de encuadre */}
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                 <div className="w-[75%] h-[55%] relative">
-                  {/* Esquinas */}
                   {[
                     "top-0 left-0 border-t-2 border-l-2",
                     "top-0 right-0 border-t-2 border-r-2",
@@ -413,7 +421,7 @@ export default function DocumentScannerSheet({
             >
               <button
                 onClick={handleCapture}
-                className="w-18 h-18 w-[72px] h-[72px] rounded-full bg-white border-[3px] border-white/30 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center shadow-xl"
+                className="w-[72px] h-[72px] rounded-full bg-white border-[3px] border-white/30 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center shadow-xl"
               >
                 <Camera className="w-7 h-7 text-black" />
               </button>
