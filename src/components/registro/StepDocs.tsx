@@ -3,15 +3,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Upload,
-  X,
-  FileText,
-  CheckCircle2,
-  AlertCircle,
-  ScanLine,
-} from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, ScanLine } from "lucide-react";
 import { optimizeImage } from "@/lib/utils/image-optimization";
 import { cn } from "@/lib/utils";
 import DocumentScannerSheet from "./DocumentScannerSheet";
@@ -26,10 +18,8 @@ interface StepDocsProps {
   isSubmitting: boolean;
 }
 
-// Para imágenes se comprime client-side a ~1MB, así que el límite de entrada
-// puede ser mayor. El servidor igual valida a 5MB como tope de seguridad.
-const MAX_IMAGE_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB — cubre fotos de iPhone/Android
-const MAX_PDF_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB — PDFs no se comprimen
+const MAX_IMAGE_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+const MAX_PDF_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_REGISTRATION_FILE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -38,6 +28,136 @@ const ALLOWED_REGISTRATION_FILE_TYPES = [
   "image/heif",
   "application/pdf",
 ];
+
+type DocType = "identificacion" | "tarjeton" | "constanciaAfiliacion";
+
+interface DocCardProps {
+  index: number;
+  label: string;
+  file: File | null;
+  type: DocType;
+  inputRef: React.RefObject<HTMLInputElement>;
+  error?: string;
+  isProcessing: boolean;
+  onScan: () => void;
+  onFileClick: () => void;
+  onClear: () => void;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>, type: DocType) => void;
+}
+
+function DocCard({
+  index,
+  label,
+  file,
+  type,
+  inputRef,
+  error,
+  isProcessing,
+  onScan,
+  onFileClick,
+  onClear,
+  onFileChange,
+}: DocCardProps) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border transition-colors duration-200",
+        error
+          ? "border-red-300 bg-red-50/40"
+          : file
+            ? "border-emerald-400 bg-emerald-50/30"
+            : "border-slate-200 bg-white",
+      )}
+    >
+      <input
+        type="file"
+        ref={inputRef}
+        onChange={(e) => onFileChange(e, type)}
+        className="hidden"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/pdf"
+      />
+
+      {isProcessing ? (
+        <div className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-2 border-red-600 border-t-transparent animate-spin flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-slate-700">
+              Procesando...
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">{label}</p>
+          </div>
+        </div>
+      ) : file ? (
+        <div className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-800">{label}</p>
+            <p className="text-xs text-slate-500 truncate mt-0.5">
+              {file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClear}
+            className="text-slate-400 hover:text-red-500 flex-shrink-0 text-xs"
+          >
+            Cambiar
+          </Button>
+        </div>
+      ) : (
+        <div className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs font-bold">{index}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-800">{label}</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                JPG, PNG, HEIC o PDF
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              onClick={onScan}
+              className="flex-1 h-9 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold gap-1.5"
+            >
+              <ScanLine className="w-3.5 h-3.5" />
+              Escanear
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onFileClick}
+              className="flex-1 h-9 border-slate-200 text-slate-600 text-xs font-medium gap-1.5"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Archivo
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <AnimatePresence>
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="px-4 pb-3 text-xs text-red-500 flex items-center gap-1"
+          >
+            <AlertCircle className="w-3 h-3" />
+            {error}
+          </motion.p>
+        </AnimatePresence>
+      )}
+    </div>
+  );
+}
 
 export default function StepDocs({
   onBack,
@@ -49,15 +169,13 @@ export default function StepDocs({
   const [constanciaAfiliacion, setConstanciaAfiliacion] = useState<File | null>(
     null,
   );
-  const [errors, setErrors] = useState<{
-    identificacion?: string;
-    tarjeton?: string;
-    constanciaAfiliacion?: string;
-  }>({});
-  const [processing, setProcessing] = useState<{ [key: string]: boolean }>({});
+  const [errors, setErrors] = useState<Partial<Record<DocType, string>>>({});
+  const [processing, setProcessing] = useState<
+    Partial<Record<DocType, boolean>>
+  >({});
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<{
-    type: "identificacion" | "tarjeton" | "constanciaAfiliacion";
+    type: DocType;
     label: string;
   } | null>(null);
 
@@ -65,19 +183,25 @@ export default function StepDocs({
   const tarjetonInputRef = useRef<HTMLInputElement>(null);
   const constanciaInputRef = useRef<HTMLInputElement>(null);
 
+  const setFile = (type: DocType, file: File | null) => {
+    if (type === "identificacion") setIdentificacion(file);
+    else if (type === "tarjeton") setTarjeton(file);
+    else setConstanciaAfiliacion(file);
+  };
+
   const handleFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    type: "identificacion" | "tarjeton" | "constanciaAfiliacion",
+    type: DocType,
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validar tipo
     const isHeicByExtension =
       file.name.toLowerCase().endsWith(".heic") ||
       file.name.toLowerCase().endsWith(".heif");
     const isAllowed =
       ALLOWED_REGISTRATION_FILE_TYPES.includes(file.type) || isHeicByExtension;
+
     if (!isAllowed) {
       setErrors((prev) => ({
         ...prev,
@@ -105,16 +229,11 @@ export default function StepDocs({
 
     try {
       let finalFile = file;
-      // Optimizar si es imagen
       if (file.type.startsWith("image/")) {
         finalFile = await optimizeImage(file);
       }
-
-      if (type === "identificacion") setIdentificacion(finalFile);
-      else if (type === "tarjeton") setTarjeton(finalFile);
-      else setConstanciaAfiliacion(finalFile);
-    } catch (error) {
-      console.error("Error optimizando", error);
+      setFile(type, finalFile);
+    } catch {
       setErrors((prev) => ({
         ...prev,
         [type]: "Error al procesar el archivo",
@@ -122,14 +241,6 @@ export default function StepDocs({
     } finally {
       setProcessing((prev) => ({ ...prev, [type]: false }));
     }
-  };
-
-  const openScanner = (
-    type: "identificacion" | "tarjeton" | "constanciaAfiliacion",
-    label: string,
-  ) => {
-    setScannerTarget({ type, label });
-    setScannerOpen(true);
   };
 
   const handleScanCapture = async (file: File) => {
@@ -140,15 +251,10 @@ export default function StepDocs({
     setErrors((prev) => ({ ...prev, [type]: undefined }));
 
     try {
-      // Las imágenes escaneadas también se comprimen/optimizan
       const optimized = await optimizeImage(file);
-      if (type === "identificacion") setIdentificacion(optimized);
-      else if (type === "tarjeton") setTarjeton(optimized);
-      else setConstanciaAfiliacion(optimized);
+      setFile(type, optimized);
     } catch {
-      if (type === "identificacion") setIdentificacion(file);
-      else if (type === "tarjeton") setTarjeton(file);
-      else setConstanciaAfiliacion(file);
+      setFile(type, file);
     } finally {
       setProcessing((prev) => ({ ...prev, [type]: false }));
       setScannerOpen(false);
@@ -157,11 +263,7 @@ export default function StepDocs({
   };
 
   const handleSubmit = () => {
-    const newErrors: {
-      identificacion?: string;
-      tarjeton?: string;
-      constanciaAfiliacion?: string;
-    } = {};
+    const newErrors: Partial<Record<DocType, string>> = {};
     if (!identificacion)
       newErrors.identificacion = "Debes subir tu identificación";
     if (!tarjeton) newErrors.tarjeton = "Debes subir tu tarjetón de pago";
@@ -179,207 +281,111 @@ export default function StepDocs({
     }
   };
 
-  const FileCard = ({
-    file,
-    type,
-    label,
-    inputRef,
-    error,
-    isProcessing,
-  }: {
-    file: File | null;
-    type: "identificacion" | "tarjeton" | "constanciaAfiliacion";
-    label: string;
-    inputRef: React.RefObject<HTMLInputElement>;
-    error?: string;
-    isProcessing: boolean;
-  }) => (
-    <div
-      className={cn(
-        "border-2 border-dashed rounded-xl p-6 transition-all duration-300 relative group",
-        error
-          ? "border-red-300 bg-red-50/50"
-          : file
-            ? "border-green-500/50 bg-green-50/30"
-            : "border-slate-200 hover:border-red-400 hover:bg-slate-50",
-      )}
-    >
-      <input
-        type="file"
-        ref={inputRef}
-        onChange={(e) => handleFileChange(e, type)}
-        className="hidden"
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/pdf"
-      />
-
-      <div className="flex flex-col items-center justify-center text-center space-y-3">
-        {isProcessing ? (
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            className="w-10 h-10 border-2 border-red-600 border-t-transparent rounded-full"
-          />
-        ) : file ? (
-          <>
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="font-medium text-slate-900 line-clamp-1 max-w-[200px]">
-                {file.name}
-              </p>
-              <p className="text-xs text-slate-500">
-                {(file.size / 1024 / 1024).toFixed(2)} MB
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (type === "identificacion") setIdentificacion(null);
-                else if (type === "tarjeton") setTarjeton(null);
-                else setConstanciaAfiliacion(null);
-                if (inputRef.current) inputRef.current.value = "";
-              }}
-              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-            >
-              <X className="w-4 h-4 mr-1" /> Remover
-            </Button>
-          </>
-        ) : (
-          <>
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
-              <Upload className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="font-medium text-slate-900">{label}</p>
-              <p className="text-xs text-slate-500 mt-1">
-                JPG, PNG, HEIC o PDF · Imágenes hasta 20MB, PDF hasta 5MB
-              </p>
-            </div>
-            <div className="flex flex-col items-center gap-2 w-full">
-              <Button
-                type="button"
-                onClick={() => openScanner(type, label)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white gap-2"
-              >
-                <ScanLine className="w-4 h-4" />
-                Escanear con cámara
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => inputRef.current?.click()}
-                className="w-full border-slate-200 text-slate-600 hover:bg-slate-50 text-xs"
-              >
-                <Upload className="w-3.5 h-3.5 mr-1.5" />
-                Subir archivo
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute -bottom-6 left-0 right-0 text-center"
-        >
-          <span className="text-xs text-red-500 flex items-center justify-center gap-1">
-            <AlertCircle className="w-3 h-3" /> {error}
-          </span>
-        </motion.div>
-      )}
-    </div>
+  const allReady = !!(identificacion && tarjeton && constanciaAfiliacion);
+  const anyProcessing = !!(
+    processing.identificacion ||
+    processing.tarjeton ||
+    processing.constanciaAfiliacion
   );
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        className="space-y-8"
-      >
-        <div className="space-y-2 text-center">
-          <h3 className="text-lg font-semibold text-slate-900">
-            Documentación Requerida
-          </h3>
-          <p className="text-sm text-slate-500">
-            Sube tus documentos para validar tu identidad. Los archivos serán
-            optimizados automáticamente.
-          </p>
-        </div>
+      <div className="px-5 py-6 space-y-3">
+        <DocCard
+          index={1}
+          label="Identificación Oficial (INE/IFE)"
+          type="identificacion"
+          file={identificacion}
+          inputRef={idInputRef}
+          error={errors.identificacion}
+          isProcessing={processing.identificacion || false}
+          onScan={() => {
+            setScannerTarget({
+              type: "identificacion",
+              label: "Identificación Oficial (INE/IFE)",
+            });
+            setScannerOpen(true);
+          }}
+          onFileClick={() => idInputRef.current?.click()}
+          onClear={() => {
+            setIdentificacion(null);
+            if (idInputRef.current) idInputRef.current.value = "";
+          }}
+          onFileChange={handleFileChange}
+        />
+        <DocCard
+          index={2}
+          label="Tarjetón de Pago Reciente"
+          type="tarjeton"
+          file={tarjeton}
+          inputRef={tarjetonInputRef}
+          error={errors.tarjeton}
+          isProcessing={processing.tarjeton || false}
+          onScan={() => {
+            setScannerTarget({
+              type: "tarjeton",
+              label: "Tarjetón de Pago Reciente",
+            });
+            setScannerOpen(true);
+          }}
+          onFileClick={() => tarjetonInputRef.current?.click()}
+          onClear={() => {
+            setTarjeton(null);
+            if (tarjetonInputRef.current) tarjetonInputRef.current.value = "";
+          }}
+          onFileChange={handleFileChange}
+        />
+        <DocCard
+          index={3}
+          label="Constancia de Afiliación Sindical"
+          type="constanciaAfiliacion"
+          file={constanciaAfiliacion}
+          inputRef={constanciaInputRef}
+          error={errors.constanciaAfiliacion}
+          isProcessing={processing.constanciaAfiliacion || false}
+          onScan={() => {
+            setScannerTarget({
+              type: "constanciaAfiliacion",
+              label: "Constancia de Afiliación Sindical",
+            });
+            setScannerOpen(true);
+          }}
+          onFileClick={() => constanciaInputRef.current?.click()}
+          onClear={() => {
+            setConstanciaAfiliacion(null);
+            if (constanciaInputRef.current)
+              constanciaInputRef.current.value = "";
+          }}
+          onFileChange={handleFileChange}
+        />
 
-        <div className="grid gap-8 md:grid-cols-2">
-          <FileCard
-            file={identificacion}
-            type="identificacion"
-            label="Identificación Oficial (INE/IFE)"
-            inputRef={idInputRef}
-            error={errors.identificacion}
-            isProcessing={processing.identificacion || false}
-          />
-          <FileCard
-            file={tarjeton}
-            type="tarjeton"
-            label="Tarjetón de Pago Reciente"
-            inputRef={tarjetonInputRef}
-            error={errors.tarjeton}
-            isProcessing={processing.tarjeton || false}
-          />
-        </div>
-
-        <div className="grid gap-8 md:grid-cols-1 max-w-sm mx-auto w-full">
-          <FileCard
-            file={constanciaAfiliacion}
-            type="constanciaAfiliacion"
-            label="Constancia de Afiliación Sindical"
-            inputRef={constanciaInputRef}
-            error={errors.constanciaAfiliacion}
-            isProcessing={processing.constanciaAfiliacion || false}
-          />
-        </div>
-
-        <div className="flex flex-col-reverse md:flex-row justify-between gap-4 pt-4">
+        <div className="flex gap-3 pt-2">
           <Button
             type="button"
             variant="outline"
             onClick={onBack}
             disabled={isSubmitting}
+            className="border-slate-200 text-slate-600 h-12 px-5"
           >
             Atrás
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={
-              isSubmitting ||
-              processing.identificacion ||
-              processing.tarjeton ||
-              processing.constanciaAfiliacion
-            }
-            className="bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white shadow-lg relative overflow-hidden"
+            disabled={isSubmitting || !allReady || anyProcessing}
+            className="flex-1 h-12 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white font-semibold rounded-xl"
           >
             {isSubmitting ? (
-              <>
-                <motion.div
-                  className="absolute inset-0 bg-white/20"
-                  initial={{ x: "-100%" }}
-                  animate={{ x: "100%" }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                />
-                Procesando Registro...
-              </>
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Enviando...
+              </span>
             ) : (
-              "Finalizar Registro"
+              "Finalizar registro"
             )}
           </Button>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Scanner fullscreen */}
       {scannerOpen && (
         <DocumentScannerSheet
           open={scannerOpen}
