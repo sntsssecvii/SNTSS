@@ -155,23 +155,30 @@ export default function DocumentScannerSheet({
       setPhase("camera");
       // El loop arranca vía useEffect cuando phase === "camera" se renderiza
     } catch (err: any) {
+      const name = err?.name || "";
       const msg = err?.message || "";
+      const detail = `[${name}] ${msg}`;
       if (
+        name === "NotAllowedError" ||
         msg.toLowerCase().includes("permission") ||
         msg.toLowerCase().includes("denied")
       ) {
         setErrorMsg(
-          "Permiso de cámara denegado. Habilítalo en la configuración del navegador.",
+          `Permiso de cámara denegado. Habilítalo en la configuración del navegador. (${detail})`,
+        );
+      } else if (name === "NotReadableError" || name === "AbortError") {
+        setErrorMsg(
+          `La cámara está siendo usada por otra aplicación. Ciérrala e intenta de nuevo. (${detail})`,
         );
       } else if (
         msg.toLowerCase().includes("opencv") ||
         msg.toLowerCase().includes("cargar")
       ) {
         setErrorMsg(
-          "No se pudo cargar el motor de escaneo. Verifica tu conexión.",
+          `No se pudo cargar el motor de escaneo. Verifica tu conexión. (${detail})`,
         );
       } else {
-        setErrorMsg("No se pudo iniciar la cámara.");
+        setErrorMsg(`No se pudo iniciar la cámara. (${detail})`);
       }
       setPhase("error");
     }
