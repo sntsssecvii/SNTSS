@@ -4,12 +4,10 @@ import {
   ArrowRight,
   BellRing,
   BriefcaseBusiness,
-  Building2,
-  FileText,
+  ClipboardList,
   LogIn,
   ShieldCheck,
   Sparkles,
-  Users2,
   Waypoints,
 } from "lucide-react";
 
@@ -23,21 +21,24 @@ const accesos = [
     description:
       "Consulta tus trámites, tus movimientos y la información que el sindicato pone a tu disposición.",
     href: "/login",
+    cta: "Acceder al portal",
     icon: BriefcaseBusiness,
+  },
+  {
+    title: "Bolsa de Trabajo",
+    description:
+      "Consulta tu posición en escalafón, movimientos de personal y convocatorias activas de la sección.",
+    href: "/login",
+    cta: "Consultar mi posición",
+    icon: ClipboardList,
   },
   {
     title: "Convocatorias y avisos",
     description:
-      "Enterate de avisos, convocatorias y publicaciones oficiales de interés para la base trabajadora.",
+      "Entérate de avisos, convocatorias y publicaciones oficiales de interés para la base trabajadora.",
     href: "/login",
+    cta: "Ver convocatorias",
     icon: BellRing,
-  },
-  {
-    title: "Servicios y beneficios",
-    description:
-      "Consulta apoyos, servicios y beneficios que el sindicato acerque a sus sindicalizados.",
-    href: "/login",
-    icon: FileText,
   },
 ];
 
@@ -48,16 +49,16 @@ const razones = [
 ];
 
 const indicadores = [
-  { value: "8", label: "tipos de trámite integrados" },
-  { value: "1", label: "sitio central de consulta sindical" },
-  { value: "24/7", label: "acceso a información relevante" },
+  { value: "16,000", label: "trabajadores representados" },
+  { value: "Sección VII", label: "Baja California" },
+  { value: "24/7", label: "disponible en línea" },
 ];
 
 const experiencia = [
   {
-    title: "Consulta con más claridad",
+    title: "Todo en un solo lugar",
     description:
-      "Menos vueltas y menos dudas para encontrar con rapidez lo que necesitas revisar.",
+      "Sin depender de múltiples canales. Tu información sindical centralizada y al alcance de tu teléfono.",
     icon: Sparkles,
   },
   {
@@ -67,23 +68,23 @@ const experiencia = [
     icon: Waypoints,
   },
   {
-    title: "Comunicación oficial más cercana",
+    title: "Comunicación oficial directa",
     description:
-      "Avisos, convocatorias y publicaciones del sindicato presentados con mayor claridad.",
+      "Avisos, convocatorias y publicaciones del sindicato sin intermediarios.",
     icon: BellRing,
   },
 ];
 
 const momentos = [
-  "Ingresas con tu cuenta sindical.",
-  "Encuentras tus trámites, tus movimientos y la información que te corresponde consultar.",
-  "Das seguimiento a publicaciones y avisos oficiales en un solo sitio.",
+  "Solicitas tu acceso con tu matrícula IMSS y documentos de identidad.",
+  "El sindicato valida tu registro en 1 a 2 días hábiles.",
+  "Ingresas al portal y accedes a toda tu información sindical.",
 ];
 
 export default function PublicHomePage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 selection:bg-red-200 selection:text-red-900">
-      {/* Navbar flotante y minimalista */}
+      {/* Navbar flotante */}
       <div className="fixed left-0 right-0 top-6 z-50 mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10">
         <nav className="flex items-center justify-between rounded-full border border-white/40 bg-white/60 px-6 py-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl transition-all duration-300 hover:bg-white/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
           <div className="flex items-center gap-4">
@@ -106,22 +107,25 @@ export default function PublicHomePage() {
           </div>
 
           <div className="hidden items-center gap-8 text-sm font-bold text-slate-600 md:flex">
-            <span className="cursor-pointer transition-colors hover:text-red-700">
-              Inicio
-            </span>
-            <span className="cursor-pointer transition-colors hover:text-red-700">
+            <Link
+              href="#servicios"
+              className="transition-colors hover:text-red-700"
+            >
               Servicios
-            </span>
-            <span className="cursor-pointer transition-colors hover:text-red-700">
-              Avisos
-            </span>
+            </Link>
+            <Link
+              href="#como-funciona"
+              className="transition-colors hover:text-red-700"
+            >
+              ¿Cómo funciona?
+            </Link>
           </div>
 
           <div className="flex items-center gap-3">
             <Button
               asChild
               variant="ghost"
-              className="hidden h-10 rounded-full px-5 text-sm font-bold hover:bg-slate-100 sm:flex"
+              className="h-10 rounded-full px-5 text-sm font-bold hover:bg-slate-100"
             >
               <Link href="/registro">Solicitar acceso</Link>
             </Button>
@@ -140,17 +144,9 @@ export default function PublicHomePage() {
 
       {/* Hero Section */}
       <section className="relative min-h-[85vh] overflow-hidden pt-32 lg:pt-40 pb-20">
-        {/* Background Effects */}
         <div className="absolute inset-0 z-0">
-          <div
-            className="absolute -left-[10%] -top-[10%] h-[50rem] w-[50rem] animate-pulse rounded-full bg-red-300/20 blur-[120px]"
-            style={{ animationDuration: "8s" }}
-          />
-          <div
-            className="absolute -right-[10%] top-[20%] h-[40rem] w-[40rem] animate-pulse rounded-full bg-orange-300/20 blur-[120px]"
-            style={{ animationDuration: "10s" }}
-          />
-          <div className="absolute bottom-0 left-[20%] h-[30rem] w-[50rem] rounded-full bg-rose-200/20 blur-[100px]" />
+          <div className="absolute -left-[10%] -top-[10%] h-[50rem] w-[50rem] rounded-full bg-red-300/15 blur-[120px]" />
+          <div className="absolute -right-[10%] top-[20%] h-[40rem] w-[40rem] rounded-full bg-orange-300/15 blur-[120px]" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_0%,#000_70%,transparent_100%)]" />
         </div>
 
@@ -158,7 +154,7 @@ export default function PublicHomePage() {
           <div className="grid flex-1 items-center gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:gap-8">
             {/* Left Content */}
             <div className="space-y-10">
-              <div className="inline-flex animate-fade-in-up items-center gap-2 rounded-full border border-red-200/50 bg-white/50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-red-700 shadow-sm backdrop-blur-md">
+              <div className="inline-flex items-center gap-2 rounded-full border border-red-200/50 bg-white/50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-red-700 shadow-sm backdrop-blur-md">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
@@ -174,9 +170,9 @@ export default function PublicHomePage() {
                   </span>
                 </h1>
                 <p className="max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-                  Consulta tu información, tus trámites y los avisos oficiales
-                  del sindicato en un sitio más claro, más ágil y pensado para
-                  la base trabajadora.
+                  Consulta tu posición en escalafón, tus trámites y los avisos
+                  oficiales del sindicato — en un sitio claro, ágil y pensado
+                  para la base trabajadora del IMSS.
                 </p>
               </div>
 
@@ -202,12 +198,12 @@ export default function PublicHomePage() {
               </div>
 
               <div className="grid grid-cols-3 gap-6 pt-4">
-                {indicadores.map((item, i) => (
+                {indicadores.map((item) => (
                   <div
                     key={item.label}
-                    className="group flex flex-col justify-center border-l-2 border-red-100 pl-4 transition-colors hover:border-red-500 delay-[${i * 100}ms]"
+                    className="group flex flex-col justify-center border-l-2 border-red-100 pl-4 transition-colors hover:border-red-500"
                   >
-                    <span className="text-3xl font-black tracking-tighter text-slate-900 group-hover:text-red-700 transition-colors">
+                    <span className="text-2xl font-black tracking-tighter text-slate-900 transition-colors group-hover:text-red-700 sm:text-3xl">
                       {item.value}
                     </span>
                     <span className="mt-1 text-xs font-semibold leading-snug text-slate-500">
@@ -218,12 +214,9 @@ export default function PublicHomePage() {
               </div>
             </div>
 
-            {/* Right Content / Glassmorphic Showcase */}
+            {/* Right — Glassmorphic Showcase */}
             <div className="relative mx-auto w-full max-w-lg lg:max-w-none">
-              <div
-                className="absolute -inset-1 z-0 animate-pulse rounded-[3rem] bg-gradient-to-tr from-red-400/40 via-orange-300/40 to-rose-400/40 blur-2xl"
-                style={{ animationDuration: "4s" }}
-              />
+              <div className="absolute -inset-1 z-0 rounded-[3rem] bg-gradient-to-tr from-red-400/30 via-orange-300/30 to-rose-400/30 blur-2xl" />
 
               <div className="relative z-10 overflow-hidden rounded-[2.5rem] border border-white/40 bg-white/60 p-8 shadow-[0_40px_100px_rgb(0,0,0,0.08)] backdrop-blur-2xl">
                 <div className="mb-8 flex items-center justify-between">
@@ -233,10 +226,10 @@ export default function PublicHomePage() {
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Acceso Rápido
+                        Acceso sindical
                       </p>
                       <p className="text-lg font-black text-slate-800">
-                        Acceso sindical
+                        Portal del trabajador
                       </p>
                     </div>
                   </div>
@@ -281,7 +274,10 @@ export default function PublicHomePage() {
       </section>
 
       {/* Services Section */}
-      <section className="relative z-20 mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:px-10">
+      <section
+        id="servicios"
+        className="relative z-20 mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:px-10"
+      >
         <div className="mb-16 flex flex-col gap-4 text-center items-center">
           <span className="inline-block rounded-full bg-red-100 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-red-700">
             Servicios disponibles
@@ -291,8 +287,8 @@ export default function PublicHomePage() {
             <span className="text-red-700">a un clic de distancia.</span>
           </h2>
           <p className="max-w-2xl text-lg text-slate-500">
-            Accesos y servicios pensados para facilitar consultas frecuentes de
-            la base trabajadora.
+            Accede con tu cuenta sindical para consultar tu información,
+            trámites y posición en escalafón.
           </p>
         </div>
 
@@ -317,7 +313,7 @@ export default function PublicHomePage() {
                     {item.description}
                   </p>
                   <div className="mt-auto flex items-center text-sm font-bold text-slate-900 transition-colors group-hover:text-red-700">
-                    Conocer más
+                    {item.cta}
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-2" />
                   </div>
                 </div>
@@ -325,27 +321,40 @@ export default function PublicHomePage() {
             );
           })}
         </div>
+
+        <p className="mt-10 text-center text-sm text-slate-400">
+          ¿Aún no tienes cuenta?{" "}
+          <Link
+            href="/registro"
+            className="font-bold text-red-700 hover:underline"
+          >
+            Solicita tu acceso aquí
+          </Link>{" "}
+          — el sindicato valida tu registro en 1 a 2 días hábiles.
+        </p>
       </section>
 
-      {/* Experience / Why Use It Section */}
-      <section className="relative overflow-hidden bg-slate-900 py-24 text-white">
+      {/* How it works Section */}
+      <section
+        id="como-funciona"
+        className="relative overflow-hidden bg-slate-900 py-24 text-white"
+      >
         <div className="absolute inset-0 z-0 opacity-20 bg-[radial-gradient(ellipse_at_top,#7f1d1d_0%,transparent_70%)]" />
         <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             <div>
               <span className="text-xs font-black uppercase tracking-widest text-red-400">
-                Mejorando la comunicación
+                Diseñado para ti
               </span>
               <h2 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
-                Diseñado pensando en tu{" "}
+                Pensado en tu{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
                   facilidad.
                 </span>
               </h2>
               <p className="mt-6 text-lg text-slate-400 max-w-xl">
-                La intención principal es que el trabajador encuentre
-                información útil con menos esfuerzo y con una navegación clara
-                desde cualquier dispositivo.
+                Encuentra tu información sindical con menos esfuerzo y desde
+                cualquier dispositivo — celular, tablet o computadora.
               </p>
 
               <div className="mt-10 space-y-6">
@@ -370,24 +379,19 @@ export default function PublicHomePage() {
 
             <div className="relative lg:pl-10">
               <div className="relative rounded-[2.5rem] border border-white/10 bg-white/5 p-8 backdrop-blur-md shadow-2xl">
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-400/50" />
-                  <div className="h-3 w-3 rounded-full bg-orange-400/50" />
-                  <div className="h-3 w-3 rounded-full bg-green-400/50" />
-                </div>
-                <h3 className="text-2xl font-black mb-8 pt-4">
-                  ¿Cómo funciona?
-                </h3>
+                <h3 className="text-2xl font-black mb-8">¿Cómo funciona?</h3>
                 <div className="space-y-4">
                   {momentos.map((item, index) => (
                     <div
                       key={index}
-                      className="flex gap-4 items-center rounded-2xl bg-white/5 p-4 border border-white/5 hover:bg-white/10 transition-colors"
+                      className="flex gap-4 items-start rounded-2xl bg-white/5 p-4 border border-white/5 hover:bg-white/10 transition-colors"
                     >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 font-black shadow-lg shadow-red-600/20">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 font-black shadow-lg shadow-red-600/20 mt-0.5">
                         {index + 1}
                       </div>
-                      <p className="font-medium text-slate-200">{item}</p>
+                      <p className="font-medium text-slate-200 leading-relaxed">
+                        {item}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -397,18 +401,25 @@ export default function PublicHomePage() {
         </div>
       </section>
 
-      {/* Call to Action Premium */}
+      {/* Call to Action */}
       <section className="py-24">
         <div className="mx-auto max-w-6xl px-5 sm:px-8">
           <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-red-700 via-red-800 to-slate-900 px-8 py-16 sm:px-16 text-center shadow-2xl shadow-red-900/20">
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
+            <div
+              className="absolute inset-0 opacity-10"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)",
+                backgroundSize: "32px 32px",
+              }}
+            />
             <div className="relative z-10 max-w-3xl mx-auto space-y-8">
               <h2 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-tight">
                 Consulta tus servicios sindicales desde un solo lugar.
               </h2>
               <p className="text-xl text-red-100/80">
-                Accede a tu cuenta y mantente al tanto de trámites, avisos y
-                servicios que el sindicato pone a tu disposición.
+                Accede a tu cuenta y mantente al tanto de trámites, escalafón y
+                avisos que el sindicato pone a tu disposición.
               </p>
               <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center">
                 <Button
@@ -416,7 +427,7 @@ export default function PublicHomePage() {
                   size="lg"
                   className="h-16 rounded-full bg-white px-10 text-lg font-black text-red-800 shadow-xl hover:bg-slate-50 hover:scale-105 transition-all"
                 >
-                  <Link href="/login">Iniciar Sesión</Link>
+                  <Link href="/login">Iniciar sesión</Link>
                 </Button>
                 <Button
                   asChild
@@ -424,9 +435,12 @@ export default function PublicHomePage() {
                   variant="outline"
                   className="h-16 rounded-full border-white/30 bg-transparent px-10 text-lg font-black text-white hover:bg-white/10 transition-all"
                 >
-                  <Link href="/registro">Soy nuevo, registrarme</Link>
+                  <Link href="/registro">Crear mi cuenta</Link>
                 </Button>
               </div>
+              <p className="text-sm text-red-100/50">
+                El registro es validado por el sindicato en 1 a 2 días hábiles.
+              </p>
             </div>
           </div>
         </div>
@@ -462,19 +476,19 @@ export default function PublicHomePage() {
               href="/login"
               className="text-sm font-semibold text-slate-500 hover:text-red-700 transition-colors"
             >
-              Portal de Ingreso
+              Portal de ingreso
             </Link>
             <Link
               href="/registro"
               className="text-sm font-semibold text-slate-500 hover:text-red-700 transition-colors"
             >
-              Solicitar Registro
+              Solicitar registro
             </Link>
             <Link
-              href="#"
+              href="#servicios"
               className="text-sm font-semibold text-slate-500 hover:text-red-700 transition-colors"
             >
-              Convocatorias
+              Servicios
             </Link>
           </div>
 
