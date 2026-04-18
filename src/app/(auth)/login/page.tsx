@@ -1,51 +1,27 @@
-'use client'
+"use client";
 
-import LoginForm from '@/components/LoginForm'
-import Image from 'next/image'
-import { motion } from 'framer-motion'
-import logoSNTSS from '@/assets/logo-sntss.png'
-import seccion7 from '@/assets/seccion7.png'
+import LoginForm from "@/components/LoginForm";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import logoSNTSS from "@/assets/logo-sntss.png";
+import seccion7 from "@/assets/seccion7.png";
 
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full bg-slate-50 font-sans overflow-hidden selection:bg-red-100 selection:text-red-900">
       {/* Narrative Section (Left) - Institutional & Ultra Modern */}
       <div className="hidden lg:flex lg:w-5/12 relative flex-col justify-between bg-slate-950 text-white p-8 lg:p-12 min-h-screen overflow-hidden">
-
         {/* Abstract Background Patterns - High-end Aura */}
         <div className="absolute inset-0 z-0 pointer-events-none">
-          <motion.div
-            animate={{
-              scale: [1, 1.1, 1],
-              opacity: [0.4, 0.6, 0.4],
-              rotate: [0, 5, 0]
-            }}
-            transition={{
-              duration: 10,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="absolute -top-[10%] -right-[10%] w-[800px] h-[800px] bg-gradient-to-br from-red-600/30 to-orange-500/10 rounded-full blur-[120px]"
-          />
-          <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.5, 0.3],
-            }}
-            transition={{
-              duration: 15,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 2
-            }}
-            className="absolute -bottom-[20%] -left-[10%] w-[600px] h-[600px] bg-red-900/20 rounded-full blur-[100px]"
-          />
+          <div className="absolute -top-[10%] -right-[10%] w-[800px] h-[800px] bg-gradient-to-br from-red-600/25 to-orange-500/10 rounded-full blur-[120px]" />
+          <div className="absolute -bottom-[20%] -left-[10%] w-[600px] h-[600px] bg-red-900/15 rounded-full blur-[100px]" />
 
           <div
             className="absolute inset-0 opacity-[0.03]"
             style={{
-              backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
-              backgroundSize: '32px 32px'
+              backgroundImage:
+                "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+              backgroundSize: "32px 32px",
             }}
           />
         </div>
@@ -59,15 +35,15 @@ export default function LoginPage() {
             hidden: { opacity: 0 },
             visible: {
               opacity: 1,
-              transition: { staggerChildren: 0.1, delayChildren: 0.2 }
-            }
+              transition: { staggerChildren: 0.1, delayChildren: 0.2 },
+            },
           }}
         >
           {/* Header Content */}
           <motion.div
             variants={{
               hidden: { y: -20, opacity: 0 },
-              visible: { y: 0, opacity: 1 }
+              visible: { y: 0, opacity: 1 },
             }}
             className="flex items-center gap-4 flex-shrink-0"
           >
@@ -88,7 +64,10 @@ export default function LoginPage() {
             <div className="space-y-8">
               <div className="space-y-4">
                 <motion.div
-                  variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}
+                  variants={{
+                    hidden: { opacity: 0, x: -20 },
+                    visible: { opacity: 1, x: 0 },
+                  }}
                   className="inline-flex items-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-4 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-red-400"
                 >
                   <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -97,22 +76,26 @@ export default function LoginPage() {
                 <motion.h1
                   variants={{
                     hidden: { y: 30, opacity: 0 },
-                    visible: { y: 0, opacity: 1 }
+                    visible: { y: 0, opacity: 1 },
                   }}
                   className="text-6xl font-black tracking-tighter leading-[0.9] text-white"
                 >
                   Acceso <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400">seguro.</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400">
+                    seguro.
+                  </span>
                 </motion.h1>
               </div>
               <motion.p
                 variants={{
                   hidden: { y: 20, opacity: 0 },
-                  visible: { y: 0, opacity: 1 }
+                  visible: { y: 0, opacity: 1 },
                 }}
                 className="text-xl text-slate-300 leading-relaxed font-medium"
               >
-                Bienvenido al acceso institucional de la Sección VII. Ingresa a tu cuenta para consultar la información y los servicios disponibles para la base trabajadora.
+                Bienvenido al acceso institucional de la Sección VII. Ingresa a
+                tu cuenta para consultar la información y los servicios
+                disponibles para la base trabajadora.
               </motion.p>
 
               <motion.div
@@ -120,12 +103,20 @@ export default function LoginPage() {
                 className="grid grid-cols-2 gap-8 pt-6"
               >
                 <div className="space-y-1">
-                  <p className="text-3xl font-black text-white tracking-tighter">Acceso</p>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Garantizado</p>
+                  <p className="text-3xl font-black text-white tracking-tighter">
+                    16,000
+                  </p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Trabajadores
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-3xl font-black text-white tracking-tighter">Máxima</p>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Seguridad</p>
+                  <p className="text-2xl font-black text-white tracking-tighter">
+                    Sección VII
+                  </p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Baja California
+                  </p>
                 </div>
               </motion.div>
             </div>
@@ -135,7 +126,7 @@ export default function LoginPage() {
           <motion.div
             variants={{
               hidden: { opacity: 0 },
-              visible: { opacity: 1 }
+              visible: { opacity: 1 },
             }}
             className="flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex-shrink-0"
           >
@@ -180,7 +171,8 @@ export default function LoginPage() {
                 Iniciar Sesión
               </h2>
               <p className="text-slate-500 font-medium">
-                Ingresa con tus datos para consultar tus servicios y tu información.
+                Ingresa con tus datos para consultar tus servicios y tu
+                información.
               </p>
             </div>
           </div>
@@ -193,19 +185,15 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-center lg:justify-start gap-4 pt-4">
-            <div className="h-px flex-1 bg-slate-100 max-w-[60px]" />
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Acceso seguro
-            </p>
-            <div className="h-px flex-1 bg-slate-100 max-w-[60px]" />
-          </div>
-
           <div className="text-center lg:text-left text-xs text-slate-400 font-medium">
-            <p>&copy; {new Date().getFullYear()} Sindicato Nacional de Trabajadores del Seguro Social. <br className="lg:hidden" /> Todos los derechos reservados.</p>
+            <p>
+              &copy; {new Date().getFullYear()} Sindicato Nacional de
+              Trabajadores del Seguro Social. <br className="lg:hidden" /> Todos
+              los derechos reservados.
+            </p>
           </div>
         </motion.div>
       </div>
     </div>
-  )
+  );
 }
