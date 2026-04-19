@@ -134,15 +134,12 @@ export default function RegistroPage() {
         >
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-6">
-              <span className="hover:text-red-700 cursor-pointer transition-colors">
-                Aviso de Privacidad
-              </span>
-              <span className="hover:text-red-700 cursor-pointer transition-colors">
-                Términos de Uso
-              </span>
-              <span className="hover:text-red-700 cursor-pointer transition-colors">
+              <Link
+                href="mailto:admin@sntssvii.com"
+                className="hover:text-red-700 transition-colors"
+              >
                 Soporte Tecnológico
-              </span>
+              </Link>
             </div>
             <p>
               © {new Date().getFullYear()} Sindicato Nacional de Trabajadores

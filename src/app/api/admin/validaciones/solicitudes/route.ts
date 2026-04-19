@@ -139,6 +139,7 @@ export async function GET(request: NextRequest) {
           documents: {
             identificacion: data.documents?.identificacion || "",
             tarjeton: data.documents?.tarjeton || "",
+            constanciaAfiliacion: data.documents?.constanciaAfiliacion || "",
           },
           createdAtMs: toCreatedAtMs(data.createdAt),
         };

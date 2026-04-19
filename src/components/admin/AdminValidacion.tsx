@@ -53,6 +53,7 @@ interface UserRequest {
   documents: {
     identificacion: string;
     tarjeton: string;
+    constanciaAfiliacion: string;
   };
   rejectionReason?: string;
   createdAtMs: number | null;
@@ -430,6 +431,18 @@ export default function AdminValidacion({
                       >
                         <FileText className="w-4 h-4 mr-1" /> Tarjetón
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          openDocument(
+                            req.documents.constanciaAfiliacion,
+                            `Constancia - ${req.nombre}`,
+                          )
+                        }
+                      >
+                        <FileText className="w-4 h-4 mr-1" /> Constancia
+                      </Button>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -531,7 +544,7 @@ export default function AdminValidacion({
                 <h4 className="font-medium text-sm text-slate-900">
                   Documentación Adjunta
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
                     <div className="p-2 border-b bg-white flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700">
@@ -641,12 +654,67 @@ export default function AdminValidacion({
                       </div>
                     </div>
                   </div>
+
+                  <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
+                    <div className="p-2 border-b bg-white flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">
+                        Constancia de Afiliación
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() =>
+                          openDocument(
+                            selectedRequest.documents.constanciaAfiliacion,
+                            "Constancia de Afiliación Sindical",
+                          )
+                        }
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
+                      {selectedRequest.documents.constanciaAfiliacion
+                        .toLowerCase()
+                        .includes(".pdf") ? (
+                        <iframe
+                          src={`${selectedRequest.documents.constanciaAfiliacion}#toolbar=0&navpanes=0&scrollbar=0`}
+                          className="w-full h-full border-none pointer-events-none"
+                          title="Preview Constancia"
+                        />
+                      ) : (
+                        <Image
+                          src={selectedRequest.documents.constanciaAfiliacion}
+                          alt="Constancia de Afiliación"
+                          fill
+                          unoptimized
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, 33vw"
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            openDocument(
+                              selectedRequest.documents.constanciaAfiliacion,
+                              "Constancia de Afiliación Sindical",
+                            )
+                          }
+                        >
+                          Ver en Grande
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {rejectReason && (
+              {!rejectReason && (
                 <p className="text-sm text-red-500">
-                  Razon de rechazo requerida para rechazar.
+                  Razón de rechazo requerida para rechazar.
                 </p>
               )}
 
