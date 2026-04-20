@@ -726,32 +726,44 @@ export default function AdminValidacion({
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex-col gap-3 sm:flex-col">
             {filterStatus === "pending" && (
               <>
+                {/* Botón Rechazar — rojo outline, solo habilitado con razón */}
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   onClick={handleReject}
                   disabled={isProcessing || !rejectReason}
+                  className="w-full border-2 border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold disabled:opacity-40"
                 >
                   {isProcessing ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <X className="w-4 h-4 mr-2" /> Rechazar
+                      <X className="w-4 h-4 mr-2" /> Rechazar solicitud
                     </>
                   )}
                 </Button>
+
+                {/* Separador visual */}
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="flex-1 border-t border-slate-200" />
+                  <span>o</span>
+                  <div className="flex-1 border-t border-slate-200" />
+                </div>
+
+                {/* Botón Aprobar — verde sólido grande */}
                 <Button
-                  className="bg-green-600 hover:bg-green-700"
+                  className="w-full h-12 text-base bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/20"
                   onClick={handleApprove}
                   disabled={isProcessing}
                 >
                   {isProcessing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-2" /> Aprobar
+                      <Check className="w-5 h-5 mr-2" /> Aprobar y activar
+                      acceso
                     </>
                   )}
                 </Button>
@@ -759,9 +771,10 @@ export default function AdminValidacion({
             )}
             {filterStatus === "active" && (
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={handleReject}
                 disabled={isProcessing || !rejectReason}
+                className="w-full border-2 border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold disabled:opacity-40"
               >
                 {isProcessing ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -774,15 +787,15 @@ export default function AdminValidacion({
             )}
             {filterStatus === "rejected" && (
               <Button
-                className="bg-green-600 hover:bg-green-700"
+                className="w-full h-12 text-base bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/20"
                 onClick={handleApprove}
                 disabled={isProcessing}
               >
                 {isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    <Check className="w-4 h-4 mr-2" /> Reactivar / Aprobar
+                    <Check className="w-5 h-5 mr-2" /> Reactivar / Aprobar
                   </>
                 )}
               </Button>
