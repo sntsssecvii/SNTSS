@@ -11,7 +11,6 @@ import {
   ScanLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { loadOpenCV } from "@/lib/utils/opencv-loader";
 
 interface DocumentScannerSheetProps {
   open: boolean;
@@ -22,9 +21,6 @@ interface DocumentScannerSheetProps {
 
 type Phase = "loading" | "camera" | "preview" | "error";
 
-const DETECTION_FPS = 10;
-const DETECTION_INTERVAL_MS = 1000 / DETECTION_FPS;
-
 export default function DocumentScannerSheet({
   open,
   onClose,
@@ -34,14 +30,10 @@ export default function DocumentScannerSheet({
   const videoRef = useRef<HTMLVideoElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const scannerRef = useRef<any>(null);
   const rafRef = useRef<number | null>(null);
-  const lastProcessRef = useRef<number>(0);
 
   const [phase, setPhase] = useState<Phase>("loading");
-  const [loadingMsg, setLoadingMsg] = useState("Iniciando...");
   const [errorMsg, setErrorMsg] = useState("");
-  const [documentDetected, setDocumentDetected] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
 
@@ -56,23 +48,20 @@ export default function DocumentScannerSheet({
     }
   }, []);
 
-  const startDetectionLoop = useCallback(() => {
+  const startRenderLoop = useCallback(() => {
     const video = videoRef.current;
     const canvas = displayCanvasRef.current;
-    if (!video || !canvas || !scannerRef.current) return;
+    if (!video || !canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const loop = (timestamp: number) => {
-      // HAVE_CURRENT_DATA = 2; iOS Safari rara vez llega a HAVE_ENOUGH_DATA = 4
+    const loop = () => {
       if (video.readyState < 2 || video.videoWidth === 0) {
         rafRef.current = requestAnimationFrame(loop);
         return;
       }
 
-      // Canvas interno = tamaño del contenedor para evitar stretch.
-      // El video se escala con letterboxing para mantener su aspect ratio.
       const cw = canvas.parentElement?.clientWidth || canvas.clientWidth;
       const ch = canvas.parentElement?.clientHeight || canvas.clientHeight;
       if (canvas.width !== cw) canvas.width = cw;
@@ -84,60 +73,25 @@ export default function DocumentScannerSheet({
       const dx = (cw - vw * scale) / 2;
       const dy = (ch - vh * scale) / 2;
 
-      const shouldProcess =
-        timestamp - lastProcessRef.current >= DETECTION_INTERVAL_MS;
-
-      if (shouldProcess) {
-        lastProcessRef.current = timestamp;
-
-        // tmp en resolución nativa del video para que jscanify detecte bien
-        const tmp = document.createElement("canvas");
-        tmp.width = vw;
-        tmp.height = vh;
-        tmp.getContext("2d")!.drawImage(video, 0, 0);
-
-        try {
-          const highlighted = scannerRef.current.highlightPaper(tmp);
-          ctx.clearRect(0, 0, cw, ch);
-          ctx.drawImage(highlighted, dx, dy, vw * scale, vh * scale);
-          setDocumentDetected(true);
-        } catch {
-          ctx.clearRect(0, 0, cw, ch);
-          ctx.drawImage(video, dx, dy, vw * scale, vh * scale);
-          setDocumentDetected(false);
-        }
-      } else {
-        ctx.drawImage(video, dx, dy, vw * scale, vh * scale);
-      }
-
+      ctx.drawImage(video, dx, dy, vw * scale, vh * scale);
       rafRef.current = requestAnimationFrame(loop);
     };
 
     rafRef.current = requestAnimationFrame(loop);
   }, []);
 
-  // Arrancar el loop DESPUÉS de que React haya renderizado el canvas (fase camera)
   useEffect(() => {
     if (phase === "camera") {
-      startDetectionLoop();
+      startRenderLoop();
     }
-  }, [phase, startDetectionLoop]);
+  }, [phase, startRenderLoop]);
 
-  const initScanner = useCallback(async () => {
+  const initCamera = useCallback(async () => {
     setPhase("loading");
-    setDocumentDetected(false);
     setPreviewUrl(null);
     setCapturedBlob(null);
 
     try {
-      setLoadingMsg("Cargando motor de escaneo...");
-      await loadOpenCV();
-
-      setLoadingMsg("Iniciando cámara...");
-      const jscanifyModule = await import("jscanify/client");
-      const jscanify = jscanifyModule.default ?? jscanifyModule;
-      scannerRef.current = new (jscanify as any)();
-
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
@@ -148,11 +102,9 @@ export default function DocumentScannerSheet({
       });
       streamRef.current = stream;
 
-      // videoRef siempre está montado (fuera del condicional de fase)
       const video = videoRef.current!;
       video.srcObject = stream;
 
-      // Esperar metadata antes de play para que videoWidth/Height estén disponibles
       await new Promise<void>((resolve) => {
         if (video.videoWidth > 0) return resolve();
         video.addEventListener("loadedmetadata", () => resolve(), {
@@ -162,7 +114,6 @@ export default function DocumentScannerSheet({
       await video.play();
 
       setPhase("camera");
-      // El loop arranca vía useEffect cuando phase === "camera" se renderiza
     } catch (err: any) {
       const name = err?.name || "";
       const msg = err?.message || "";
@@ -179,13 +130,6 @@ export default function DocumentScannerSheet({
         setErrorMsg(
           `La cámara está siendo usada por otra aplicación. Ciérrala e intenta de nuevo. (${detail})`,
         );
-      } else if (
-        msg.toLowerCase().includes("opencv") ||
-        msg.toLowerCase().includes("cargar")
-      ) {
-        setErrorMsg(
-          `No se pudo cargar el motor de escaneo. Verifica tu conexión. (${detail})`,
-        );
       } else {
         setErrorMsg(`No se pudo iniciar la cámara. (${detail})`);
       }
@@ -193,10 +137,9 @@ export default function DocumentScannerSheet({
     }
   }, []);
 
-  // Abrir/cerrar
   useEffect(() => {
     if (open) {
-      initScanner();
+      initCamera();
     } else {
       stopCamera();
       setPhase("loading");
@@ -208,7 +151,7 @@ export default function DocumentScannerSheet({
 
   const handleCapture = useCallback(() => {
     const video = videoRef.current;
-    if (!video || !scannerRef.current) return;
+    if (!video) return;
 
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -220,22 +163,11 @@ export default function DocumentScannerSheet({
     tmp.height = video.videoHeight;
     tmp.getContext("2d")!.drawImage(video, 0, 0);
 
-    let resultCanvas: HTMLCanvasElement;
-    try {
-      resultCanvas = scannerRef.current.extractPaper(
-        tmp,
-        video.videoWidth,
-        video.videoHeight,
-      );
-    } catch {
-      resultCanvas = tmp;
-    }
-
-    resultCanvas.toBlob(
+    tmp.toBlob(
       (blob) => {
         if (!blob) return;
         setCapturedBlob(blob);
-        setPreviewUrl(resultCanvas.toDataURL("image/jpeg", 0.92));
+        setPreviewUrl(tmp.toDataURL("image/jpeg", 0.92));
         setPhase("preview");
         stopCamera();
       },
@@ -254,8 +186,8 @@ export default function DocumentScannerSheet({
   }, [capturedBlob, onCapture, onClose]);
 
   const handleRetry = useCallback(() => {
-    initScanner();
-  }, [initScanner]);
+    initCamera();
+  }, [initCamera]);
 
   const handleClose = useCallback(() => {
     stopCamera();
@@ -284,11 +216,6 @@ export default function DocumentScannerSheet({
 
       {/* Contenido */}
       <div className="flex-1 relative overflow-hidden">
-        {/*
-          Video y canvas siempre montados — crítico para iOS Safari.
-          Si están dentro de un condicional de fase, videoRef es null cuando
-          initScanner corre (fase "loading") y srcObject nunca se asigna.
-        */}
         <video
           ref={videoRef}
           className="absolute opacity-0 pointer-events-none w-px h-px"
@@ -314,15 +241,11 @@ export default function DocumentScannerSheet({
               className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black"
             >
               <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
-              <p className="text-white/60 text-sm">{loadingMsg}</p>
-              <p className="text-white/30 text-xs max-w-[240px] text-center">
-                La primera vez puede tardar unos segundos mientras carga el
-                motor de visión
-              </p>
+              <p className="text-white/60 text-sm">Iniciando cámara...</p>
             </motion.div>
           )}
 
-          {/* Cámara activa — solo los overlays; video y canvas están fuera */}
+          {/* Cámara activa */}
           {phase === "camera" && (
             <motion.div
               key="camera"
@@ -331,27 +254,14 @@ export default function DocumentScannerSheet({
               exit={{ opacity: 0 }}
               className="absolute inset-0"
             >
-              {/* Indicador de detección */}
+              {/* Instrucción */}
               <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10">
-                <motion.div
-                  animate={
-                    documentDetected
-                      ? { backgroundColor: "rgba(16,185,129,0.9)", scale: 1 }
-                      : {
-                          backgroundColor: "rgba(255,255,255,0.15)",
-                          scale: 0.97,
-                        }
-                  }
-                  transition={{ duration: 0.3 }}
-                  className="px-3 py-1.5 rounded-full flex items-center gap-1.5"
-                >
+                <div className="bg-black/50 px-3 py-1.5 rounded-full flex items-center gap-1.5">
                   <ScanLine className="w-3.5 h-3.5 text-white" />
-                  <span className="text-white text-xs font-semibold">
-                    {documentDetected
-                      ? "Documento detectado"
-                      : "Apunta al documento"}
+                  <span className="text-white text-xs font-semibold whitespace-nowrap">
+                    Alinea el documento con el marco
                   </span>
-                </motion.div>
+                </div>
               </div>
 
               {/* Guía de encuadre */}
@@ -365,7 +275,7 @@ export default function DocumentScannerSheet({
                   ].map((cls, i) => (
                     <div
                       key={i}
-                      className={`absolute w-6 h-6 ${cls} ${documentDetected ? "border-emerald-400" : "border-white/50"} transition-colors duration-300`}
+                      className={`absolute w-6 h-6 ${cls} border-white/70`}
                     />
                   ))}
                 </div>
@@ -373,7 +283,7 @@ export default function DocumentScannerSheet({
             </motion.div>
           )}
 
-          {/* Preview del escaneo */}
+          {/* Preview */}
           {phase === "preview" && previewUrl && (
             <motion.div
               key="preview"
@@ -385,13 +295,13 @@ export default function DocumentScannerSheet({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewUrl}
-                alt="Documento escaneado"
+                alt="Documento capturado"
                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
               />
               <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-emerald-500/90 px-3 py-1.5 rounded-full flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                 <span className="text-white text-xs font-semibold">
-                  Corrección de perspectiva aplicada
+                  Foto capturada
                 </span>
               </div>
             </motion.div>
@@ -424,7 +334,7 @@ export default function DocumentScannerSheet({
         </AnimatePresence>
       </div>
 
-      {/* Footer con acciones */}
+      {/* Footer */}
       <div className="shrink-0 px-6 pb-8 pt-4 bg-gradient-to-t from-black/80 to-transparent absolute bottom-0 left-0 right-0">
         <AnimatePresence mode="wait">
           {phase === "camera" && (
