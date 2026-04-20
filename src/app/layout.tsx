@@ -1,42 +1,46 @@
-import './globals.css'
-import { ThemeProvider } from "@/components/theme-provider"
-import { AuthProvider } from '@/contexts/AuthContext'
-import { NotificationProvider } from '@/contexts/NotificationContext'
-import { Toaster } from "@/components/ui/toaster"
+import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
+import { Toaster } from "@/components/ui/toaster";
 
 // Importar diagnóstico para que esté disponible globalmente
-if (typeof window !== 'undefined') {
-  import('@/lib/firebase/diagnostico')
+if (typeof window !== "undefined") {
+  import("@/lib/firebase/diagnostico");
 }
 
 export const metadata = {
-  title: 'SNTSS',
-  description: 'Sistema de gestión SNTSS',
+  title: "SNTSS",
+  description: "Sistema de gestión SNTSS",
   icons: {
     icon: [
       {
-        url: '/images/logo.png',
-        href: '/images/logo.png',
-      }
-    ]
-  }
-}
+        url: "/images/logo.png",
+        href: "/images/logo.png",
+      },
+    ],
+  },
+};
 
 export const viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased transition-colors duration-300 font-sans">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+        >
           <AuthProvider>
             <NotificationProvider>
               {children}
@@ -46,5 +50,5 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
