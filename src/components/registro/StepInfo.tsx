@@ -46,7 +46,7 @@ const stepInfoSchema = registroBaseSchema
   });
 
 const inputCls =
-  "h-12 text-base transition-all focus:ring-2 focus:ring-red-500/20 focus:border-red-500";
+  "h-12 text-base transition-colors focus:ring-2 focus:ring-red-500/20 focus:border-red-500";
 
 export default function StepInfo({ onNext, initialData }: StepInfoProps) {
   const {
