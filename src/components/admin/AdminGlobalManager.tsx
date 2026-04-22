@@ -5,6 +5,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { auth } from "@/lib/firebase/firebase-client";
@@ -94,6 +95,7 @@ function formatStatusLabel(status: UserStatus) {
 export default function AdminGlobalManager() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [deletingUid, setDeletingUid] = useState<string | null>(null);
   const [confirmDeleteUid, setConfirmDeleteUid] = useState<string | null>(null);
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -178,15 +180,22 @@ export default function AdminGlobalManager() {
     [deferredQuery, roleFilter, statusFilter],
   );
 
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
     let cancelled = false;
 
     const syncUsers = async () => {
       try {
-        if (!cancelled) setLoading(true);
+        if (isFirstLoad.current) {
+          if (!cancelled) setLoading(true);
+        } else {
+          if (!cancelled) setIsFetching(true);
+        }
         setCursorStack([]);
         setCurrentCursor(undefined);
         await loadUsers();
+        isFirstLoad.current = false;
       } catch (error) {
         console.error(error);
         if (!cancelled) {
@@ -197,7 +206,10 @@ export default function AdminGlobalManager() {
           });
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setIsFetching(false);
+        }
       }
     };
 
@@ -341,8 +353,11 @@ export default function AdminGlobalManager() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Buscar por nombre, correo o matrícula"
-                className="pl-9"
+                className="pl-9 pr-9"
               />
+              {isFetching && (
+                <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+              )}
             </div>
 
             <Select

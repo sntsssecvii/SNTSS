@@ -38,6 +38,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  RotateCw,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -116,7 +117,9 @@ export default function AdminValidacion({
     title: string;
   } | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isFetching, setIsFetching] = useState(false);
   const dragState = useRef<{
     active: boolean;
     startX: number;
@@ -137,6 +140,7 @@ export default function AdminValidacion({
 
   useEffect(() => {
     setZoom(1);
+    setRotation(0);
     setOffset({ x: 0, y: 0 });
   }, [viewingDoc]);
 
@@ -183,17 +187,27 @@ export default function AdminValidacion({
     [deferredQuery, filterStatus],
   );
 
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
     let cancelled = false;
 
     const syncRequests = async () => {
       try {
-        if (!cancelled) setLoading(true);
+        if (isFirstLoad.current) {
+          if (!cancelled) setLoading(true);
+        } else {
+          if (!cancelled) setIsFetching(true);
+        }
         if (!cancelled) {
           setCursorStack([]);
           setCurrentCursor(undefined);
           await loadRequests();
-          setLoading(false);
+          isFirstLoad.current = false;
+          if (!cancelled) {
+            setLoading(false);
+            setIsFetching(false);
+          }
         }
       } catch (error) {
         console.error("Error fetching validation requests:", error);
@@ -201,6 +215,7 @@ export default function AdminValidacion({
           setRequests([]);
           setCurrentCursor(undefined);
           setLoading(false);
+          setIsFetching(false);
         }
       }
     };
@@ -358,12 +373,16 @@ export default function AdminValidacion({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar por nombre, correo o matrícula"
-          className="max-w-md"
-        />
+        <div className="relative max-w-md">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por nombre, correo o matrícula"
+          />
+          {isFetching && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />
+          )}
+        </div>
         <p className="text-sm text-slate-500">
           La búsqueda consulta al backend y devuelve coincidencias por prefijo.
         </p>
@@ -407,42 +426,48 @@ export default function AdminValidacion({
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          openDocument(
-                            req.documents.identificacion,
-                            `INE - ${req.nombre}`,
-                          )
-                        }
-                      >
-                        <FileText className="w-4 h-4 mr-1" /> INE
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          openDocument(
-                            req.documents.tarjeton,
-                            `Tarjetón - ${req.nombre}`,
-                          )
-                        }
-                      >
-                        <FileText className="w-4 h-4 mr-1" /> Tarjetón
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          openDocument(
-                            req.documents.constanciaAfiliacion,
-                            `Constancia - ${req.nombre}`,
-                          )
-                        }
-                      >
-                        <FileText className="w-4 h-4 mr-1" /> Constancia
-                      </Button>
+                      {req.documents.identificacion ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            openDocument(
+                              req.documents.identificacion,
+                              `INE - ${req.nombre}`,
+                            )
+                          }
+                        >
+                          <FileText className="w-4 h-4 mr-1" /> INE
+                        </Button>
+                      ) : null}
+                      {req.documents.tarjeton ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            openDocument(
+                              req.documents.tarjeton,
+                              `Tarjetón - ${req.nombre}`,
+                            )
+                          }
+                        >
+                          <FileText className="w-4 h-4 mr-1" /> Tarjetón
+                        </Button>
+                      ) : null}
+                      {req.documents.constanciaAfiliacion ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            openDocument(
+                              req.documents.constanciaAfiliacion,
+                              `Constancia - ${req.nombre}`,
+                            )
+                          }
+                        >
+                          <FileText className="w-4 h-4 mr-1" /> Constancia
+                        </Button>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -502,8 +527,8 @@ export default function AdminValidacion({
         open={!!selectedRequest}
         onOpenChange={(open) => !open && setSelectedRequest(null)}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl flex flex-col max-h-[90vh]">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Revisión de Solicitud</DialogTitle>
             <DialogDescription>
               Valida la información y documentos del usuario.
@@ -511,7 +536,7 @@ export default function AdminValidacion({
           </DialogHeader>
 
           {selectedRequest && (
-            <div className="grid gap-6 py-4">
+            <div className="grid gap-6 py-4 overflow-y-auto flex-1 min-h-0 pr-1">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-semibold block">Nombre:</span>
@@ -521,10 +546,6 @@ export default function AdminValidacion({
                 <div>
                   <span className="font-semibold block">Matrícula:</span>
                   {selectedRequest.matricula}
-                </div>
-                <div>
-                  <span className="font-semibold block">CURP:</span>
-                  {selectedRequest.curp}
                 </div>
                 <div>
                   <span className="font-semibold block">Correo:</span>
@@ -545,170 +566,80 @@ export default function AdminValidacion({
                   Documentación Adjunta
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
-                    <div className="p-2 border-b bg-white flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Identificación (INE)
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          openDocument(
-                            selectedRequest.documents.identificacion,
-                            "Identificación Oficial",
-                          )
-                        }
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
-                      {selectedRequest.documents.identificacion
-                        .toLowerCase()
-                        .includes(".pdf") ? (
-                        <iframe
-                          src={`${selectedRequest.documents.identificacion}#toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-none pointer-events-none"
-                          title="Preview INE"
-                        />
-                      ) : (
-                        <Image
-                          src={selectedRequest.documents.identificacion}
-                          alt="Identificación"
-                          fill
-                          unoptimized
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 50vw"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              selectedRequest.documents.identificacion,
-                              "Identificación Oficial",
-                            )
-                          }
-                        >
-                          Ver en Grande
-                        </Button>
+                  {(
+                    [
+                      {
+                        label: "Identificación (INE)",
+                        url: selectedRequest.documents.identificacion,
+                        title: "Identificación Oficial",
+                        alt: "Identificación",
+                      },
+                      {
+                        label: "Tarjetón de Pago",
+                        url: selectedRequest.documents.tarjeton,
+                        title: "Tarjetón de Pago",
+                        alt: "Tarjetón",
+                      },
+                      {
+                        label: "Constancia de Afiliación",
+                        url: selectedRequest.documents.constanciaAfiliacion,
+                        title: "Constancia de Afiliación Sindical",
+                        alt: "Constancia de Afiliación",
+                      },
+                    ] as const
+                  ).map(({ label, url, title, alt }) => (
+                    <div
+                      key={label}
+                      className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20"
+                    >
+                      <div className="p-2 border-b bg-white flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">
+                          {label}
+                        </span>
+                        {url ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => openDocument(url, title)}
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        ) : null}
+                      </div>
+                      <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
+                        {!url ? (
+                          <p className="text-xs text-slate-400">No adjuntado</p>
+                        ) : url.toLowerCase().includes(".pdf") ? (
+                          <iframe
+                            src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
+                            className="w-full h-full border-none pointer-events-none"
+                            title={`Preview ${label}`}
+                          />
+                        ) : (
+                          <Image
+                            src={url}
+                            alt={alt}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                            sizes="(max-width: 640px) 100vw, 33vw"
+                          />
+                        )}
+                        {url && (
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => openDocument(url, title)}
+                            >
+                              Ver en Grande
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
-                    <div className="p-2 border-b bg-white flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Tarjetón de Pago
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          openDocument(
-                            selectedRequest.documents.tarjeton,
-                            "Tarjetón de Pago",
-                          )
-                        }
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
-                      {selectedRequest.documents.tarjeton
-                        .toLowerCase()
-                        .includes(".pdf") ? (
-                        <iframe
-                          src={`${selectedRequest.documents.tarjeton}#toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-none pointer-events-none"
-                          title="Preview Tarjetón"
-                        />
-                      ) : (
-                        <Image
-                          src={selectedRequest.documents.tarjeton}
-                          alt="Tarjetón"
-                          fill
-                          unoptimized
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 50vw"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              selectedRequest.documents.tarjeton,
-                              "Tarjetón de Pago",
-                            )
-                          }
-                        >
-                          Ver en Grande
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
-                    <div className="p-2 border-b bg-white flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Constancia de Afiliación
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          openDocument(
-                            selectedRequest.documents.constanciaAfiliacion,
-                            "Constancia de Afiliación Sindical",
-                          )
-                        }
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
-                      {selectedRequest.documents.constanciaAfiliacion
-                        .toLowerCase()
-                        .includes(".pdf") ? (
-                        <iframe
-                          src={`${selectedRequest.documents.constanciaAfiliacion}#toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-none pointer-events-none"
-                          title="Preview Constancia"
-                        />
-                      ) : (
-                        <Image
-                          src={selectedRequest.documents.constanciaAfiliacion}
-                          alt="Constancia de Afiliación"
-                          fill
-                          unoptimized
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 33vw"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              selectedRequest.documents.constanciaAfiliacion,
-                              "Constancia de Afiliación Sindical",
-                            )
-                          }
-                        >
-                          Ver en Grande
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
@@ -726,7 +657,7 @@ export default function AdminValidacion({
             </div>
           )}
 
-          <DialogFooter className="flex-col gap-3 sm:flex-col">
+          <DialogFooter className="flex-col gap-3 sm:flex-col shrink-0">
             {filterStatus === "pending" && (
               <>
                 {/* Botón Rechazar — rojo outline, solo habilitado con razón */}
@@ -887,7 +818,7 @@ export default function AdminValidacion({
               <div
                 className="relative w-full h-full flex items-center justify-center select-none"
                 style={{
-                  transform: `scale(${zoom}) translate(${offset.x / zoom}px, ${offset.y / zoom}px)`,
+                  transform: `scale(${zoom}) rotate(${rotation}deg) translate(${offset.x / zoom}px, ${offset.y / zoom}px)`,
                   transformOrigin: "center center",
                   transition: dragState.current.active
                     ? "none"
@@ -939,17 +870,43 @@ export default function AdminValidacion({
                 >
                   <ZoomIn className="h-4 w-4" />
                 </Button>
+                <div className="w-px h-4 bg-white/20 mx-1" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev - 90 + 360) % 360)}
+                  title="Rotar izquierda"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                  title="Rotar derecha"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10 ml-1"
                   onClick={() => {
                     setZoom(1);
+                    setRotation(0);
                     setOffset({ x: 0, y: 0 });
                   }}
-                  disabled={zoom === 1 && offset.x === 0 && offset.y === 0}
+                  disabled={
+                    zoom === 1 &&
+                    rotation === 0 &&
+                    offset.x === 0 &&
+                    offset.y === 0
+                  }
+                  title="Restablecer"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ) : (
