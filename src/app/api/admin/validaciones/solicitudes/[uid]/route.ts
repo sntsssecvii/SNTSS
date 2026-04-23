@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { sendApprovalEmail, sendRejectionEmail } from "@/lib/email";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
-import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { requireAdminRequest } from "@/lib/firebase/server-auth";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
@@ -81,39 +81,12 @@ export async function POST(
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // Borrar documentos de Storage al aprobar (datos sensibles)
+    // Documentos de Storage conservados para auditoría — no se eliminan al aprobar
     if (nextStatus === "active") {
-      try {
-        const bucket = adminStorage.bucket();
-        const [storageFiles] = await bucket.getFiles({
-          prefix: `uploads/${uid}/`,
-        });
-
-        await Promise.all(
-          storageFiles.map((f) =>
-            f.delete().catch((err) => {
-              console.error(`[validaciones] Error borrando ${f.name}:`, err);
-            }),
-          ),
-        );
-
-        await userRef.update({
-          documents: {
-            identificacion: null,
-            tarjeton: null,
-            constanciaAfiliacion: null,
-          },
-          documentsDeletedAt: FieldValue.serverTimestamp(),
-          validatedBy: actorUid,
-          validatedAt: FieldValue.serverTimestamp(),
-        });
-      } catch (storageErr) {
-        // El borrado no revierte la aprobación — solo loguear
-        console.error(
-          "[validaciones] Error en cleanup de Storage:",
-          storageErr,
-        );
-      }
+      await userRef.update({
+        validatedBy: actorUid,
+        validatedAt: FieldValue.serverTimestamp(),
+      });
     }
 
     await adminDb.collection("notifications").add({
