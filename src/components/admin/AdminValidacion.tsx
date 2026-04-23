@@ -818,7 +818,7 @@ export default function AdminValidacion({
               <div
                 className="relative w-full h-full flex items-center justify-center select-none"
                 style={{
-                  transform: `scale(${zoom}) rotate(${rotation}deg) translate(${offset.x / zoom}px, ${offset.y / zoom}px)`,
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
                   transformOrigin: "center center",
                   transition: dragState.current.active
                     ? "none"
