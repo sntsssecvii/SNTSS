@@ -33,7 +33,12 @@ export default function DocumentScannerSheet({
   const isPortrait =
     documentType === "constanciaAfiliacion" || documentType === "tarjeton";
   // Aspect ratios reales: INE = 85.6×54mm (tarjeta), carta = 8.5×11"
-  const guideWidth = isPortrait ? "72%" : "88%";
+  // min() garantiza que el guía cabe en landscape y tablets:
+  //   - primer valor: % del ancho del contenedor (teléfono portrait)
+  //   - segundo valor: altura disponible × ratio (teléfono landscape / tablet corto)
+  const guideWidth = isPortrait
+    ? "min(72%, calc(78dvh * 0.773))"
+    : "min(88%, calc(78dvh * 1.585))";
   const guideAspectRatio = isPortrait ? "8.5 / 11" : "85.6 / 54";
   const videoRef = useRef<HTMLVideoElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
