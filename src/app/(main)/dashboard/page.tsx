@@ -192,10 +192,11 @@ export default function DashboardPage() {
         else if (msg.includes("No se pudo validar la sesión"))
           nextErrorStatus = 401;
         else if (msg.includes("no está activa")) nextErrorStatus = 403;
-        else if (
-          msg.includes("No hay información oficial activa") ||
-          msg.includes("No se encontraron trámites vigentes")
-        )
+        else if (msg.includes("No se encontraron trámites vigentes")) {
+          // Sin trámites no es un error — mostrar empty state de bienvenida
+          setTramites([]);
+          return;
+        } else if (msg.includes("No hay información oficial activa"))
           nextErrorStatus = 404;
         else if (msg.includes("todavía se está preparando"))
           nextErrorStatus = 503;
