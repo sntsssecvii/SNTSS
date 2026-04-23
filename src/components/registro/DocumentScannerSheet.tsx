@@ -17,6 +17,7 @@ interface DocumentScannerSheetProps {
   onClose: () => void;
   onCapture: (file: File) => void;
   documentLabel: string;
+  documentType?: "identificacion" | "tarjeton" | "constanciaAfiliacion";
 }
 
 type Phase = "loading" | "camera" | "preview" | "error";
@@ -26,7 +27,14 @@ export default function DocumentScannerSheet({
   onClose,
   onCapture,
   documentLabel,
+  documentType = "identificacion",
 }: DocumentScannerSheetProps) {
+  // INE es horizontal (landscape). Tarjetón y constancia son verticales (portrait, tamaño carta)
+  const isPortrait =
+    documentType === "constanciaAfiliacion" || documentType === "tarjeton";
+  const guideStyle = isPortrait
+    ? { top: "10%", bottom: "10%", left: "18%", right: "18%" }
+    : { top: "22%", bottom: "22%", left: "8%", right: "8%" };
   const videoRef = useRef<HTMLVideoElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -254,19 +262,39 @@ export default function DocumentScannerSheet({
               exit={{ opacity: 0 }}
               className="absolute inset-0"
             >
-              {/* Overlay oscuro con recorte — guía de documento estilo INE */}
+              {/* Overlay oscuro con recorte — guía adaptada al tipo de documento */}
               <div className="absolute inset-0 pointer-events-none z-10">
                 {/* Franja superior */}
-                <div className="absolute top-0 left-0 right-0 h-[22%] bg-black/60" />
+                <div
+                  className="absolute top-0 left-0 right-0 bg-black/60"
+                  style={{ height: guideStyle.top }}
+                />
                 {/* Franja inferior */}
-                <div className="absolute bottom-0 left-0 right-0 h-[22%] bg-black/60" />
-                {/* Franja izquierda (entre franjas top/bottom) */}
-                <div className="absolute left-0 top-[22%] bottom-[22%] w-[8%] bg-black/60" />
+                <div
+                  className="absolute bottom-0 left-0 right-0 bg-black/60"
+                  style={{ height: guideStyle.bottom }}
+                />
+                {/* Franja izquierda */}
+                <div
+                  className="absolute left-0 bg-black/60"
+                  style={{
+                    top: guideStyle.top,
+                    bottom: guideStyle.bottom,
+                    width: guideStyle.left,
+                  }}
+                />
                 {/* Franja derecha */}
-                <div className="absolute right-0 top-[22%] bottom-[22%] w-[8%] bg-black/60" />
+                <div
+                  className="absolute right-0 bg-black/60"
+                  style={{
+                    top: guideStyle.top,
+                    bottom: guideStyle.bottom,
+                    width: guideStyle.right,
+                  }}
+                />
 
                 {/* Marco de la zona de captura */}
-                <div className="absolute top-[22%] left-[8%] right-[8%] bottom-[22%]">
+                <div className="absolute" style={guideStyle}>
                   {/* Esquinas prominentes */}
                   {[
                     "top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-md",

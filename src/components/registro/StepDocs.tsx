@@ -395,6 +395,7 @@ export default function StepDocs({
           }}
           onCapture={handleScanCapture}
           documentLabel={scannerTarget?.label ?? "Documento"}
+          documentType={scannerTarget?.type}
         />
       )}
     </>
