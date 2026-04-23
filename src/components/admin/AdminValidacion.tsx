@@ -134,6 +134,7 @@ export default function AdminValidacion({
   const [currentCursor, setCurrentCursor] = useState<string | undefined>(
     undefined,
   );
+  const currentCursorRef = useRef<string | undefined>(undefined);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
 
@@ -184,6 +185,7 @@ export default function AdminValidacion({
       setRequests(payload.data?.requests || []);
       setPagination(payload.data?.pagination || DEFAULT_PAGINATION);
       setCurrentCursor(cursor);
+      currentCursorRef.current = cursor;
     },
     [deferredQuery, filterStatus],
   );
@@ -222,7 +224,10 @@ export default function AdminValidacion({
     };
 
     syncRequests();
-    const intervalId = window.setInterval(syncRequests, 45_000);
+    const intervalId = window.setInterval(
+      () => loadRequests(currentCursorRef.current),
+      45_000,
+    );
 
     return () => {
       cancelled = true;
