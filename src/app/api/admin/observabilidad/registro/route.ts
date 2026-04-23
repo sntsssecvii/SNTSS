@@ -189,61 +189,61 @@ export async function GET(request: NextRequest) {
     const FETCH_LIMIT = 200; // load enough to filter in memory
     let allEvents: RecentEvent[] = [];
 
-    const fetchPromises: Promise<void>[] = [];
+    // Always fetch admin_audit_logs to compute approvals/rejections last hour
+    const adminAuditPromise = adminDb
+      .collection("admin_audit_logs")
+      .orderBy("createdAt", "desc")
+      .limit(FETCH_LIMIT)
+      .get();
+
+    const registrationAuditPromise =
+      source === "all" || source === "registration"
+        ? adminDb
+            .collection("registration_audit_logs")
+            .orderBy("createdAt", "desc")
+            .limit(FETCH_LIMIT)
+            .get()
+        : Promise.resolve(null);
+
+    const [adminAuditSnap, registrationAuditSnap] = await Promise.all([
+      adminAuditPromise,
+      registrationAuditPromise,
+    ]);
+
+    // Compute approvals/rejections last hour from fetched admin docs (no composite index needed)
+    let approvalsLastHour = 0;
+    let rejectionsLastHour = 0;
+    adminAuditSnap.docs.forEach((doc) => {
+      const data = doc.data() as {
+        action?: string;
+        status?: string;
+        createdAt?: FirestoreDateLike;
+        metadata?: { nextStatus?: string };
+      };
+      const createdAt = coerceDate(data.createdAt);
+      if (
+        !createdAt ||
+        createdAt < oneHourAgo ||
+        data.action !== "USER_VALIDATION_UPDATED" ||
+        data.status !== "SUCCESS"
+      )
+        return;
+      if (data.metadata?.nextStatus === "active") approvalsLastHour += 1;
+      if (data.metadata?.nextStatus === "rejected") rejectionsLastHour += 1;
+    });
 
     if (source === "all" || source === "registration") {
-      fetchPromises.push(
-        adminDb
-          .collection("registration_audit_logs")
-          .orderBy("createdAt", "desc")
-          .limit(FETCH_LIMIT)
-          .get()
-          .then((snap) => {
-            allEvents.push(...snap.docs.map(mapRegistrationEvent));
-          }),
-      );
+      if (registrationAuditSnap) {
+        allEvents.push(...registrationAuditSnap.docs.map(mapRegistrationEvent));
+      }
     }
 
     if (source === "all" || source === "admin") {
-      fetchPromises.push(
-        adminDb
-          .collection("admin_audit_logs")
-          .orderBy("createdAt", "desc")
-          .limit(FETCH_LIMIT)
-          .get()
-          .then((snap) => {
-            const mapped = snap.docs
-              .map(mapAdminEvent)
-              .filter((e): e is RecentEvent => e !== null);
-            allEvents.push(...mapped);
-          }),
-      );
+      const mapped = adminAuditSnap.docs
+        .map(mapAdminEvent)
+        .filter((e): e is RecentEvent => e !== null);
+      allEvents.push(...mapped);
     }
-
-    // Admin approvals/rejections last hour (for overview)
-    let approvalsLastHour = 0;
-    let rejectionsLastHour = 0;
-    fetchPromises.push(
-      adminDb
-        .collection("admin_audit_logs")
-        .where("action", "==", "USER_VALIDATION_UPDATED")
-        .where("createdAt", ">=", oneHourAgo)
-        .get()
-        .then((snap) => {
-          snap.docs.forEach((doc) => {
-            const data = doc.data() as {
-              status?: string;
-              metadata?: { nextStatus?: string };
-            };
-            if (data.status !== "SUCCESS") return;
-            if (data.metadata?.nextStatus === "active") approvalsLastHour += 1;
-            if (data.metadata?.nextStatus === "rejected")
-              rejectionsLastHour += 1;
-          });
-        }),
-    );
-
-    await Promise.all(fetchPromises);
 
     // Sort merged events by date descending
     allEvents.sort((a, b) => {
