@@ -13,7 +13,8 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
-import { isAdminRole } from "@/lib/auth/roles";
+import { isAdminRole, getRoleLabel } from "@/lib/auth/roles";
+import { ROLES } from "@/types/roles";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -435,11 +436,12 @@ export function Navbar() {
                   <p className="text-xs leading-none text-muted-foreground">
                     {user?.email}
                   </p>
-                  {userData?.role && (
-                    <span className="mt-1 inline-block px-2 py-0.5 text-xs bg-primary/10 text-primary rounded">
-                      {userData.role.toUpperCase()}
-                    </span>
-                  )}
+                  {userData?.role &&
+                    userData.role.toUpperCase() !== ROLES.USER && (
+                      <span className="mt-1 inline-block px-2 py-0.5 text-xs bg-primary/10 text-primary rounded">
+                        {getRoleLabel(userData.role)}
+                      </span>
+                    )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
