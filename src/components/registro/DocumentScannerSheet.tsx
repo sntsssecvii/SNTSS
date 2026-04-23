@@ -32,9 +32,9 @@ export default function DocumentScannerSheet({
   // INE es horizontal (landscape). Tarjetón y constancia son verticales (portrait, tamaño carta)
   const isPortrait =
     documentType === "constanciaAfiliacion" || documentType === "tarjeton";
-  const guideStyle = isPortrait
-    ? { top: "10%", bottom: "10%", left: "18%", right: "18%" }
-    : { top: "22%", bottom: "22%", left: "8%", right: "8%" };
+  // Aspect ratios reales: INE = 85.6×54mm (tarjeta), carta = 8.5×11"
+  const guideWidth = isPortrait ? "72%" : "88%";
+  const guideAspectRatio = isPortrait ? "8.5 / 11" : "85.6 / 54";
   const videoRef = useRef<HTMLVideoElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -260,41 +260,18 @@ export default function DocumentScannerSheet({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0"
+              className="absolute inset-0 flex items-center justify-center"
             >
-              {/* Overlay oscuro con recorte — guía adaptada al tipo de documento */}
-              <div className="absolute inset-0 pointer-events-none z-10">
-                {/* Franja superior */}
+              {/* Overlay con recorte centrado — aspect ratio real del documento */}
+              <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
                 <div
-                  className="absolute top-0 left-0 right-0 bg-black/60"
-                  style={{ height: guideStyle.top }}
-                />
-                {/* Franja inferior */}
-                <div
-                  className="absolute bottom-0 left-0 right-0 bg-black/60"
-                  style={{ height: guideStyle.bottom }}
-                />
-                {/* Franja izquierda */}
-                <div
-                  className="absolute left-0 bg-black/60"
                   style={{
-                    top: guideStyle.top,
-                    bottom: guideStyle.bottom,
-                    width: guideStyle.left,
+                    width: guideWidth,
+                    aspectRatio: guideAspectRatio,
+                    boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
+                    position: "relative",
                   }}
-                />
-                {/* Franja derecha */}
-                <div
-                  className="absolute right-0 bg-black/60"
-                  style={{
-                    top: guideStyle.top,
-                    bottom: guideStyle.bottom,
-                    width: guideStyle.right,
-                  }}
-                />
-
-                {/* Marco de la zona de captura */}
-                <div className="absolute" style={guideStyle}>
+                >
                   {/* Esquinas prominentes */}
                   {[
                     "top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-md",
@@ -320,8 +297,8 @@ export default function DocumentScannerSheet({
                 </div>
               </div>
 
-              {/* Instrucción */}
-              <div className="absolute top-[14%] left-1/2 -translate-x-1/2 z-20 w-full flex justify-center">
+              {/* Instrucción — debajo del área de guía */}
+              <div className="absolute bottom-[13%] left-1/2 -translate-x-1/2 z-20 w-full flex justify-center">
                 <div className="bg-black/60 px-4 py-2 rounded-full flex items-center gap-2">
                   <ScanLine className="w-3.5 h-3.5 text-red-400 shrink-0" />
                   <span className="text-white text-xs font-semibold whitespace-nowrap">
