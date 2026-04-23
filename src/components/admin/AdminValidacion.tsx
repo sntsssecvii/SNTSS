@@ -504,7 +504,7 @@ export default function AdminValidacion({
         <p className="text-sm text-slate-500">
           Mostrando {requests.length} de {pagination.total} registros.
         </p>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             onClick={async () => {
@@ -516,6 +516,12 @@ export default function AdminValidacion({
           >
             Anterior
           </Button>
+          <span className="text-sm text-slate-500 tabular-nums px-1">
+            Pág. {cursorStack.length + 1}
+            {pagination.total > 0
+              ? ` de ${Math.ceil(pagination.total / 25)}`
+              : ""}
+          </span>
           <Button
             variant="outline"
             onClick={async () => {
