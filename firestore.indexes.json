@@ -203,16 +203,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "searchTokens",
-          "arrayConfig": "CONTAINS"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "status",
           "order": "ASCENDING"
         },
