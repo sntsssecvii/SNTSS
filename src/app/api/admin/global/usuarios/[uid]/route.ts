@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { normalizeUserRole } from "@/lib/auth/roles";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
-import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import {
   requireSuperAdminRequest,
@@ -23,6 +23,114 @@ const ALLOWED_ROLES = new Set<string>(Object.values(ROLES));
 const ALLOWED_STATUS = new Set(["pending", "active", "rejected"]);
 
 export const dynamic = "force-dynamic";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ uid: string }> },
+) {
+  try {
+    enforceRateLimit(request, {
+      bucket: "api:admin:global:usuarios:get",
+      limit: 60,
+      windowMs: 60_000,
+    });
+    await requireDeveloperRequest(request);
+
+    const { uid } = await params;
+    const userRef = adminDb.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return NextResponse.json(
+        { error: "Usuario no encontrado." },
+        { status: 404 },
+      );
+    }
+
+    const data = userSnap.data() || {};
+
+    // Generar signed URLs (1 hora) para los documentos en Storage
+    const bucket = adminStorage.bucket();
+    const docFields = [
+      "identificacion",
+      "tarjeton",
+      "constanciaAfiliacion",
+    ] as const;
+    const signedDocs: Record<string, string | null> = {};
+
+    await Promise.all(
+      docFields.map(async (field) => {
+        const rawPath: unknown = data.documents?.[field];
+        if (!rawPath || typeof rawPath !== "string") {
+          signedDocs[field] = null;
+          return;
+        }
+
+        // Extraer la ruta relativa dentro del bucket desde la URL de Firebase Storage
+        // Formato: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedPath}?...
+        try {
+          const match = rawPath.match(/\/o\/([^?]+)/);
+          if (!match) {
+            signedDocs[field] = rawPath;
+            return;
+          }
+          const filePath = decodeURIComponent(match[1]);
+          const file = bucket.file(filePath);
+          const [url] = await file.getSignedUrl({
+            action: "read",
+            expires: Date.now() + 60 * 60 * 1000, // 1 hora
+          });
+          signedDocs[field] = url;
+        } catch {
+          signedDocs[field] = null;
+        }
+      }),
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        uid,
+        email: data.email || null,
+        nombre: data.nombre || null,
+        apellidoPaterno: data.apellidoPaterno || null,
+        apellidoMaterno: data.apellidoMaterno || null,
+        matricula: data.matricula || null,
+        curp: data.curp || null,
+        role: normalizeUserRole(data.role),
+        status: data.status || "pending",
+        createdAtMs: data.createdAt?.toMillis?.() ?? null,
+        updatedAtMs: data.updatedAt?.toMillis?.() ?? null,
+        validatedAt: data.validatedAt?.toMillis?.() ?? null,
+        validatedBy: data.validatedBy || null,
+        documents: signedDocs,
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes." },
+        { status: 429 },
+      );
+    }
+    if (error?.message === "AUTH_REQUIRED") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+    if (
+      error?.message === "SUPER_ADMIN_REQUIRED" ||
+      error?.message === "DEVELOPER_REQUIRED"
+    ) {
+      return NextResponse.json(
+        { error: "Se requiere acceso de desarrollador." },
+        { status: 403 },
+      );
+    }
+    return NextResponse.json(
+      { error: "No se pudo obtener el usuario." },
+      { status: 500 },
+    );
+  }
+}
 
 export async function PATCH(
   request: NextRequest,

@@ -42,6 +42,9 @@ import { Label } from "@/components/ui/label";
 import {
   AlertTriangle,
   BadgeCheck,
+  Eye,
+  ExternalLink,
+  FileX,
   Loader2,
   Pencil,
   Search,
@@ -64,6 +67,16 @@ type ManagedUser = {
   status: UserStatus;
   createdAtMs: number | null;
   updatedAtMs: number | null;
+};
+
+type UserDetail = ManagedUser & {
+  validatedAt: number | null;
+  validatedBy: string | null;
+  documents: {
+    identificacion: string | null;
+    tarjeton: string | null;
+    constanciaAfiliacion: string | null;
+  };
 };
 
 type PaginationState = {
@@ -115,6 +128,9 @@ export default function AdminGlobalManager() {
     matricula: "",
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  // Modal de detalle con documentos
+  const [detailUser, setDetailUser] = useState<UserDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
@@ -274,6 +290,40 @@ export default function AdminGlobalManager() {
     } finally {
       setDeletingUid(null);
       setConfirmDeleteUid(null);
+    }
+  };
+
+  const openDetailModal = async (user: ManagedUser) => {
+    setDetailUser({
+      ...user,
+      validatedAt: null,
+      validatedBy: null,
+      documents: {
+        identificacion: null,
+        tarjeton: null,
+        constanciaAfiliacion: null,
+      },
+    });
+    setIsLoadingDetail(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch(`/api/admin/global/usuarios/${user.uid}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as {
+        data?: UserDetail;
+        error?: string;
+      };
+      if (response.ok && payload.data) {
+        setDetailUser(payload.data);
+      }
+    } catch {
+      // Mantener datos básicos del listado si falla el fetch
+    } finally {
+      setIsLoadingDetail(false);
     }
   };
 
@@ -553,7 +603,16 @@ export default function AdminGlobalManager() {
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                onClick={() => openDetailModal(user)}
+                                title="Ver detalles y documentos"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 onClick={() => openEditDialog(user)}
+                                title="Editar perfil"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -611,6 +670,149 @@ export default function AdminGlobalManager() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal de detalle con documentos */}
+      <Dialog
+        open={!!detailUser}
+        onOpenChange={(open) => !open && setDetailUser(null)}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>
+                {detailUser?.nombre} {detailUser?.apellidoPaterno}{" "}
+                {detailUser?.apellidoMaterno}
+              </span>
+              <Badge
+                variant={getStatusBadgeVariant(
+                  (detailUser?.status as UserStatus) ?? "pending",
+                )}
+              >
+                {formatStatusLabel(
+                  (detailUser?.status as UserStatus) ?? "pending",
+                )}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {[
+              ["Correo", detailUser?.email],
+              ["Matrícula", detailUser?.matricula || "Sin matrícula"],
+              ["CURP", detailUser?.curp || "—"],
+              ["Rol", getRoleLabel(detailUser?.role)],
+              [
+                "Alta",
+                detailUser?.createdAtMs
+                  ? new Date(detailUser.createdAtMs).toLocaleString("es-MX", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "—",
+              ],
+              [
+                "Validado",
+                detailUser?.validatedAt
+                  ? new Date(detailUser.validatedAt).toLocaleString("es-MX", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "—",
+              ],
+            ].map(([label, value]) => (
+              <div key={label} className="space-y-0.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {label}
+                </p>
+                <p className="font-medium text-slate-800 dark:text-slate-100 break-all">
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Documentos */}
+          <div className="space-y-2 pt-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Documentos de registro
+            </p>
+            {isLoadingDetail ? (
+              <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando documentos...
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {(
+                  [
+                    ["Identificación", detailUser?.documents?.identificacion],
+                    ["Tarjetón", detailUser?.documents?.tarjeton],
+                    [
+                      "Const. Afiliación",
+                      detailUser?.documents?.constanciaAfiliacion,
+                    ],
+                  ] as [string, string | null | undefined][]
+                ).map(([label, url]) => (
+                  <div key={label} className="space-y-1.5">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                      {label}
+                    </p>
+                    {url ? (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block group"
+                      >
+                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 aspect-[3/4]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={label}
+                            className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                            <ExternalLink className="h-5 w-5 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-[9px] text-slate-400 text-center mt-1">
+                          Clic para abrir
+                        </p>
+                      </a>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 aspect-[3/4] flex flex-col items-center justify-center gap-1">
+                        <FileX className="h-6 w-6 text-slate-300" />
+                        <p className="text-[9px] text-slate-400">
+                          Sin documento
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (detailUser) openEditDialog(detailUser);
+                setDetailUser(null);
+              }}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar perfil
+            </Button>
+            <Button onClick={() => setDetailUser(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!editUser}
