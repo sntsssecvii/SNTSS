@@ -254,30 +254,51 @@ export default function DocumentScannerSheet({
               exit={{ opacity: 0 }}
               className="absolute inset-0"
             >
-              {/* Instrucción */}
-              <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10">
-                <div className="bg-black/50 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                  <ScanLine className="w-3.5 h-3.5 text-white" />
-                  <span className="text-white text-xs font-semibold whitespace-nowrap">
-                    Alinea el documento con el marco
-                  </span>
-                </div>
-              </div>
+              {/* Overlay oscuro con recorte — guía de documento estilo INE */}
+              <div className="absolute inset-0 pointer-events-none z-10">
+                {/* Franja superior */}
+                <div className="absolute top-0 left-0 right-0 h-[22%] bg-black/60" />
+                {/* Franja inferior */}
+                <div className="absolute bottom-0 left-0 right-0 h-[22%] bg-black/60" />
+                {/* Franja izquierda (entre franjas top/bottom) */}
+                <div className="absolute left-0 top-[22%] bottom-[22%] w-[8%] bg-black/60" />
+                {/* Franja derecha */}
+                <div className="absolute right-0 top-[22%] bottom-[22%] w-[8%] bg-black/60" />
 
-              {/* Guía de encuadre */}
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-[75%] h-[55%] relative">
+                {/* Marco de la zona de captura */}
+                <div className="absolute top-[22%] left-[8%] right-[8%] bottom-[22%]">
+                  {/* Esquinas prominentes */}
                   {[
-                    "top-0 left-0 border-t-2 border-l-2",
-                    "top-0 right-0 border-t-2 border-r-2",
-                    "bottom-0 left-0 border-b-2 border-l-2",
-                    "bottom-0 right-0 border-b-2 border-r-2",
+                    "top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-md",
+                    "top-0 right-0 border-t-[3px] border-r-[3px] rounded-tr-md",
+                    "bottom-0 left-0 border-b-[3px] border-l-[3px] rounded-bl-md",
+                    "bottom-0 right-0 border-b-[3px] border-r-[3px] rounded-br-md",
                   ].map((cls, i) => (
                     <div
                       key={i}
-                      className={`absolute w-6 h-6 ${cls} border-white/70`}
+                      className={`absolute w-8 h-8 ${cls} border-white`}
                     />
                   ))}
+                  {/* Línea de escaneo animada */}
+                  <motion.div
+                    className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-red-400 to-transparent"
+                    animate={{ top: ["8%", "88%", "8%"] }}
+                    transition={{
+                      duration: 2.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Instrucción */}
+              <div className="absolute top-[14%] left-1/2 -translate-x-1/2 z-20 w-full flex justify-center">
+                <div className="bg-black/60 px-4 py-2 rounded-full flex items-center gap-2">
+                  <ScanLine className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                  <span className="text-white text-xs font-semibold whitespace-nowrap">
+                    Coloca el documento dentro del marco
+                  </span>
                 </div>
               </div>
             </motion.div>
