@@ -3,6 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { Toaster } from "@/components/ui/toaster";
+import { Analytics } from "@vercel/analytics/next";
 
 // Importar diagnóstico para que esté disponible globalmente
 if (typeof window !== "undefined") {
@@ -45,6 +46,7 @@ export default function RootLayout({
             <NotificationProvider>
               {children}
               <Toaster />
+              <Analytics />
             </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
