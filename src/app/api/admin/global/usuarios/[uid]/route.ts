@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { normalizeUserRole } from "@/lib/auth/roles";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
-import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import {
   requireSuperAdminRequest,
@@ -43,43 +43,18 @@ export async function GET(
 
     const data = userSnap.data() || {};
 
-    // Generar signed URLs (1 hora) para los documentos en Storage
-    const bucket = adminStorage.bucket();
+    // Devolver las URLs de Firebase Storage directamente (incluyen el token de descarga)
     const docFields = [
       "identificacion",
       "tarjeton",
       "constanciaAfiliacion",
     ] as const;
     const signedDocs: Record<string, string | null> = {};
-
-    await Promise.all(
-      docFields.map(async (field) => {
-        const rawPath: unknown = data.documents?.[field];
-        if (!rawPath || typeof rawPath !== "string") {
-          signedDocs[field] = null;
-          return;
-        }
-
-        // Extraer la ruta relativa dentro del bucket desde la URL de Firebase Storage
-        // Formato: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encodedPath}?...
-        try {
-          const match = rawPath.match(/\/o\/([^?]+)/);
-          if (!match) {
-            signedDocs[field] = rawPath;
-            return;
-          }
-          const filePath = decodeURIComponent(match[1]);
-          const file = bucket.file(filePath);
-          const [url] = await file.getSignedUrl({
-            action: "read",
-            expires: Date.now() + 60 * 60 * 1000, // 1 hora
-          });
-          signedDocs[field] = url;
-        } catch {
-          signedDocs[field] = null;
-        }
-      }),
-    );
+    for (const field of docFields) {
+      const rawPath: unknown = data.documents?.[field];
+      signedDocs[field] =
+        rawPath && typeof rawPath === "string" ? rawPath : null;
+    }
 
     return NextResponse.json({
       success: true,
