@@ -55,6 +55,13 @@ function getStringField(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function toTitleCase(str: string): string {
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function getFileField(formData: FormData, key: string) {
   const value = formData.get(key);
   return value instanceof File ? value : null;
@@ -124,9 +131,9 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const payload = {
-      nombre: getStringField(formData, "nombre"),
-      apellidoPaterno: getStringField(formData, "apellidoPaterno"),
-      apellidoMaterno: getStringField(formData, "apellidoMaterno"),
+      nombre: toTitleCase(getStringField(formData, "nombre")),
+      apellidoPaterno: toTitleCase(getStringField(formData, "apellidoPaterno")),
+      apellidoMaterno: toTitleCase(getStringField(formData, "apellidoMaterno")),
       matricula: getStringField(formData, "matricula"),
       email: getStringField(formData, "email").toLowerCase(),
       password: getStringField(formData, "password"),

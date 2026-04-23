@@ -4,12 +4,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeUserRole } from "@/lib/auth/roles";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import {
   requireSuperAdminRequest,
   requireDeveloperRequest,
 } from "@/lib/firebase/server-auth";
 import { ROLES } from "@/types/roles";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+
+function toTitleCase(str: string): string {
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 const ALLOWED_ROLES = new Set<string>(Object.values(ROLES));
 const ALLOWED_STATUS = new Set(["pending", "active", "rejected"]);
@@ -44,8 +52,28 @@ export async function PATCH(
       typeof body?.status === "string"
         ? body.status.trim().toLowerCase()
         : undefined;
+    const nextNombre =
+      typeof body?.nombre === "string" ? toTitleCase(body.nombre) : undefined;
+    const nextApellidoPaterno =
+      typeof body?.apellidoPaterno === "string"
+        ? toTitleCase(body.apellidoPaterno)
+        : undefined;
+    const nextApellidoMaterno =
+      typeof body?.apellidoMaterno === "string"
+        ? toTitleCase(body.apellidoMaterno)
+        : undefined;
+    const nextMatricula =
+      typeof body?.matricula === "string"
+        ? body.matricula.trim().toUpperCase()
+        : undefined;
 
-    if (!nextRole && !nextStatus) {
+    const hasProfileChange =
+      nextNombre !== undefined ||
+      nextApellidoPaterno !== undefined ||
+      nextApellidoMaterno !== undefined ||
+      nextMatricula !== undefined;
+
+    if (!nextRole && !nextStatus && !hasProfileChange) {
       return NextResponse.json(
         { error: "No se enviaron cambios válidos." },
         { status: 400 },
@@ -115,6 +143,44 @@ export async function PATCH(
           : FieldValue.delete();
     }
 
+    if (hasProfileChange) {
+      const resolvedNombre = nextNombre ?? currentData.nombre ?? "";
+      const resolvedApellidoPaterno =
+        nextApellidoPaterno ?? currentData.apellidoPaterno ?? "";
+      const resolvedApellidoMaterno =
+        nextApellidoMaterno ?? currentData.apellidoMaterno ?? null;
+      const resolvedMatricula = nextMatricula ?? currentData.matricula ?? "";
+
+      if (nextNombre !== undefined) updates.nombre = resolvedNombre;
+      if (nextApellidoPaterno !== undefined)
+        updates.apellidoPaterno = resolvedApellidoPaterno;
+      if (nextApellidoMaterno !== undefined)
+        updates.apellidoMaterno = resolvedApellidoMaterno;
+      if (nextMatricula !== undefined) updates.matricula = resolvedMatricula;
+
+      const searchFields = buildUserSearchFields({
+        email: currentData.email,
+        matricula: resolvedMatricula,
+        nombre: resolvedNombre,
+        apellidoPaterno: resolvedApellidoPaterno,
+        apellidoMaterno: resolvedApellidoMaterno,
+      });
+      Object.assign(updates, searchFields);
+
+      // Actualizar displayName en Firebase Auth
+      const newDisplayName = [
+        resolvedNombre,
+        resolvedApellidoPaterno,
+        resolvedApellidoMaterno,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      await adminAuth
+        .updateUser(uid, { displayName: newDisplayName })
+        .catch(() => null);
+    }
+
     if (Object.keys(updates).length === 1) {
       return NextResponse.json({
         success: true,
@@ -141,6 +207,14 @@ export async function PATCH(
         nextRole: nextRole || currentRole,
         previousStatus: currentStatus,
         nextStatus: nextStatus || currentStatus,
+        profileFieldsUpdated: hasProfileChange
+          ? Object.keys({
+              nombre: nextNombre,
+              apellidoPaterno: nextApellidoPaterno,
+              apellidoMaterno: nextApellidoMaterno,
+              matricula: nextMatricula,
+            }).filter((k) => updates[k] !== undefined)
+          : [],
       },
     });
 

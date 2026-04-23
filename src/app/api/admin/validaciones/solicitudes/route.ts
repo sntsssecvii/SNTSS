@@ -142,6 +142,7 @@ export async function GET(request: NextRequest) {
             constanciaAfiliacion: data.documents?.constanciaAfiliacion || "",
           },
           createdAtMs: toCreatedAtMs(data.createdAt),
+          updatedAtMs: toCreatedAtMs(data.updatedAt),
         };
       });
 

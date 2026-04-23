@@ -32,9 +32,18 @@ import { useToast } from "@/components/ui/use-toast";
 import { getRoleLabel } from "@/lib/auth/roles";
 import { ROLES } from "@/types/roles";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   AlertTriangle,
   BadgeCheck,
   Loader2,
+  Pencil,
   Search,
   Shield,
   Trash2,
@@ -98,6 +107,14 @@ export default function AdminGlobalManager() {
   const [isFetching, setIsFetching] = useState(false);
   const [deletingUid, setDeletingUid] = useState<string | null>(null);
   const [confirmDeleteUid, setConfirmDeleteUid] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<ManagedUser | null>(null);
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    apellidoPaterno: "",
+    apellidoMaterno: "",
+    matricula: "",
+  });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
@@ -257,6 +274,71 @@ export default function AdminGlobalManager() {
     } finally {
       setDeletingUid(null);
       setConfirmDeleteUid(null);
+    }
+  };
+
+  const openEditDialog = (user: ManagedUser) => {
+    setEditUser(user);
+    setEditForm({
+      nombre: user.nombre,
+      apellidoPaterno: user.apellidoPaterno,
+      apellidoMaterno: user.apellidoMaterno,
+      matricula: user.matricula,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editUser) return;
+    setIsSavingEdit(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch(
+        `/api/admin/global/usuarios/${editUser.uid}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editForm),
+        },
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo guardar los cambios.");
+      }
+
+      setUsers((current) =>
+        current.map((u) =>
+          u.uid === editUser.uid
+            ? {
+                ...u,
+                nombre: editForm.nombre.trim(),
+                apellidoPaterno: editForm.apellidoPaterno.trim(),
+                apellidoMaterno: editForm.apellidoMaterno.trim(),
+                matricula: editForm.matricula.trim().toUpperCase(),
+              }
+            : u,
+        ),
+      );
+      setEditUser(null);
+      toast({
+        title: "Perfil actualizado",
+        description: "Los datos fueron guardados.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "No se pudo guardar.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -467,14 +549,23 @@ export default function AdminGlobalManager() {
                               </Button>
                             </div>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setConfirmDeleteUid(user.uid)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEditDialog(user)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setConfirmDeleteUid(user.uid)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -520,6 +611,81 @@ export default function AdminGlobalManager() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!editUser}
+        onOpenChange={(open) => !open && setEditUser(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar datos del usuario</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-nombre">Nombre(s)</Label>
+              <Input
+                id="edit-nombre"
+                value={editForm.nombre}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, nombre: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-ap">Apellido paterno</Label>
+              <Input
+                id="edit-ap"
+                value={editForm.apellidoPaterno}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    apellidoPaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-am">Apellido materno</Label>
+              <Input
+                id="edit-am"
+                value={editForm.apellidoMaterno}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    apellidoMaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-matricula">Matrícula</Label>
+              <Input
+                id="edit-matricula"
+                value={editForm.matricula}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, matricula: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditUser(null)}
+              disabled={isSavingEdit}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
+              {isSavingEdit ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Guardar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

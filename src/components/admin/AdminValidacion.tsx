@@ -58,6 +58,7 @@ interface UserRequest {
   };
   rejectionReason?: string;
   createdAtMs: number | null;
+  updatedAtMs: number | null;
 }
 
 interface AdminValidacionProps {
@@ -395,7 +396,7 @@ export default function AdminValidacion({
               <TableHead>Nombre</TableHead>
               <TableHead>Matrícula</TableHead>
               <TableHead>Fecha</TableHead>
-              <TableHead>Documentos</TableHead>
+              {filterStatus === "pending" && <TableHead>Documentos</TableHead>}
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -403,7 +404,7 @@ export default function AdminValidacion({
             {requests.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={filterStatus === "pending" ? 5 : 4}
                   className="text-center py-8 text-slate-500"
                 >
                   No hay solicitudes pendientes.
@@ -424,52 +425,54 @@ export default function AdminValidacion({
                       ? new Date(req.createdAtMs).toLocaleDateString()
                       : "Reciente"}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      {req.documents.identificacion ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              req.documents.identificacion,
-                              `INE - ${req.nombre}`,
-                            )
-                          }
-                        >
-                          <FileText className="w-4 h-4 mr-1" /> INE
-                        </Button>
-                      ) : null}
-                      {req.documents.tarjeton ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              req.documents.tarjeton,
-                              `Tarjetón - ${req.nombre}`,
-                            )
-                          }
-                        >
-                          <FileText className="w-4 h-4 mr-1" /> Tarjetón
-                        </Button>
-                      ) : null}
-                      {req.documents.constanciaAfiliacion ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              req.documents.constanciaAfiliacion,
-                              `Constancia - ${req.nombre}`,
-                            )
-                          }
-                        >
-                          <FileText className="w-4 h-4 mr-1" /> Constancia
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
+                  {filterStatus === "pending" && (
+                    <TableCell>
+                      <div className="flex gap-2">
+                        {req.documents.identificacion ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              openDocument(
+                                req.documents.identificacion,
+                                `INE - ${req.nombre}`,
+                              )
+                            }
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> INE
+                          </Button>
+                        ) : null}
+                        {req.documents.tarjeton ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              openDocument(
+                                req.documents.tarjeton,
+                                `Tarjetón - ${req.nombre}`,
+                              )
+                            }
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> Tarjetón
+                          </Button>
+                        ) : null}
+                        {req.documents.constanciaAfiliacion ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              openDocument(
+                                req.documents.constanciaAfiliacion,
+                                `Constancia - ${req.nombre}`,
+                              )
+                            }
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> Constancia
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
                     {filterStatus === "pending" ? (
                       <Button size="sm" onClick={() => setSelectedRequest(req)}>
@@ -551,6 +554,43 @@ export default function AdminValidacion({
                   <span className="font-semibold block">Correo:</span>
                   {selectedRequest.email}
                 </div>
+                <div>
+                  <span className="font-semibold block">
+                    Fecha de registro:
+                  </span>
+                  {selectedRequest.createdAtMs
+                    ? new Date(selectedRequest.createdAtMs).toLocaleString(
+                        "es-MX",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )
+                    : "—"}
+                </div>
+                {selectedRequest.status !== "pending" &&
+                  selectedRequest.updatedAtMs && (
+                    <div>
+                      <span className="font-semibold block">
+                        {selectedRequest.status === "active"
+                          ? "Fecha de aprobación:"
+                          : "Fecha de rechazo:"}
+                      </span>
+                      {new Date(selectedRequest.updatedAtMs).toLocaleString(
+                        "es-MX",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
+                    </div>
+                  )}
                 {selectedRequest.rejectionReason ? (
                   <div className="col-span-2">
                     <span className="font-semibold block">
@@ -561,99 +601,105 @@ export default function AdminValidacion({
                 ) : null}
               </div>
 
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-slate-900">
-                  Documentación Adjunta
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {(
-                    [
-                      {
-                        label: "Identificación (INE)",
-                        url: selectedRequest.documents.identificacion,
-                        title: "Identificación Oficial",
-                        alt: "Identificación",
-                      },
-                      {
-                        label: "Tarjetón de Pago",
-                        url: selectedRequest.documents.tarjeton,
-                        title: "Tarjetón de Pago",
-                        alt: "Tarjetón",
-                      },
-                      {
-                        label: "Constancia de Afiliación",
-                        url: selectedRequest.documents.constanciaAfiliacion,
-                        title: "Constancia de Afiliación Sindical",
-                        alt: "Constancia de Afiliación",
-                      },
-                    ] as const
-                  ).map(({ label, url, title, alt }) => (
-                    <div
-                      key={label}
-                      className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20"
-                    >
-                      <div className="p-2 border-b bg-white flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">
-                          {label}
-                        </span>
-                        {url ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => openDocument(url, title)}
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                        ) : null}
-                      </div>
-                      <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
-                        {!url ? (
-                          <p className="text-xs text-slate-400">No adjuntado</p>
-                        ) : url.toLowerCase().includes(".pdf") ? (
-                          <iframe
-                            src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
-                            className="w-full h-full border-none pointer-events-none"
-                            title={`Preview ${label}`}
-                          />
-                        ) : (
-                          <Image
-                            src={url}
-                            alt={alt}
-                            fill
-                            unoptimized
-                            className="object-cover"
-                            sizes="(max-width: 640px) 100vw, 33vw"
-                          />
-                        )}
-                        {url && (
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              {filterStatus === "pending" && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm text-slate-900">
+                    Documentación Adjunta
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {(
+                      [
+                        {
+                          label: "Identificación (INE)",
+                          url: selectedRequest.documents.identificacion,
+                          title: "Identificación Oficial",
+                          alt: "Identificación",
+                        },
+                        {
+                          label: "Tarjetón de Pago",
+                          url: selectedRequest.documents.tarjeton,
+                          title: "Tarjetón de Pago",
+                          alt: "Tarjetón",
+                        },
+                        {
+                          label: "Constancia de Afiliación",
+                          url: selectedRequest.documents.constanciaAfiliacion,
+                          title: "Constancia de Afiliación Sindical",
+                          alt: "Constancia de Afiliación",
+                        },
+                      ] as const
+                    ).map(({ label, url, title, alt }) => (
+                      <div
+                        key={label}
+                        className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20"
+                      >
+                        <div className="p-2 border-b bg-white flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">
+                            {label}
+                          </span>
+                          {url ? (
                             <Button
-                              variant="secondary"
-                              size="sm"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
                               onClick={() => openDocument(url, title)}
                             >
-                              Ver en Grande
+                              <Eye className="h-3 w-3" />
                             </Button>
-                          </div>
-                        )}
+                          ) : null}
+                        </div>
+                        <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
+                          {!url ? (
+                            <p className="text-xs text-slate-400">
+                              No adjuntado
+                            </p>
+                          ) : url.toLowerCase().includes(".pdf") ? (
+                            <iframe
+                              src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
+                              className="w-full h-full border-none pointer-events-none"
+                              title={`Preview ${label}`}
+                            />
+                          ) : (
+                            <Image
+                              src={url}
+                              alt={alt}
+                              fill
+                              unoptimized
+                              className="object-cover"
+                              sizes="(max-width: 640px) 100vw, 33vw"
+                            />
+                          )}
+                          {url && (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => openDocument(url, title)}
+                              >
+                                Ver en Grande
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {!rejectReason && (
+              {filterStatus === "pending" && !rejectReason && (
                 <p className="text-sm text-red-500">
                   Razón de rechazo requerida para rechazar.
                 </p>
               )}
 
-              <Textarea
-                placeholder="Razón de rechazo (requerido si se rechaza)..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
+              {filterStatus === "pending" && (
+                <Textarea
+                  placeholder="Razón de rechazo (requerido si se rechaza)..."
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                />
+              )}
             </div>
           )}
 
