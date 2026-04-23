@@ -86,16 +86,29 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query
-        .where(search.fieldPath, ">=", search.value)
-        .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
-        .orderBy(search.fieldPath, "asc")
-        .orderBy(FieldPath.documentId(), "asc")
-        .limit(limit + 1);
-
-      totalQuery = totalQuery
-        .where(search.fieldPath, ">=", search.value)
-        .where(search.fieldPath, "<=", `${search.value}\uf8ff`);
+      if (search.fieldPath === "searchTokens") {
+        // Búsqueda por token individual (nombre de pila o cualquier apellido)
+        query = query
+          .where("searchTokens", "array-contains", search.value)
+          .orderBy(FieldPath.documentId(), "asc")
+          .limit(limit + 1);
+        totalQuery = totalQuery.where(
+          "searchTokens",
+          "array-contains",
+          search.value,
+        );
+      } else {
+        // Búsqueda por prefijo (matrícula, email, nombre completo multi-palabra)
+        query = query
+          .where(search.fieldPath, ">=", search.value)
+          .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
+          .orderBy(search.fieldPath, "asc")
+          .orderBy(FieldPath.documentId(), "asc")
+          .limit(limit + 1);
+        totalQuery = totalQuery
+          .where(search.fieldPath, ">=", search.value)
+          .where(search.fieldPath, "<=", `${search.value}\uf8ff`);
+      }
     } else {
       query = query
         .orderBy("updatedAt", "desc")

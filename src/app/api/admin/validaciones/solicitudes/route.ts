@@ -61,11 +61,19 @@ export async function GET(request: NextRequest) {
       .where("status", "==", status) as FirebaseFirestore.Query;
 
     if (search) {
-      baseQuery = baseQuery
-        .where(search.fieldPath, ">=", search.value)
-        .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
-        .orderBy(search.fieldPath, "asc")
-        .orderBy(FieldPath.documentId(), "asc");
+      if (search.fieldPath === "searchTokens") {
+        // Búsqueda por token individual (nombre de pila o cualquier apellido)
+        baseQuery = baseQuery
+          .where("searchTokens", "array-contains", search.value)
+          .orderBy(FieldPath.documentId(), "asc");
+      } else {
+        // Búsqueda por prefijo (matrícula, email, nombre completo multi-palabra)
+        baseQuery = baseQuery
+          .where(search.fieldPath, ">=", search.value)
+          .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
+          .orderBy(search.fieldPath, "asc")
+          .orderBy(FieldPath.documentId(), "asc");
+      }
     } else {
       baseQuery = baseQuery
         .orderBy("createdAt", "desc")
