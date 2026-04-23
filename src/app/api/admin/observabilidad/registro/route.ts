@@ -15,6 +15,18 @@ type FirestoreDateLike =
   | null
   | undefined;
 
+type EventStatus = "success" | "warning" | "error";
+type EventSource = "registration" | "admin";
+
+interface RecentEvent {
+  id: string;
+  source: EventSource;
+  status: EventStatus;
+  title: string;
+  message: string;
+  createdAt: string | null;
+}
+
 function coerceDate(value: FirestoreDateLike) {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -28,20 +40,95 @@ function coerceDate(value: FirestoreDateLike) {
   return null;
 }
 
-function buildRegistrationEventTitle(status: string, warning: string | null) {
-  if (status === "ERROR") return "Registro con error";
-  if (warning) return "Registro con advertencia";
-  return "Registro exitoso";
+function clampLimit(raw: string | null, defaultVal = 25): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return defaultVal;
+  return Math.min(100, Math.floor(parsed));
+}
+
+function mapRegistrationEvent(
+  doc: FirebaseFirestore.QueryDocumentSnapshot,
+): RecentEvent {
+  const data = doc.data() as {
+    status?: string;
+    email?: string;
+    createdAt?: FirestoreDateLike;
+    metadata?: { error?: string; emailWarning?: string | null };
+  };
+
+  const warning = data.metadata?.emailWarning || null;
+  const createdAt = coerceDate(data.createdAt);
+  const isError = data.status === "ERROR";
+
+  return {
+    id: doc.id,
+    source: "registration",
+    status: isError ? "error" : warning ? "warning" : "success",
+    title: isError
+      ? "Registro con error"
+      : warning
+        ? "Registro con advertencia"
+        : "Registro exitoso",
+    message: isError
+      ? `${data.email || "Correo desconocido"} • ${data.metadata?.error || "Error no especificado"}`
+      : `${data.email || "Correo desconocido"}${warning ? ` • ${warning}` : ""}`,
+    createdAt: createdAt ? createdAt.toISOString() : null,
+  };
+}
+
+function mapAdminEvent(
+  doc: FirebaseFirestore.QueryDocumentSnapshot,
+): RecentEvent | null {
+  const data = doc.data() as {
+    action?: string;
+    status?: string;
+    actorEmail?: string;
+    targetId?: string;
+    createdAt?: FirestoreDateLike;
+    metadata?: { nextStatus?: string; error?: string };
+  };
+
+  if (data.action !== "USER_VALIDATION_UPDATED") return null;
+
+  const createdAt = coerceDate(data.createdAt);
+  const nextStatus = data.metadata?.nextStatus;
+  const isError = data.status === "ERROR";
+  const status: EventStatus = isError
+    ? "error"
+    : nextStatus === "rejected"
+      ? "warning"
+      : "success";
+
+  return {
+    id: doc.id,
+    source: "admin",
+    status,
+    title: isError
+      ? "Validación con error"
+      : nextStatus === "active"
+        ? "Solicitud aprobada"
+        : "Solicitud rechazada",
+    message: isError
+      ? `${data.targetId || "Usuario desconocido"} • ${data.metadata?.error || "Error no especificado"}`
+      : `${data.actorEmail || "Admin desconocido"} actualizó ${data.targetId || "usuario sin id"} a ${nextStatus || "estado desconocido"}`,
+    createdAt: createdAt ? createdAt.toISOString() : null,
+  };
 }
 
 export async function GET(request: NextRequest) {
   try {
     enforceRateLimit(request, {
       bucket: "api:admin:observabilidad:registro",
-      limit: 30,
+      limit: 60,
       windowMs: 60_000,
     });
     await requireAdminRequest(request);
+
+    const params = request.nextUrl.searchParams;
+    const source = params.get("source") || "all"; // all | registration | admin
+    const statusFilter = params.get("status") || "all"; // all | success | warning | error
+    const limit = clampLimit(params.get("limit"));
+    const page = Math.max(1, parseInt(params.get("page") || "1", 10));
 
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60_000);
@@ -51,13 +138,12 @@ export async function GET(request: NextRequest) {
       now.getDate(),
     );
 
+    // --- Overview (always computed) ---
     const [
       pendingUsersCountSnap,
       activeUsersCountSnap,
       registrationsLastHourSnap,
       registrationsTodaySnap,
-      registrationRecentSnap,
-      adminRecentSnap,
     ] = await Promise.all([
       adminDb
         .collection("users")
@@ -72,16 +158,6 @@ export async function GET(request: NextRequest) {
       adminDb
         .collection("registration_audit_logs")
         .where("createdAt", ">=", todayStart)
-        .get(),
-      adminDb
-        .collection("registration_audit_logs")
-        .orderBy("createdAt", "desc")
-        .limit(20)
-        .get(),
-      adminDb
-        .collection("admin_audit_logs")
-        .orderBy("createdAt", "desc")
-        .limit(20)
         .get(),
     ]);
 
@@ -99,11 +175,8 @@ export async function GET(request: NextRequest) {
       (acc, doc) => {
         const data = doc.data() as {
           status?: string;
-          metadata?: {
-            emailWarning?: string | null;
-          };
+          metadata?: { emailWarning?: string | null };
         };
-
         if (data.status === "SUCCESS") acc.success += 1;
         if (data.status === "ERROR") acc.error += 1;
         if (data.metadata?.emailWarning) acc.warning += 1;
@@ -112,125 +185,83 @@ export async function GET(request: NextRequest) {
       { success: 0, error: 0, warning: 0 },
     );
 
-    const adminLastHour = adminRecentSnap.docs.reduce(
-      (acc, doc) => {
-        const data = doc.data() as {
-          action?: string;
-          status?: string;
-          createdAt?: FirestoreDateLike;
-          metadata?: {
-            nextStatus?: string;
-          };
-        };
+    // --- Events ---
+    const FETCH_LIMIT = 200; // load enough to filter in memory
+    let allEvents: RecentEvent[] = [];
 
-        const createdAt = coerceDate(data.createdAt);
-        if (!createdAt || createdAt < oneHourAgo || data.status !== "SUCCESS") {
-          return acc;
-        }
+    const fetchPromises: Promise<void>[] = [];
 
-        if (
-          data.action === "USER_VALIDATION_UPDATED" &&
-          data.metadata?.nextStatus === "active"
-        ) {
-          acc.approved += 1;
-        }
+    if (source === "all" || source === "registration") {
+      fetchPromises.push(
+        adminDb
+          .collection("registration_audit_logs")
+          .orderBy("createdAt", "desc")
+          .limit(FETCH_LIMIT)
+          .get()
+          .then((snap) => {
+            allEvents.push(...snap.docs.map(mapRegistrationEvent));
+          }),
+      );
+    }
 
-        if (
-          data.action === "USER_VALIDATION_UPDATED" &&
-          data.metadata?.nextStatus === "rejected"
-        ) {
-          acc.rejected += 1;
-        }
+    if (source === "all" || source === "admin") {
+      fetchPromises.push(
+        adminDb
+          .collection("admin_audit_logs")
+          .orderBy("createdAt", "desc")
+          .limit(FETCH_LIMIT)
+          .get()
+          .then((snap) => {
+            const mapped = snap.docs
+              .map(mapAdminEvent)
+              .filter((e): e is RecentEvent => e !== null);
+            allEvents.push(...mapped);
+          }),
+      );
+    }
 
-        return acc;
-      },
-      { approved: 0, rejected: 0 },
+    // Admin approvals/rejections last hour (for overview)
+    let approvalsLastHour = 0;
+    let rejectionsLastHour = 0;
+    fetchPromises.push(
+      adminDb
+        .collection("admin_audit_logs")
+        .where("action", "==", "USER_VALIDATION_UPDATED")
+        .where("createdAt", ">=", oneHourAgo)
+        .get()
+        .then((snap) => {
+          snap.docs.forEach((doc) => {
+            const data = doc.data() as {
+              status?: string;
+              metadata?: { nextStatus?: string };
+            };
+            if (data.status !== "SUCCESS") return;
+            if (data.metadata?.nextStatus === "active") approvalsLastHour += 1;
+            if (data.metadata?.nextStatus === "rejected")
+              rejectionsLastHour += 1;
+          });
+        }),
     );
 
-    const registrationEvents = registrationRecentSnap.docs.map((doc) => {
-      const data = doc.data() as {
-        status?: string;
-        email?: string;
-        createdAt?: FirestoreDateLike;
-        metadata?: {
-          error?: string;
-          emailWarning?: string | null;
-        };
-      };
+    await Promise.all(fetchPromises);
 
-      const warning = data.metadata?.emailWarning || null;
-      const createdAt = coerceDate(data.createdAt);
-
-      return {
-        id: doc.id,
-        source: "registration",
-        status:
-          data.status === "ERROR" ? "error" : warning ? "warning" : "success",
-        title: buildRegistrationEventTitle(data.status || "UNKNOWN", warning),
-        message:
-          data.status === "ERROR"
-            ? `${data.email || "Correo desconocido"} • ${data.metadata?.error || "Error no especificado"}`
-            : `${data.email || "Correo desconocido"}${warning ? ` • ${warning}` : ""}`,
-        createdAt: createdAt ? createdAt.toISOString() : null,
-      };
+    // Sort merged events by date descending
+    allEvents.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
     });
 
-    const adminEvents = adminRecentSnap.docs
-      .map((doc) => {
-        const data = doc.data() as {
-          action?: string;
-          status?: string;
-          actorEmail?: string;
-          targetId?: string;
-          createdAt?: FirestoreDateLike;
-          metadata?: {
-            nextStatus?: string;
-            error?: string;
-          };
-        };
+    // Filter by status
+    if (statusFilter !== "all") {
+      allEvents = allEvents.filter((e) => e.status === statusFilter);
+    }
 
-        if (data.action !== "USER_VALIDATION_UPDATED") {
-          return null;
-        }
-
-        const createdAt = coerceDate(data.createdAt);
-        const nextStatus = data.metadata?.nextStatus;
-        const status =
-          data.status === "ERROR"
-            ? "error"
-            : nextStatus === "rejected"
-              ? "warning"
-              : "success";
-        const title =
-          data.status === "ERROR"
-            ? "Validación con error"
-            : nextStatus === "active"
-              ? "Solicitud aprobada"
-              : "Solicitud rechazada";
-
-        const message =
-          data.status === "ERROR"
-            ? `${data.targetId || "Usuario desconocido"} • ${data.metadata?.error || "Error no especificado"}`
-            : `${data.actorEmail || "Admin desconocido"} actualizó ${data.targetId || "usuario sin id"} a ${nextStatus || "estado desconocido"}`;
-
-        return {
-          id: doc.id,
-          source: "admin",
-          status,
-          title,
-          message,
-          createdAt: createdAt ? createdAt.toISOString() : null,
-        };
-      })
-      .filter(Boolean);
-
-    const recentEvents = [...registrationEvents, ...adminEvents]
-      .sort((a, b) => {
-        const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bTime - aTime;
-      })
-      .slice(0, 12);
+    // Paginate
+    const total = allEvents.length;
+    const startIdx = (page - 1) * limit;
+    const pageEvents = allEvents.slice(startIdx, startIdx + limit);
+    const hasMore = startIdx + limit < total;
 
     return NextResponse.json({
       success: true,
@@ -243,10 +274,17 @@ export async function GET(request: NextRequest) {
           registrationsLastHour: registrationLastHour.success,
           registrationErrorsLastHour: registrationLastHour.error,
           registrationWarningsLastHour: registrationLastHour.warning,
-          approvalsLastHour: adminLastHour.approved,
-          rejectionsLastHour: adminLastHour.rejected,
+          approvalsLastHour,
+          rejectionsLastHour,
         },
-        recentEvents,
+        events: pageEvents,
+        pagination: {
+          total,
+          page,
+          limit,
+          hasMore,
+          totalPages: Math.ceil(total / limit),
+        },
       },
     });
   } catch (error: any) {
