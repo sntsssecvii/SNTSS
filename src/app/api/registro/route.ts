@@ -194,18 +194,37 @@ export async function POST(request: NextRequest) {
         .get(),
     ]);
 
-    if (!existingEmailProfile.empty) {
-      return NextResponse.json(
-        { error: "Este correo ya está registrado." },
-        { status: 409 },
-      );
+    const docByEmail = existingEmailProfile.docs[0];
+    const docByMatricula = existingMatriculaProfile.docs[0];
+
+    // Usuarios rechazados pueden volver a registrarse — limpiamos su registro anterior.
+    // Si el bloqueo es por un usuario activo o pendiente, rechazamos normalmente.
+    if (docByEmail) {
+      if (docByEmail.data().status === "rejected") {
+        await Promise.all([
+          adminAuth.deleteUser(docByEmail.id).catch(() => null),
+          docByEmail.ref.delete(),
+        ]);
+      } else {
+        return NextResponse.json(
+          { error: "Este correo ya está registrado." },
+          { status: 409 },
+        );
+      }
     }
 
-    if (!existingMatriculaProfile.empty) {
-      return NextResponse.json(
-        { error: "Ya existe una solicitud registrada para esta matrícula." },
-        { status: 409 },
-      );
+    if (docByMatricula && docByMatricula.id !== docByEmail?.id) {
+      if (docByMatricula.data().status === "rejected") {
+        await Promise.all([
+          adminAuth.deleteUser(docByMatricula.id).catch(() => null),
+          docByMatricula.ref.delete(),
+        ]);
+      } else {
+        return NextResponse.json(
+          { error: "Ya existe una solicitud registrada para esta matrícula." },
+          { status: 409 },
+        );
+      }
     }
 
     // Recuperar usuario huérfano: puede existir en Auth sin doc en Firestore si un
