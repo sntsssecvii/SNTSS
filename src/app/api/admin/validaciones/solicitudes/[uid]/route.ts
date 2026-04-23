@@ -6,6 +6,7 @@ import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { requireAdminRequest } from "@/lib/firebase/server-auth";
+import { toTitleCase } from "@/lib/utils/text";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 type UserStatus = "active" | "rejected";
@@ -215,13 +216,6 @@ export async function POST(
       { status: 500 },
     );
   }
-}
-
-function toTitleCase(str: string): string {
-  return str
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export async function PATCH(

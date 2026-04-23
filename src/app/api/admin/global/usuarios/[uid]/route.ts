@@ -11,13 +11,7 @@ import {
 } from "@/lib/firebase/server-auth";
 import { ROLES } from "@/types/roles";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
-
-function toTitleCase(str: string): string {
-  return str
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import { toTitleCase } from "@/lib/utils/text";
 
 const ALLOWED_ROLES = new Set<string>(Object.values(ROLES));
 const ALLOWED_STATUS = new Set(["pending", "active", "rejected"]);

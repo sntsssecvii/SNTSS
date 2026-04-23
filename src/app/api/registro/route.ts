@@ -8,6 +8,7 @@ import { registroSchema } from "@/lib/schemas/registro";
 import { assertSameOrigin } from "@/lib/security/cors";
 import { RateLimitError } from "@/lib/security/rate-limit";
 import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
+import { toTitleCase } from "@/lib/utils/text";
 
 export const dynamic = "force-dynamic";
 
@@ -53,13 +54,6 @@ function buildStorageDownloadUrl(
 function getStringField(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
-}
-
-function toTitleCase(str: string): string {
-  return str
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function getFileField(formData: FormData, key: string) {

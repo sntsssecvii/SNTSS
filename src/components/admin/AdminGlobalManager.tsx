@@ -39,19 +39,26 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import Image from "next/image";
 import {
   AlertTriangle,
   BadgeCheck,
   Eye,
-  ExternalLink,
+  FileText,
   FileX,
   Loader2,
   Pencil,
+  RotateCcw,
+  RotateCw,
   Search,
   Shield,
   Trash2,
   Users,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
+import { DialogDescription } from "@/components/ui/dialog";
 
 type UserStatus = "pending" | "active" | "rejected";
 
@@ -131,6 +138,21 @@ export default function AdminGlobalManager() {
   // Modal de detalle con documentos
   const [detailUser, setDetailUser] = useState<UserDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  // Visor de documentos con zoom/pan
+  const [viewingDoc, setViewingDoc] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragState = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  }>({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
@@ -252,6 +274,12 @@ export default function AdminGlobalManager() {
       cancelled = true;
     };
   }, [loadUsers, toast]);
+
+  useEffect(() => {
+    setZoom(1);
+    setRotation(0);
+    setOffset({ x: 0, y: 0 });
+  }, [viewingDoc]);
 
   const filteredUsers = useMemo(() => users, [users]);
 
@@ -763,27 +791,28 @@ export default function AdminGlobalManager() {
                       {label}
                     </p>
                     {url ? (
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block group"
+                      <button
+                        type="button"
+                        className="block w-full group text-left"
+                        onClick={() =>
+                          setViewingDoc({ url, title: label as string })
+                        }
                       >
                         <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 aspect-[3/4]">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={url}
-                            alt={label}
+                            alt={label as string}
                             className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
                           />
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-                            <ExternalLink className="h-5 w-5 text-white" />
+                            <ZoomIn className="h-5 w-5 text-white" />
                           </div>
                         </div>
                         <p className="text-[9px] text-slate-400 text-center mt-1">
-                          Clic para abrir
+                          Clic para ampliar
                         </p>
-                      </a>
+                      </button>
                     ) : (
                       <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 aspect-[3/4] flex flex-col items-center justify-center gap-1">
                         <FileX className="h-6 w-6 text-slate-300" />
@@ -811,6 +840,190 @@ export default function AdminGlobalManager() {
             </Button>
             <Button onClick={() => setDetailUser(null)}>Cerrar</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visualizador de Documentos Expandido */}
+      <Dialog
+        open={!!viewingDoc}
+        onOpenChange={(open) => !open && setViewingDoc(null)}
+      >
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-none bg-slate-900/95 backdrop-blur-xl">
+          <DialogHeader className="p-4 bg-white/10 text-white flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-600 rounded-lg">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">
+                  {viewingDoc?.title}
+                </DialogTitle>
+                <DialogDescription className="text-slate-300 text-xs">
+                  Visualización segura de documentos SNTSS
+                </DialogDescription>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setViewingDoc(null)}
+              className="text-white hover:bg-white/20 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </DialogHeader>
+
+          <div
+            className="flex-1 w-full h-full bg-slate-800/50 flex items-center justify-center p-4 overflow-hidden"
+            style={{ cursor: zoom > 1 ? "grab" : "default" }}
+            onWheel={(e) => {
+              if (viewingDoc?.url.toLowerCase().includes(".pdf")) return;
+              e.preventDefault();
+              setZoom((prev) =>
+                Math.min(5, Math.max(1, prev + (e.deltaY > 0 ? -0.2 : 0.2))),
+              );
+            }}
+            onMouseDown={(e) => {
+              if (zoom <= 1) return;
+              dragState.current = {
+                active: true,
+                startX: e.clientX,
+                startY: e.clientY,
+                originX: offset.x,
+                originY: offset.y,
+              };
+              (e.currentTarget as HTMLElement).style.cursor = "grabbing";
+            }}
+            onMouseMove={(e) => {
+              if (!dragState.current.active) return;
+              setOffset({
+                x:
+                  dragState.current.originX +
+                  e.clientX -
+                  dragState.current.startX,
+                y:
+                  dragState.current.originY +
+                  e.clientY -
+                  dragState.current.startY,
+              });
+            }}
+            onMouseUp={(e) => {
+              dragState.current.active = false;
+              (e.currentTarget as HTMLElement).style.cursor =
+                zoom > 1 ? "grab" : "default";
+            }}
+            onMouseLeave={() => {
+              dragState.current.active = false;
+            }}
+          >
+            {viewingDoc?.url.toLowerCase().includes(".pdf") ? (
+              <iframe
+                src={viewingDoc.url}
+                className="w-full h-full rounded-lg shadow-2xl bg-white"
+                title="Visor PDF"
+              />
+            ) : (
+              <div
+                className="relative w-full h-full flex items-center justify-center select-none"
+                style={{
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+                  transformOrigin: "center center",
+                  transition: dragState.current.active
+                    ? "none"
+                    : "transform 0.15s ease",
+                }}
+              >
+                <Image
+                  src={viewingDoc?.url || ""}
+                  alt="Documento expandido"
+                  fill
+                  unoptimized
+                  className="object-contain rounded-lg shadow-2xl"
+                  sizes="100vw"
+                  draggable={false}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 bg-white/5 border-t border-white/10 flex items-center justify-between">
+            {!viewingDoc?.url.toLowerCase().includes(".pdf") ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() =>
+                    setZoom((prev) =>
+                      Math.max(1, parseFloat((prev - 0.25).toFixed(2))),
+                    )
+                  }
+                  disabled={zoom <= 1}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-[11px] text-slate-300 w-10 text-center tabular-nums">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() =>
+                    setZoom((prev) =>
+                      Math.min(5, parseFloat((prev + 0.25).toFixed(2))),
+                    )
+                  }
+                  disabled={zoom >= 5}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <div className="w-px h-4 bg-white/20 mx-1" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev - 90 + 360) % 360)}
+                  title="Rotar izquierda"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                  title="Rotar derecha"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10 ml-1"
+                  onClick={() => {
+                    setZoom(1);
+                    setRotation(0);
+                    setOffset({ x: 0, y: 0 });
+                  }}
+                  disabled={
+                    zoom === 1 &&
+                    rotation === 0 &&
+                    offset.x === 0 &&
+                    offset.y === 0
+                  }
+                  title="Restablecer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div />
+            )}
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">
+              Propiedad del SNTSS Sección VII • Confidencial
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
 
