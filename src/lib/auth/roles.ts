@@ -64,7 +64,7 @@ export function getRoleLabel(role?: UserRole | string | null): string {
     case ROLES.REVISOR:
       return "Revisor";
     case ROLES.CAPTURISTA:
-      return "Capturista";
+      return "Validador";
     case ROLES.CONSULTA:
       return "Consulta";
     case ROLES.USER:

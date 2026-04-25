@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldPath, Timestamp } from "firebase-admin/firestore";
 
-import { adminDb } from "@/lib/firebase/admin";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { resolveUserSearch } from "@/lib/firebase/user-search";
 import { requireSuperAdminRequest } from "@/lib/firebase/server-auth";
 import { normalizeUserRole } from "@/lib/auth/roles";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { ROLES } from "@/types/roles";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_PAGE_SIZE = 25;
@@ -237,6 +239,131 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: "No se pudieron obtener los usuarios.",
+        details: error?.message || "UNKNOWN_ERROR",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    enforceRateLimit(request, {
+      bucket: "api:admin:global:usuarios:create",
+      limit: 20,
+      windowMs: 60_000,
+    });
+    await requireSuperAdminRequest(request);
+
+    const body = await request.json().catch(() => ({}));
+    const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
+    const apellidoPaterno =
+      typeof body.apellidoPaterno === "string"
+        ? body.apellidoPaterno.trim()
+        : "";
+    const apellidoMaterno =
+      typeof body.apellidoMaterno === "string"
+        ? body.apellidoMaterno.trim()
+        : "";
+    const email =
+      typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+
+    if (!nombre || !apellidoPaterno || !email || !password) {
+      return NextResponse.json(
+        {
+          error:
+            "Nombre, apellido paterno, correo y contraseña son requeridos.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "La contraseña debe tener al menos 8 caracteres." },
+        { status: 400 },
+      );
+    }
+
+    const displayName = [nombre, apellidoPaterno, apellidoMaterno]
+      .filter(Boolean)
+      .join(" ");
+
+    const authUser = await adminAuth.createUser({
+      email,
+      password,
+      displayName,
+    });
+
+    const searchFields = buildUserSearchFields({
+      email,
+      matricula: "",
+      nombre,
+      apellidoPaterno,
+      apellidoMaterno,
+    });
+
+    await adminDb
+      .collection("users")
+      .doc(authUser.uid)
+      .set({
+        uid: authUser.uid,
+        nombre,
+        apellidoPaterno,
+        apellidoMaterno: apellidoMaterno || null,
+        matricula: "",
+        email,
+        role: ROLES.CAPTURISTA,
+        status: "active",
+        documents: {
+          identificacion: null,
+          tarjeton: null,
+          constanciaAfiliacion: null,
+        },
+        ...searchFields,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+    return NextResponse.json({
+      success: true,
+      data: { uid: authUser.uid, email, role: ROLES.CAPTURISTA },
+    });
+  } catch (error: any) {
+    console.error("Error creando usuario validador:", error);
+
+    if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Intenta de nuevo en un momento." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(error.retryAfterSeconds || 60) },
+        },
+      );
+    }
+
+    if (error?.message === "AUTH_REQUIRED") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+
+    if (error?.message === "SUPER_ADMIN_REQUIRED") {
+      return NextResponse.json(
+        { error: "Se requiere perfil de admin global." },
+        { status: 403 },
+      );
+    }
+
+    if (error?.code === "auth/email-already-exists") {
+      return NextResponse.json(
+        { error: "Este correo ya está registrado." },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "No se pudo crear el usuario.",
         details: error?.message || "UNKNOWN_ERROR",
       },
       { status: 500 },

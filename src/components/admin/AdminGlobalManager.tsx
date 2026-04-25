@@ -53,6 +53,7 @@ import {
   Search,
   Shield,
   Trash2,
+  UserPlus,
   Users,
   X,
   ZoomIn,
@@ -135,6 +136,15 @@ export default function AdminGlobalManager() {
     matricula: "",
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [showNewValidador, setShowNewValidador] = useState(false);
+  const [newValidadorForm, setNewValidadorForm] = useState({
+    nombre: "",
+    apellidoPaterno: "",
+    apellidoMaterno: "",
+    email: "",
+    password: "",
+  });
+  const [isCreatingValidador, setIsCreatingValidador] = useState(false);
   // Modal de detalle con documentos
   const [detailUser, setDetailUser] = useState<UserDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -420,6 +430,50 @@ export default function AdminGlobalManager() {
     }
   };
 
+  const handleCreateValidador = async () => {
+    setIsCreatingValidador(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch("/api/admin/global/usuarios", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newValidadorForm),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Error al crear.");
+
+      toast({
+        title: "Usuario Validador creado",
+        description: `Cuenta creada para ${newValidadorForm.email}.`,
+      });
+      setShowNewValidador(false);
+      setNewValidadorForm({
+        nombre: "",
+        apellidoPaterno: "",
+        apellidoMaterno: "",
+        email: "",
+        password: "",
+      });
+      await loadUsers();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo crear el usuario.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingValidador(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-12 dark:border-slate-800 dark:bg-slate-950">
@@ -498,9 +552,19 @@ export default function AdminGlobalManager() {
 
       <Card className="rounded-[2rem] border-slate-200/70 dark:border-slate-800">
         <CardHeader className="space-y-3">
-          <CardTitle className="text-2xl font-black tracking-tight">
-            Gobierno de usuarios
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-black tracking-tight">
+              Gobierno de usuarios
+            </CardTitle>
+            <Button
+              size="sm"
+              onClick={() => setShowNewValidador(true)}
+              className="gap-2"
+            >
+              <UserPlus className="h-4 w-4" />
+              Nuevo Validador
+            </Button>
+          </div>
           <CardDescription>
             Gestión operativa de cuentas. Solo disponible para desarrolladores.
           </CardDescription>
@@ -1096,6 +1160,111 @@ export default function AdminGlobalManager() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 "Guardar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Nuevo Usuario Validador */}
+      <Dialog
+        open={showNewValidador}
+        onOpenChange={(open) => !open && setShowNewValidador(false)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo Usuario Validador</DialogTitle>
+            <DialogDescription>
+              Crea una cuenta con acceso exclusivo al panel de validación de
+              usuarios.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-nombre">Nombre(s)</Label>
+              <Input
+                id="val-nombre"
+                value={newValidadorForm.nombre}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({ ...f, nombre: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-ap">Apellido paterno</Label>
+              <Input
+                id="val-ap"
+                value={newValidadorForm.apellidoPaterno}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({
+                    ...f,
+                    apellidoPaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-am">Apellido materno</Label>
+              <Input
+                id="val-am"
+                value={newValidadorForm.apellidoMaterno}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({
+                    ...f,
+                    apellidoMaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-email">Correo electrónico</Label>
+              <Input
+                id="val-email"
+                type="email"
+                value={newValidadorForm.email}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({ ...f, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-password">Contraseña temporal</Label>
+              <Input
+                id="val-password"
+                type="text"
+                value={newValidadorForm.password}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({
+                    ...f,
+                    password: e.target.value,
+                  }))
+                }
+                placeholder="Mínimo 8 caracteres"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowNewValidador(false)}
+              disabled={isCreatingValidador}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateValidador}
+              disabled={
+                isCreatingValidador ||
+                !newValidadorForm.nombre ||
+                !newValidadorForm.apellidoPaterno ||
+                !newValidadorForm.email ||
+                newValidadorForm.password.length < 8
+              }
+            >
+              {isCreatingValidador ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Crear cuenta"
               )}
             </Button>
           </DialogFooter>
