@@ -17,9 +17,18 @@ export default function MainLayout({
   const pathname = usePathname();
 
   const isBolsa = userData?.role?.toUpperCase() === "BOLSA";
+  const isCapturista = userData?.role?.toUpperCase() === "CAPTURISTA";
+
   // BOLSA puede navegar a cualquier /admin/* excepto rutas exclusivas de otros roles
   const isBolsaAllowed =
     pathname.startsWith("/admin/bolsa-de-trabajo") ||
+    pathname.startsWith("/admin/perfil") ||
+    pathname.startsWith("/admin/configuracion") ||
+    pathname.startsWith("/admin/cambiar-contrasena");
+
+  // CAPTURISTA solo puede acceder a validaciones y rutas comunes
+  const isCapturistaAllowed =
+    pathname.startsWith("/admin/validaciones") ||
     pathname.startsWith("/admin/perfil") ||
     pathname.startsWith("/admin/configuracion") ||
     pathname.startsWith("/admin/cambiar-contrasena");
@@ -28,10 +37,15 @@ export default function MainLayout({
     if (isBolsa && !isBolsaAllowed) {
       router.replace("/admin/bolsa-de-trabajo/dashboard");
     }
-  }, [isBolsa, isBolsaAllowed, router]);
+    if (isCapturista && !isCapturistaAllowed) {
+      router.replace("/admin/validaciones");
+    }
+  }, [isBolsa, isBolsaAllowed, isCapturista, isCapturistaAllowed, router]);
 
   // Evitar flash de contenido incorrecto mientras se redirige
-  const isRedirecting = !loading && isBolsa && !isBolsaAllowed;
+  const isRedirecting =
+    (!loading && isBolsa && !isBolsaAllowed) ||
+    (!loading && isCapturista && !isCapturistaAllowed);
 
   return (
     <div className="min-h-screen flex bg-background">

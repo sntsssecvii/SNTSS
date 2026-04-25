@@ -14,7 +14,8 @@ export function isAdminRole(role?: string | null): boolean {
     normalized === ROLES.ADMIN ||
     normalized === ROLES.SUPER_ADMIN ||
     normalized === ROLES.BOLSA ||
-    normalized === ROLES.ESCALAFON
+    normalized === ROLES.ESCALAFON ||
+    normalized === ROLES.CAPTURISTA
   );
 }
 
@@ -43,6 +44,10 @@ export function getHomeRouteForRole(role?: string | null): string | null {
 
   if (normalized === ROLES.ESCALAFON) {
     return "/admin/escalafon";
+  }
+
+  if (normalized === ROLES.CAPTURISTA) {
+    return "/admin/validaciones";
   }
 
   return null;

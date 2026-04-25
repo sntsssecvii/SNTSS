@@ -55,7 +55,11 @@ const getNavItems = (
       href: "/admin",
       icon: LayoutDashboard,
     });
-  } else if (roleUpper !== "BOLSA") {
+  } else if (
+    roleUpper !== "BOLSA" &&
+    roleUpper !== "CAPTURISTA" &&
+    roleUpper !== "ESCALAFON"
+  ) {
     baseItems.push(
       {
         title: "Dashboard",
@@ -145,11 +149,21 @@ const getNavItems = (
     });
   }
 
+  if (roleUpper === "CAPTURISTA") {
+    baseItems.push({
+      title: "Validaciones",
+      href: "/admin/validaciones",
+      icon: ShieldCheck,
+      badge: pendingCount > 0 ? pendingCount.toString() : undefined,
+    });
+  }
+
   // Items comunes para roles admin
   if (
     roleUpper === "ADMIN" ||
     roleUpper === "SUPER_ADMIN" ||
-    roleUpper === "BOLSA"
+    roleUpper === "BOLSA" ||
+    roleUpper === "CAPTURISTA"
   ) {
     baseItems.push(
       {

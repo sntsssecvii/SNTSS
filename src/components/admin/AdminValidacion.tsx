@@ -775,7 +775,6 @@ export default function AdminValidacion({
                               src={url}
                               alt={alt}
                               fill
-                              unoptimized
                               className="object-cover"
                               sizes="(max-width: 640px) 100vw, 33vw"
                             />
