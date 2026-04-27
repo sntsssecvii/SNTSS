@@ -94,23 +94,19 @@ function getTramiteSubtitle(item: TramiteData) {
 }
 
 function getPrimaryMetric(item: TramiteData) {
-  if (
-    item.tipoDocumento === "NUEVO_INGRESO" &&
-    item.tipoContratacion === "8" &&
-    item.posicionInterinato
-  ) {
-    return {
-      label: "Posición para interinato",
-      value: item.posicionInterinato,
-      total: item.totalEventualesEnCategoria || item.totalEnCategoria,
-    };
-  }
-
   return {
     label: "Posición actual",
     value: item.posicionBase,
     total: item.totalEnCategoria,
   };
+}
+
+function isNuevoIngresoEventual(item: TramiteData) {
+  return (
+    item.tipoDocumento === "NUEVO_INGRESO" &&
+    item.tipoContratacion === "8" &&
+    Boolean(item.posicionInterinato)
+  );
 }
 
 export default function DashboardPage() {
@@ -519,15 +515,27 @@ export default function DashboardPage() {
                               </h3>
                             </div>
 
-                            <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500 shrink-0">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
-                                {metric.label.split(" ").pop()}
-                              </p>
-                              <div className="flex items-baseline justify-center gap-1">
-                                <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
-                                  {metric.value}
-                                </span>
+                            <div className="flex flex-col gap-2 shrink-0">
+                              <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
+                                  BASE
+                                </p>
+                                <div className="flex items-baseline justify-center gap-1">
+                                  <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
+                                    {metric.value}
+                                  </span>
+                                </div>
                               </div>
+                              {isNuevoIngresoEventual(item) && (
+                                <div className="rounded-3xl bg-amber-500/10 border border-amber-500/20 p-3 text-center min-w-[90px]">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">
+                                    INTERINATO
+                                  </p>
+                                  <span className="text-2xl font-black text-amber-700">
+                                    {item.posicionInterinato}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -634,13 +642,31 @@ export default function DashboardPage() {
                           <TrendingUp className="w-32 h-32" />
                         </div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 tracking-widest">
-                          Tu Posición Vigente
+                          {isNuevoIngresoEventual(detailData)
+                            ? "Posición Base"
+                            : "Tu Posición Vigente"}
                         </p>
                         <div className="flex items-center justify-center gap-2">
                           <span className="text-8xl font-black text-white tracking-tighter leading-none">
                             {getPrimaryMetric(detailData).value}
                           </span>
                         </div>
+                        {isNuevoIngresoEventual(detailData) && (
+                          <div className="mt-6 pt-6 border-t border-white/10">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2">
+                              Posición para Interinato
+                            </p>
+                            <span className="text-5xl font-black text-amber-400 tracking-tighter leading-none">
+                              {detailData.posicionInterinato}
+                            </span>
+                            {detailData.totalEventualesEnCategoria && (
+                              <p className="text-[10px] font-bold text-slate-400 mt-1">
+                                de {detailData.totalEventualesEnCategoria}{" "}
+                                eventuales
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Info Sections */}
@@ -669,18 +695,22 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {detailData.adscripcionNueva && (
+                        {(detailData.adscripcionNueva ||
+                          detailData.turnoNuevo ||
+                          detailData.turnoNueva) && (
                           <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 md:col-span-2 space-y-3">
                             <p className="text-[10px] font-black uppercase tracking-widest text-primary">
                               Detalle de Solicitud
                             </p>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                              <div className="flex items-start gap-3">
-                                <Building2 className="h-4 w-4 text-primary mt-1 shrink-0" />
-                                <span className="text-base font-black text-slate-900 dark:text-white uppercase leading-tight">
-                                  {detailData.adscripcionNueva}
-                                </span>
-                              </div>
+                              {detailData.adscripcionNueva && (
+                                <div className="flex items-start gap-3">
+                                  <Building2 className="h-4 w-4 text-primary mt-1 shrink-0" />
+                                  <span className="text-base font-black text-slate-900 dark:text-white uppercase leading-tight">
+                                    {detailData.adscripcionNueva}
+                                  </span>
+                                </div>
+                              )}
                               {(detailData.turnoNuevo ||
                                 detailData.turnoNueva) && (
                                 <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm self-start sm:self-auto border border-primary/20">
