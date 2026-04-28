@@ -168,6 +168,7 @@ export default function AdminValidacion({
       const idToken = await currentUser.getIdToken();
       const searchParams = new URLSearchParams({
         status: filterStatus,
+        scope: "workers",
         limit: "25",
         page: String(targetPage),
       });

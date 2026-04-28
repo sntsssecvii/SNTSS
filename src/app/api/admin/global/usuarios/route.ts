@@ -4,7 +4,10 @@ import { FieldPath, Timestamp } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { resolveUserSearch } from "@/lib/firebase/user-search";
-import { requireSuperAdminRequest } from "@/lib/firebase/server-auth";
+import {
+  requireSuperAdminRequest,
+  requireAdminRequest,
+} from "@/lib/firebase/server-auth";
 import { normalizeUserRole } from "@/lib/auth/roles";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { ROLES } from "@/types/roles";
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest) {
       limit: 60,
       windowMs: 60_000,
     });
-    await requireSuperAdminRequest(request);
+    await requireAdminRequest(request);
 
     const limit = clampLimit(request.nextUrl.searchParams.get("limit"));
     const cursor = decodeCursor(request.nextUrl.searchParams.get("cursor"));
@@ -81,7 +84,9 @@ export async function GET(request: NextRequest) {
           ? ["USER", "user"]
           : roleFilter === "ADMIN"
             ? ["ADMIN", "admin"]
-            : [roleFilter];
+            : roleFilter === "STAFF"
+              ? ["CAPTURISTA", "BOLSA", "ESCALAFON"]
+              : [roleFilter];
 
       query = query.where("role", "in", roleValues);
       totalQuery = totalQuery.where("role", "in", roleValues);
@@ -253,7 +258,7 @@ export async function POST(request: NextRequest) {
       limit: 20,
       windowMs: 60_000,
     });
-    await requireSuperAdminRequest(request);
+    await requireAdminRequest(request);
 
     const body = await request.json().catch(() => ({}));
     const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
@@ -268,6 +273,13 @@ export async function POST(request: NextRequest) {
     const email =
       typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body.password === "string" ? body.password : "";
+    const roleRaw =
+      typeof body.role === "string" ? body.role.trim().toUpperCase() : "";
+
+    const ALLOWED_ROLES = [ROLES.BOLSA, ROLES.ESCALAFON, ROLES.CAPTURISTA];
+    const role = ALLOWED_ROLES.includes(roleRaw as any)
+      ? (roleRaw as string)
+      : ROLES.CAPTURISTA;
 
     if (!nombre || !apellidoPaterno || !email || !password) {
       return NextResponse.json(
@@ -314,7 +326,7 @@ export async function POST(request: NextRequest) {
         apellidoMaterno: apellidoMaterno || null,
         matricula: "",
         email,
-        role: ROLES.CAPTURISTA,
+        role,
         status: "active",
         documents: {
           identificacion: null,
@@ -328,7 +340,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { uid: authUser.uid, email, role: ROLES.CAPTURISTA },
+      data: { uid: authUser.uid, email, role },
     });
   } catch (error: any) {
     console.error("Error creando usuario validador:", error);
@@ -347,9 +359,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
-    if (error?.message === "SUPER_ADMIN_REQUIRED") {
+    if (
+      error?.message === "SUPER_ADMIN_REQUIRED" ||
+      error?.message === "ADMIN_REQUIRED"
+    ) {
       return NextResponse.json(
-        { error: "Se requiere perfil de admin global." },
+        { error: "Se requieren permisos de administrador." },
         { status: 403 },
       );
     }

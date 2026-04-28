@@ -82,7 +82,11 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
   };
 
   return (
-    <form className="px-5 py-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+    <form
+      className="px-5 py-6 space-y-5"
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
+    >
       <div className="grid gap-5 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="nombre">Nombre(s)</Label>

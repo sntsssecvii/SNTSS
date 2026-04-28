@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
     await requireAdminRequest(request);
 
     const status = request.nextUrl.searchParams.get("status");
+    const scope = request.nextUrl.searchParams.get("scope"); // "workers" = solo role USER
     const limit = clampLimit(request.nextUrl.searchParams.get("limit"));
     const page = clampPage(request.nextUrl.searchParams.get("page"));
     const search = resolveUserSearch(request.nextUrl.searchParams.get("q"));
@@ -89,7 +90,11 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
     const requests = snapshot.docs
-      .filter((doc) => doc.data().role !== "SUPER_ADMIN")
+      .filter((doc) =>
+        scope === "workers"
+          ? doc.data().role === "USER" || doc.data().role === "user"
+          : doc.data().role !== "SUPER_ADMIN",
+      )
       .map((doc) => {
         const data = doc.data();
         return {

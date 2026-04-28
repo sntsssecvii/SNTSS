@@ -88,7 +88,7 @@ const getNavItems = (
         icon: Users,
       },
       {
-        title: "Validaciones",
+        title: "Usuarios",
         href: "/admin/validaciones",
         icon: ShieldCheck,
         badge: pendingCount > 0 ? pendingCount.toString() : undefined,
@@ -151,7 +151,7 @@ const getNavItems = (
 
   if (roleUpper === "CAPTURISTA") {
     baseItems.push({
-      title: "Validaciones",
+      title: "Usuarios",
       href: "/admin/validaciones",
       icon: ShieldCheck,
       badge: pendingCount > 0 ? pendingCount.toString() : undefined,

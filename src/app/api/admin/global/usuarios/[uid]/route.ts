@@ -8,6 +8,7 @@ import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import {
   requireSuperAdminRequest,
   requireDeveloperRequest,
+  requireAdminRequest,
 } from "@/lib/firebase/server-auth";
 import { ROLES } from "@/types/roles";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
@@ -381,7 +382,7 @@ export async function DELETE(
       limit: 10,
       windowMs: 60_000,
     });
-    const adminContext = await requireDeveloperRequest(request);
+    const adminContext = await requireAdminRequest(request);
     actorUid = adminContext.uid;
     actorEmail = adminContext.email || "";
 
@@ -402,6 +403,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: "Usuario no encontrado." },
         { status: 404 },
+      );
+    }
+
+    const targetRole = (userSnap.data()?.role || "").toUpperCase();
+    const DELETABLE_ROLES = new Set(["CAPTURISTA", "BOLSA", "ESCALAFON"]);
+    if (!DELETABLE_ROLES.has(targetRole)) {
+      return NextResponse.json(
+        {
+          error:
+            "Solo se pueden eliminar usuarios de personal (Validador, Bolsa, Escalafón).",
+        },
+        { status: 403 },
       );
     }
 
@@ -452,10 +465,11 @@ export async function DELETE(
 
     if (
       error?.message === "SUPER_ADMIN_REQUIRED" ||
-      error?.message === "DEVELOPER_REQUIRED"
+      error?.message === "DEVELOPER_REQUIRED" ||
+      error?.message === "ADMIN_REQUIRED"
     ) {
       return NextResponse.json(
-        { error: "Se requiere acceso de desarrollador." },
+        { error: "Se requieren permisos de administrador." },
         { status: 403 },
       );
     }
