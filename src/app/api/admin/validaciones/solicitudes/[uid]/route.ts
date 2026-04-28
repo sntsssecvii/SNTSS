@@ -1,7 +1,11 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
 
-import { sendApprovalEmail, sendRejectionEmail } from "@/lib/email";
+import {
+  sendApprovalEmail,
+  sendRejectionEmail,
+  sendPasswordResetEmail,
+} from "@/lib/email";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
@@ -73,6 +77,7 @@ export async function POST(
 
     const userData = userSnap.data() || {};
     const fullName = getFullName(userData);
+    const prevStatus = userData.status as string | undefined;
     let warning: string | null = null;
 
     await userRef.update({
@@ -108,6 +113,23 @@ export async function POST(
       try {
         if (nextStatus === "active") {
           await sendApprovalEmail(userData.email, fullName);
+          // Si se reactiva desde rechazado, mandar también un reset de contraseña
+          // para que el usuario pueda acceder aunque haya olvidado o perdido su clave
+          if (prevStatus === "rejected") {
+            try {
+              const resetLink = await adminAuth.generatePasswordResetLink(
+                userData.email,
+              );
+              await sendPasswordResetEmail(userData.email, fullName, resetLink);
+            } catch (resetError) {
+              console.error(
+                "Error enviando correo de reset al reactivar usuario:",
+                resetError,
+              );
+              warning =
+                "La cuenta se activó y se envió el correo de aprobación, pero no se pudo enviar el enlace para restablecer contraseña. El usuario puede solicitarlo desde la pantalla de login.";
+            }
+          }
         } else {
           await sendRejectionEmail(userData.email, fullName, rejectionReason);
         }
