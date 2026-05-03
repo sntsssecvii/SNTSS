@@ -167,11 +167,18 @@ export default function DetalleListadoPage() {
       );
     }
     if (filtroZona !== "all") {
-      list.sort(
-        (a, b) =>
-          (a.posicionesPorZona?.[filtroZona] ?? 9999) -
-          (b.posicionesPorZona?.[filtroZona] ?? 9999),
-      );
+      // Ordenar por la posición según estatus: Activo usa posicionesActivo, PEI usa posicionesPei
+      list.sort((a, b) => {
+        const posA =
+          a.estatus === "Activo"
+            ? (a.posicionesActivoPorZona?.[filtroZona] ?? 9999)
+            : (a.posicionesPeiPorZona?.[filtroZona] ?? 9999);
+        const posB =
+          b.estatus === "Activo"
+            ? (b.posicionesActivoPorZona?.[filtroZona] ?? 9999)
+            : (b.posicionesPeiPorZona?.[filtroZona] ?? 9999);
+        return posA - posB;
+      });
     } else {
       list.sort((a, b) => a.lugar - b.lugar);
     }
@@ -631,17 +638,43 @@ export default function DetalleListadoPage() {
                           </span>
                         </TableCell>
 
-                        {/* Posición en zona (solo si filtro zona activo) */}
+                        {/* Posición en zona por estatus (solo si filtro zona activo) */}
                         {filtroZona !== "all" && (
                           <TableCell className="py-4 px-6 text-center">
-                            <div className="flex flex-col items-center">
-                              <span className="text-sm font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/50 min-w-[32px] text-center shadow-sm">
-                                {a.posicionesPorZona?.[filtroZona] ?? "—"}
-                              </span>
-                              <span className="text-[8px] font-bold text-emerald-500 mt-1 uppercase tracking-widest">
-                                Zona
-                              </span>
-                            </div>
+                            {(() => {
+                              const pos =
+                                a.estatus === "Activo"
+                                  ? a.posicionesActivoPorZona?.[filtroZona]
+                                  : a.posicionesPeiPorZona?.[filtroZona];
+                              const color =
+                                a.estatus === "Activo"
+                                  ? "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-800/50"
+                                  : "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/50";
+                              const sublabel =
+                                a.estatus === "Activo" ? "Activo" : "PEI";
+                              return (
+                                <div className="flex flex-col items-center">
+                                  <span
+                                    className={cn(
+                                      "text-sm font-black px-2.5 py-1 rounded-lg border min-w-[32px] text-center shadow-sm",
+                                      color,
+                                    )}
+                                  >
+                                    {pos ?? "—"}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "text-[8px] font-bold mt-1 uppercase tracking-widest",
+                                      a.estatus === "Activo"
+                                        ? "text-emerald-500"
+                                        : "text-amber-500",
+                                    )}
+                                  >
+                                    {sublabel}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                         )}
 
@@ -707,166 +740,324 @@ export default function DetalleListadoPage() {
           if (!open) setAspiranteModal(null);
         }}
       >
-        <DialogContent className="max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-black text-base">
-              {aspiranteModal?.nombre}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-3xl rounded-3xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0 overflow-hidden">
+          <DialogTitle className="sr-only">
+            {aspiranteModal?.nombre}
+          </DialogTitle>
           {aspiranteModal && (
-            <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                    Matrícula
-                  </p>
-                  <p className="font-mono font-bold">
-                    {aspiranteModal.matricula}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                    Lugar
-                  </p>
-                  <p className="font-black">{aspiranteModal.lugar}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                    Estatus
-                  </p>
+            <>
+              {/* ── Header ── */}
+              <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      Lugar #{aspiranteModal.lugar} en listado
+                    </p>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight truncate">
+                      {aspiranteModal.nombre}
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1 font-bold">
+                      Mat.{" "}
+                      <span className="font-mono">
+                        {aspiranteModal.matricula}
+                      </span>{" "}
+                      · Del. {aspiranteModal.delegacion} · Reg.{" "}
+                      {aspiranteModal.fechaRegistro}
+                    </p>
+                  </div>
                   <Badge
                     className={cn(
-                      "rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border-0",
+                      "rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border-0 shrink-0 mt-1",
                       aspiranteModal.estatus === "Activo"
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-amber-100 text-amber-700",
                     )}
                   >
                     {aspiranteModal.estatus}
                   </Badge>
                 </div>
+              </div>
+
+              {/* ── Cuerpo ── */}
+              <div className="px-6 py-5 space-y-6 overflow-y-auto max-h-[72vh]">
+                {/* Posiciones por zona — solo la posición relevante según estatus */}
+                {(() => {
+                  const posMap =
+                    aspiranteModal.estatus === "Activo"
+                      ? aspiranteModal.posicionesActivoPorZona
+                      : aspiranteModal.posicionesPeiPorZona;
+                  const entradas = Object.entries(posMap ?? {}).sort(
+                    ([, a], [, b]) => a - b,
+                  );
+                  if (entradas.length === 0) return null;
+                  const label =
+                    aspiranteModal.estatus === "Activo"
+                      ? "Posición en Zona (Activos)"
+                      : "Posición para Plaza Definitiva";
+                  const nota =
+                    aspiranteModal.estatus === "Activo"
+                      ? "Entre trabajadores Activos que solicitan esa zona"
+                      : "Entre interinos (PEI) que solicitan esa zona";
+                  return (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                        {label}
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {entradas.map(([zona, pos]) => (
+                          <div
+                            key={zona}
+                            className={cn(
+                              "rounded-2xl p-3 border",
+                              aspiranteModal.estatus === "Activo"
+                                ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-800"
+                                : "bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800",
+                            )}
+                          >
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest truncate mb-1">
+                              {zona}
+                            </p>
+                            <p
+                              className={cn(
+                                "text-3xl font-black leading-none",
+                                aspiranteModal.estatus === "Activo"
+                                  ? "text-emerald-700 dark:text-emerald-400"
+                                  : "text-amber-600 dark:text-amber-400",
+                              )}
+                            >
+                              #{pos}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-bold mt-2">
+                        {nota}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Quiénes están arriba — verificación de prelación */}
+                {(() => {
+                  const posMap =
+                    aspiranteModal.estatus === "Activo"
+                      ? aspiranteModal.posicionesActivoPorZona
+                      : aspiranteModal.posicionesPeiPorZona;
+                  const zonasDel = Object.keys(posMap ?? {}).sort();
+                  if (zonasDel.length === 0) return null;
+
+                  function calificaZona(
+                    prefs: EscalafonAspirante["preferencias"],
+                    zona: string,
+                  ) {
+                    return (prefs ?? []).find((p) => {
+                      const norm = p.zonaSolicitada
+                        .replace(/\s/g, "")
+                        .toUpperCase();
+                      const inc =
+                        norm === "INCONDICIONAL" ||
+                        /^\d{1,2}INCONDICIONAL$/.test(norm);
+                      return inc || p.zonaSolicitada === zona;
+                    });
+                  }
+
+                  return (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                        Quiénes están arriba
+                      </p>
+                      <div className="space-y-4">
+                        {zonasDel.map((zona) => {
+                          const miPos = (posMap ?? {})[zona];
+                          const arriba = aspirantes
+                            .filter(
+                              (a) =>
+                                a.estatus === aspiranteModal.estatus &&
+                                a.lugar < aspiranteModal.lugar &&
+                                calificaZona(a.preferencias, zona),
+                            )
+                            .sort((a, b) => a.lugar - b.lugar);
+
+                          return (
+                            <div key={zona}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
+                                  {zona}
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-400">
+                                  — {arriba.length} antes · tú eres #{miPos}
+                                </span>
+                              </div>
+                              {arriba.length === 0 ? (
+                                <p className="text-xs text-slate-400 font-bold italic">
+                                  Nadie antes en esta zona
+                                </p>
+                              ) : (
+                                <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                  <div className="max-h-52 overflow-y-auto">
+                                    <table className="w-full text-xs">
+                                      <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 z-10">
+                                        <tr>
+                                          <th className="py-2 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-400">
+                                            Pos.
+                                          </th>
+                                          <th className="py-2 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-400">
+                                            Lugar
+                                          </th>
+                                          <th className="py-2 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-400">
+                                            Nombre
+                                          </th>
+                                          <th className="py-2 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-400">
+                                            Zona pref.
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {arriba.map((a, idx) => {
+                                          const pref = calificaZona(
+                                            a.preferencias,
+                                            zona,
+                                          );
+                                          const norm = pref?.zonaSolicitada
+                                            .replace(/\s/g, "")
+                                            .toUpperCase();
+                                          const esInc =
+                                            norm === "INCONDICIONAL" ||
+                                            /^\d{1,2}INCONDICIONAL$/.test(
+                                              norm ?? "",
+                                            );
+                                          return (
+                                            <tr
+                                              key={a.matricula}
+                                              className={cn(
+                                                "border-t border-slate-100 dark:border-slate-800",
+                                                idx % 2 === 0
+                                                  ? "bg-white dark:bg-slate-900"
+                                                  : "bg-slate-50/50 dark:bg-slate-800/30",
+                                              )}
+                                            >
+                                              <td className="py-2 px-3 font-mono font-black text-slate-400">
+                                                {idx + 1}
+                                              </td>
+                                              <td className="py-2 px-3 font-mono font-black text-slate-600 dark:text-slate-300">
+                                                {a.lugar}
+                                              </td>
+                                              <td className="py-2 px-3 font-bold text-slate-700 dark:text-slate-200">
+                                                {a.nombre}
+                                              </td>
+                                              <td className="py-2 px-3">
+                                                {esInc ? (
+                                                  <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-md">
+                                                    Incondicional
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[9px] font-bold text-slate-500">
+                                                    {pref?.zonaSolicitada}
+                                                  </span>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Preferencias */}
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                    Delegación
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                    Preferencias (
+                    {aspiranteModal.preferencias?.length ?? 0})
                   </p>
-                  <p className="font-bold text-xs uppercase">
-                    {aspiranteModal.delegacion}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                    Fecha Registro
-                  </p>
-                  <p className="font-bold">{aspiranteModal.fechaRegistro}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
-                    Posiciones por Zona
-                  </p>
-                  {Object.keys(aspiranteModal.posicionesPorZona ?? {})
-                    .length === 0 ? (
-                    <p className="text-xs text-slate-400 font-bold">
-                      Sin zonas
-                    </p>
+                  {(aspiranteModal.preferencias?.length ?? 0) === 0 ? (
+                    <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
+                      <p className="text-sm text-slate-400 font-bold">
+                        Sin preferencias registradas
+                      </p>
+                    </div>
                   ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {Object.entries(
-                        aspiranteModal.posicionesPorZona ?? {},
-                      ).map(([zona, pos]) => (
-                        <span
-                          key={zona}
-                          className="inline-flex items-center gap-1 text-[9px] font-black bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-lg"
-                        >
-                          {zona}:{" "}
-                          <span className="text-emerald-900 dark:text-emerald-300">
-                            {pos}
-                          </span>
-                        </span>
-                      ))}
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-800">
+                          <tr>
+                            {[
+                              "#",
+                              "Delegación",
+                              "Zona",
+                              "Localidad",
+                              "Adscripción",
+                              "Turno",
+                            ].map((h) => (
+                              <th
+                                key={h}
+                                className="py-2.5 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-500"
+                              >
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(aspiranteModal.preferencias ?? []).map(
+                            (p, idx) => (
+                              <tr
+                                key={idx}
+                                className={cn(
+                                  "border-t border-slate-100 dark:border-slate-800",
+                                  idx % 2 === 0
+                                    ? "bg-white dark:bg-slate-900"
+                                    : "bg-slate-50/50 dark:bg-slate-800/30",
+                                )}
+                              >
+                                <td className="py-2.5 px-3 font-mono font-black text-slate-400">
+                                  {idx + 1}
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                                  {p.delegacionSolicitada || "—"}
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                                  {p.zonaSolicitada || "—"}
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
+                                  {p.localidadSolicitada || "—"}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <p className="font-bold text-slate-700 dark:text-slate-300">
+                                    {p.adscripcionCode}
+                                  </p>
+                                  <p className="text-[9px] text-slate-400 font-bold truncate max-w-[140px]">
+                                    {p.adscripcionDesc}
+                                  </p>
+                                </td>
+                                <td className="py-2.5 px-3 font-bold text-slate-600 dark:text-slate-300">
+                                  {p.turnoNum != null
+                                    ? `T${p.turnoNum}`
+                                    : "—"}
+                                  {p.turnoDesc && (
+                                    <span className="block text-[9px] text-slate-400">
+                                      {p.turnoDesc}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
               </div>
-              {/* Preferencias */}
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
-                  Preferencias ({aspiranteModal.preferencias?.length ?? 0})
-                </p>
-                {(aspiranteModal.preferencias?.length ?? 0) === 0 ? (
-                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
-                    <p className="text-sm text-slate-400 font-bold">
-                      Sin preferencias registradas
-                    </p>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead className="bg-slate-50 dark:bg-slate-800">
-                        <tr>
-                          {[
-                            "#",
-                            "Delegación",
-                            "Zona",
-                            "Localidad",
-                            "Adscripción",
-                            "Turno",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              className="py-2.5 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-500"
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(aspiranteModal.preferencias ?? []).map((p, idx) => (
-                          <tr
-                            key={idx}
-                            className={cn(
-                              "border-t border-slate-100 dark:border-slate-800",
-                              idx % 2 === 0
-                                ? "bg-white dark:bg-slate-900"
-                                : "bg-slate-50/50 dark:bg-slate-800/30",
-                            )}
-                          >
-                            <td className="py-2.5 px-3 font-mono font-black text-slate-400">
-                              {idx + 1}
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
-                              {p.delegacionSolicitada || "—"}
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
-                              {p.zonaSolicitada || "—"}
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-slate-700 dark:text-slate-300">
-                              {p.localidadSolicitada || "—"}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <p className="font-bold text-slate-700 dark:text-slate-300">
-                                {p.adscripcionCode}
-                              </p>
-                              <p className="text-[9px] text-slate-400 font-bold truncate max-w-[140px]">
-                                {p.adscripcionDesc}
-                              </p>
-                            </td>
-                            <td className="py-2.5 px-3 font-bold text-slate-600 dark:text-slate-300">
-                              {p.turnoNum != null ? `T${p.turnoNum}` : "—"}
-                              {p.turnoDesc && (
-                                <span className="block text-[9px] text-slate-400">
-                                  {p.turnoDesc}
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
