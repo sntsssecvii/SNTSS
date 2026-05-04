@@ -4,17 +4,103 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeUserRole } from "@/lib/auth/roles";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import {
   requireSuperAdminRequest,
   requireDeveloperRequest,
+  requireAdminRequest,
 } from "@/lib/firebase/server-auth";
 import { ROLES } from "@/types/roles";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { toTitleCase } from "@/lib/utils/text";
 
 const ALLOWED_ROLES = new Set<string>(Object.values(ROLES));
 const ALLOWED_STATUS = new Set(["pending", "active", "rejected"]);
 
 export const dynamic = "force-dynamic";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ uid: string }> },
+) {
+  try {
+    enforceRateLimit(request, {
+      bucket: "api:admin:global:usuarios:get",
+      limit: 60,
+      windowMs: 60_000,
+    });
+    await requireDeveloperRequest(request);
+
+    const { uid } = await params;
+    const userRef = adminDb.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return NextResponse.json(
+        { error: "Usuario no encontrado." },
+        { status: 404 },
+      );
+    }
+
+    const data = userSnap.data() || {};
+
+    // Devolver las URLs de Firebase Storage directamente (incluyen el token de descarga)
+    const docFields = [
+      "identificacion",
+      "tarjeton",
+      "constanciaAfiliacion",
+    ] as const;
+    const signedDocs: Record<string, string | null> = {};
+    for (const field of docFields) {
+      const rawPath: unknown = data.documents?.[field];
+      signedDocs[field] =
+        rawPath && typeof rawPath === "string" ? rawPath : null;
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        uid,
+        email: data.email || null,
+        nombre: data.nombre || null,
+        apellidoPaterno: data.apellidoPaterno || null,
+        apellidoMaterno: data.apellidoMaterno || null,
+        matricula: data.matricula || null,
+        curp: data.curp || null,
+        role: normalizeUserRole(data.role),
+        status: data.status || "pending",
+        createdAtMs: data.createdAt?.toMillis?.() ?? null,
+        updatedAtMs: data.updatedAt?.toMillis?.() ?? null,
+        validatedAt: data.validatedAt?.toMillis?.() ?? null,
+        validatedBy: data.validatedBy || null,
+        documents: signedDocs,
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes." },
+        { status: 429 },
+      );
+    }
+    if (error?.message === "AUTH_REQUIRED") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+    if (
+      error?.message === "SUPER_ADMIN_REQUIRED" ||
+      error?.message === "DEVELOPER_REQUIRED"
+    ) {
+      return NextResponse.json(
+        { error: "Se requiere acceso de desarrollador." },
+        { status: 403 },
+      );
+    }
+    return NextResponse.json(
+      { error: "No se pudo obtener el usuario." },
+      { status: 500 },
+    );
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -44,8 +130,28 @@ export async function PATCH(
       typeof body?.status === "string"
         ? body.status.trim().toLowerCase()
         : undefined;
+    const nextNombre =
+      typeof body?.nombre === "string" ? toTitleCase(body.nombre) : undefined;
+    const nextApellidoPaterno =
+      typeof body?.apellidoPaterno === "string"
+        ? toTitleCase(body.apellidoPaterno)
+        : undefined;
+    const nextApellidoMaterno =
+      typeof body?.apellidoMaterno === "string"
+        ? toTitleCase(body.apellidoMaterno)
+        : undefined;
+    const nextMatricula =
+      typeof body?.matricula === "string"
+        ? body.matricula.trim().toUpperCase()
+        : undefined;
 
-    if (!nextRole && !nextStatus) {
+    const hasProfileChange =
+      nextNombre !== undefined ||
+      nextApellidoPaterno !== undefined ||
+      nextApellidoMaterno !== undefined ||
+      nextMatricula !== undefined;
+
+    if (!nextRole && !nextStatus && !hasProfileChange) {
       return NextResponse.json(
         { error: "No se enviaron cambios válidos." },
         { status: 400 },
@@ -115,6 +221,44 @@ export async function PATCH(
           : FieldValue.delete();
     }
 
+    if (hasProfileChange) {
+      const resolvedNombre = nextNombre ?? currentData.nombre ?? "";
+      const resolvedApellidoPaterno =
+        nextApellidoPaterno ?? currentData.apellidoPaterno ?? "";
+      const resolvedApellidoMaterno =
+        nextApellidoMaterno ?? currentData.apellidoMaterno ?? null;
+      const resolvedMatricula = nextMatricula ?? currentData.matricula ?? "";
+
+      if (nextNombre !== undefined) updates.nombre = resolvedNombre;
+      if (nextApellidoPaterno !== undefined)
+        updates.apellidoPaterno = resolvedApellidoPaterno;
+      if (nextApellidoMaterno !== undefined)
+        updates.apellidoMaterno = resolvedApellidoMaterno;
+      if (nextMatricula !== undefined) updates.matricula = resolvedMatricula;
+
+      const searchFields = buildUserSearchFields({
+        email: currentData.email,
+        matricula: resolvedMatricula,
+        nombre: resolvedNombre,
+        apellidoPaterno: resolvedApellidoPaterno,
+        apellidoMaterno: resolvedApellidoMaterno,
+      });
+      Object.assign(updates, searchFields);
+
+      // Actualizar displayName en Firebase Auth
+      const newDisplayName = [
+        resolvedNombre,
+        resolvedApellidoPaterno,
+        resolvedApellidoMaterno,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      await adminAuth
+        .updateUser(uid, { displayName: newDisplayName })
+        .catch(() => null);
+    }
+
     if (Object.keys(updates).length === 1) {
       return NextResponse.json({
         success: true,
@@ -141,6 +285,14 @@ export async function PATCH(
         nextRole: nextRole || currentRole,
         previousStatus: currentStatus,
         nextStatus: nextStatus || currentStatus,
+        profileFieldsUpdated: hasProfileChange
+          ? Object.keys({
+              nombre: nextNombre,
+              apellidoPaterno: nextApellidoPaterno,
+              apellidoMaterno: nextApellidoMaterno,
+              matricula: nextMatricula,
+            }).filter((k) => updates[k] !== undefined)
+          : [],
       },
     });
 
@@ -230,7 +382,7 @@ export async function DELETE(
       limit: 10,
       windowMs: 60_000,
     });
-    const adminContext = await requireDeveloperRequest(request);
+    const adminContext = await requireAdminRequest(request);
     actorUid = adminContext.uid;
     actorEmail = adminContext.email || "";
 
@@ -251,6 +403,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: "Usuario no encontrado." },
         { status: 404 },
+      );
+    }
+
+    const targetRole = (userSnap.data()?.role || "").toUpperCase();
+    const DELETABLE_ROLES = new Set(["CAPTURISTA", "BOLSA", "ESCALAFON"]);
+    if (!DELETABLE_ROLES.has(targetRole)) {
+      return NextResponse.json(
+        {
+          error:
+            "Solo se pueden eliminar usuarios de personal (Validador, Bolsa, Escalafón).",
+        },
+        { status: 403 },
       );
     }
 
@@ -301,10 +465,11 @@ export async function DELETE(
 
     if (
       error?.message === "SUPER_ADMIN_REQUIRED" ||
-      error?.message === "DEVELOPER_REQUIRED"
+      error?.message === "DEVELOPER_REQUIRED" ||
+      error?.message === "ADMIN_REQUIRED"
     ) {
       return NextResponse.json(
-        { error: "Se requiere acceso de desarrollador." },
+        { error: "Se requieren permisos de administrador." },
         { status: 403 },
       );
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldPath, Timestamp } from "firebase-admin/firestore";
+import { FieldPath } from "firebase-admin/firestore";
 
 import { adminDb } from "@/lib/firebase/admin";
 import { resolveUserSearch } from "@/lib/firebase/user-search";
@@ -22,38 +22,16 @@ function clampLimit(rawLimit: string | null) {
   return Math.min(MAX_PAGE_SIZE, Math.floor(parsed));
 }
 
+function clampPage(rawPage: string | null) {
+  const parsed = Number(rawPage);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.floor(parsed);
+}
+
 function toCreatedAtMs(value: any) {
   if (typeof value?.toMillis === "function") return value.toMillis();
   if (typeof value?.seconds === "number") return value.seconds * 1000;
   return null;
-}
-
-function encodeCursor(cursor: {
-  createdAtMs?: number | null;
-  primaryValue?: string;
-  uid: string;
-}) {
-  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
-}
-
-function decodeCursor(cursor: string | null) {
-  if (!cursor) return null;
-
-  try {
-    const parsed = JSON.parse(
-      Buffer.from(cursor, "base64url").toString("utf8"),
-    ) as {
-      createdAtMs?: number;
-      primaryValue?: string;
-      uid?: string;
-    };
-
-    if (!parsed.uid) return null;
-
-    return parsed;
-  } catch {
-    return null;
-  }
 }
 
 export async function GET(request: NextRequest) {
@@ -66,9 +44,11 @@ export async function GET(request: NextRequest) {
     await requireAdminRequest(request);
 
     const status = request.nextUrl.searchParams.get("status");
+    const scope = request.nextUrl.searchParams.get("scope"); // "workers" = solo role USER
     const limit = clampLimit(request.nextUrl.searchParams.get("limit"));
-    const cursor = decodeCursor(request.nextUrl.searchParams.get("cursor"));
+    const page = clampPage(request.nextUrl.searchParams.get("page"));
     const search = resolveUserSearch(request.nextUrl.searchParams.get("q"));
+    const offset = (page - 1) * limit;
 
     if (!isValidStatus(status)) {
       return NextResponse.json(
@@ -77,55 +57,46 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let query = adminDb
-      .collection("users")
-      .where("status", "==", status) as FirebaseFirestore.Query;
-    let totalQuery = adminDb
+    let baseQuery = adminDb
       .collection("users")
       .where("status", "==", status) as FirebaseFirestore.Query;
 
     if (search) {
-      query = query
-        .where(search.fieldPath, ">=", search.value)
-        .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
-        .orderBy(search.fieldPath, "asc")
-        .orderBy(FieldPath.documentId(), "asc")
-        .limit(limit + 1);
-
-      totalQuery = totalQuery
-        .where(search.fieldPath, ">=", search.value)
-        .where(search.fieldPath, "<=", `${search.value}\uf8ff`);
+      if (search.fieldPath === "searchTokens") {
+        // Búsqueda por token individual (nombre de pila o cualquier apellido)
+        baseQuery = baseQuery
+          .where("searchTokens", "array-contains", search.value)
+          .orderBy(FieldPath.documentId(), "asc");
+      } else {
+        // Búsqueda por prefijo (matrícula, email, nombre completo multi-palabra)
+        baseQuery = baseQuery
+          .where(search.fieldPath, ">=", search.value)
+          .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
+          .orderBy(search.fieldPath, "asc")
+          .orderBy(FieldPath.documentId(), "asc");
+      }
     } else {
-      query = query
+      baseQuery = baseQuery
         .orderBy("createdAt", "desc")
-        .orderBy(FieldPath.documentId(), "desc")
-        .limit(limit + 1);
-    }
-
-    if (cursor) {
-      query =
-        search && cursor.primaryValue
-          ? query.startAfter(cursor.primaryValue, cursor.uid)
-          : cursor.createdAtMs
-            ? query.startAfter(
-                Timestamp.fromMillis(cursor.createdAtMs),
-                cursor.uid,
-              )
-            : query;
+        .orderBy(FieldPath.documentId(), "desc");
     }
 
     const [snapshot, totalSnapshot] = await Promise.all([
-      query.get(),
-      totalQuery.count().get(),
+      baseQuery.offset(offset).limit(limit).get(),
+      baseQuery.count().get(),
     ]);
 
-    const docs = snapshot.docs.slice(0, limit);
+    const total = totalSnapshot.data().count;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
-    const requests = docs
-      .filter((doc) => doc.data().role !== "SUPER_ADMIN") // Las cuentas SUPER_ADMIN se excluyen intencionalmente
+    const requests = snapshot.docs
+      .filter((doc) =>
+        scope === "workers"
+          ? doc.data().role === "USER" || doc.data().role === "user"
+          : doc.data().role !== "SUPER_ADMIN",
+      )
       .map((doc) => {
         const data = doc.data();
-
         return {
           uid: doc.id,
           nombre: data.nombre || "",
@@ -142,34 +113,20 @@ export async function GET(request: NextRequest) {
             constanciaAfiliacion: data.documents?.constanciaAfiliacion || "",
           },
           createdAtMs: toCreatedAtMs(data.createdAt),
+          updatedAtMs: toCreatedAtMs(data.updatedAt),
         };
       });
-
-    const lastDoc = docs[docs.length - 1];
-    const nextCursor =
-      snapshot.docs.length > limit && lastDoc
-        ? encodeCursor(
-            search
-              ? {
-                  primaryValue: String(lastDoc.data()[search.fieldPath] || ""),
-                  uid: lastDoc.id,
-                }
-              : {
-                  createdAtMs: toCreatedAtMs(lastDoc.data().createdAt),
-                  uid: lastDoc.id,
-                },
-          )
-        : null;
 
     return NextResponse.json({
       success: true,
       data: {
         requests,
         pagination: {
-          total: totalSnapshot.data().count,
+          total,
           limit,
-          nextCursor,
-          hasMore: Boolean(nextCursor),
+          page,
+          totalPages,
+          hasMore: page < totalPages,
         },
       },
     });

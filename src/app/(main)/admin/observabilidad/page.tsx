@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   UserCheck,
   Activity,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase/firebase-client";
@@ -20,6 +22,7 @@ import { isAdminRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 interface OverviewData {
   pendingValidations: number;
@@ -42,10 +45,22 @@ interface RecentEvent {
   createdAt: string | null;
 }
 
+interface PaginationData {
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  totalPages: number;
+}
+
 interface ObservabilidadData {
   overview: OverviewData;
-  recentEvents: RecentEvent[];
+  events: RecentEvent[];
+  pagination: PaginationData;
 }
+
+type SourceFilter = "all" | "registration" | "admin";
+type StatusFilter = "all" | "success" | "warning" | "error";
 
 const REFRESH_INTERVAL_MS = 30_000;
 
@@ -57,7 +72,9 @@ function formatRelativeTime(iso: string | null): string {
   const mins = Math.floor(secs / 60);
   if (mins < 60) return `hace ${mins}m`;
   const hrs = Math.floor(mins / 60);
-  return `hace ${hrs}h`;
+  if (hrs < 24) return `hace ${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `hace ${days}d`;
 }
 
 function KpiCard({
@@ -141,7 +158,7 @@ function EventRow({ event }: { event: RecentEvent }) {
             {event.source === "registration" ? "registro" : "admin"}
           </Badge>
         </div>
-        <p className="text-xs text-slate-500 mt-0.5 truncate">
+        <p className="text-xs text-slate-500 mt-0.5 break-all">
           {event.message}
         </p>
       </div>
@@ -161,42 +178,73 @@ export default function ObservabilidadPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [page, setPage] = useState(1);
+
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
     if (!authLoading && (!user || !isAdminRole(userData?.role))) {
       router.push("/login");
     }
   }, [user, userData, authLoading, router]);
 
-  const fetchData = useCallback(async (isManual = false) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+  const fetchData = useCallback(
+    async (opts: { manual?: boolean; page?: number } = {}) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
 
-    if (isManual) setRefreshing(true);
+      if (opts.manual) setRefreshing(true);
 
-    try {
-      const token = await currentUser.getIdToken();
-      const res = await fetch("/api/admin/observabilidad/registro", {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || `HTTP_${res.status}`);
-      setData(json.data);
-      setLastUpdated(new Date());
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || "Error al cargar datos");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      try {
+        const token = await currentUser.getIdToken();
+        const sp = new URLSearchParams({
+          source: sourceFilter,
+          status: statusFilter,
+          limit: "25",
+          page: String(opts.page ?? page),
+        });
+        const res = await fetch(
+          `/api/admin/observabilidad/registro?${sp.toString()}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          },
+        );
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || `HTTP_${res.status}`);
+        setData(json.data);
+        setLastUpdated(new Date());
+        setError(null);
+      } catch (err: any) {
+        setError(err.message || "Error al cargar datos");
+      } finally {
+        if (isFirstLoad.current) {
+          setLoading(false);
+          isFirstLoad.current = false;
+        }
+        setRefreshing(false);
+      }
+    },
+    [sourceFilter, statusFilter, page],
+  );
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [sourceFilter, statusFilter]);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => fetchData(), REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  const goToPage = (newPage: number) => {
+    setPage(newPage);
+    fetchData({ page: newPage });
+  };
 
   if (authLoading || loading) {
     return (
@@ -215,7 +263,11 @@ export default function ObservabilidadPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <XCircle className="w-10 h-10 text-red-500" />
         <p className="text-slate-600 text-sm">{error}</p>
-        <Button variant="outline" size="sm" onClick={() => fetchData(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchData({ manual: true })}
+        >
           Reintentar
         </Button>
       </div>
@@ -223,6 +275,7 @@ export default function ObservabilidadPage() {
   }
 
   const ov = data?.overview;
+  const pagination = data?.pagination;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
@@ -250,7 +303,7 @@ export default function ObservabilidadPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => fetchData(true)}
+          onClick={() => fetchData({ manual: true })}
           disabled={refreshing}
           className="gap-1.5"
         >
@@ -333,13 +386,37 @@ export default function ObservabilidadPage() {
 
       {/* Feed de eventos */}
       <section>
-        <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
-          Actividad reciente
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+          <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 flex-1">
+            Actividad reciente
+          </h2>
+          <div className="flex gap-2">
+            <Select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+              className="text-xs h-8 py-0"
+            >
+              <option value="all">Todas las fuentes</option>
+              <option value="registration">Registro</option>
+              <option value="admin">Admin</option>
+            </Select>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="text-xs h-8 py-0"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="success">Exitosos</option>
+              <option value="warning">Advertencias</option>
+              <option value="error">Errores</option>
+            </Select>
+          </div>
+        </div>
+
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
           <AnimatePresence initial={false}>
-            {data?.recentEvents.length ? (
-              data.recentEvents.map((event) => (
+            {data?.events.length ? (
+              data.events.map((event) => (
                 <motion.div
                   key={event.id}
                   initial={{ opacity: 0, y: -4 }}
@@ -351,11 +428,49 @@ export default function ObservabilidadPage() {
               ))
             ) : (
               <div className="py-12 text-center text-slate-400 text-sm">
-                Sin actividad reciente
+                Sin actividad para los filtros seleccionados
               </div>
             )}
           </AnimatePresence>
         </div>
+
+        {/* Paginación */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-xs text-slate-500">
+              {pagination.total} evento{pagination.total !== 1 ? "s" : ""} ·
+              página {pagination.page} de {pagination.totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(page - 1)}
+                disabled={page <= 1 || refreshing}
+                className="gap-1"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(page + 1)}
+                disabled={!pagination.hasMore || refreshing}
+                className="gap-1"
+              >
+                Siguiente
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {pagination && pagination.totalPages <= 1 && pagination.total > 0 && (
+          <p className="text-xs text-slate-400 mt-3">
+            {pagination.total} evento{pagination.total !== 1 ? "s" : ""}
+          </p>
+        )}
       </section>
     </div>
   );
