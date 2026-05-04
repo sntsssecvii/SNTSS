@@ -55,6 +55,61 @@ describe("calcularPosicionesPorZona", () => {
     expect(zonas).toContain("7 TIJUANA");
   });
 
+  it("trata '0 Incondicional' (zona SIAP) igual que INCONDICIONAL", () => {
+    const aspirantes = [
+      aspirante(1, ["0 Incondicional"]),
+      aspirante(2, ["7 TIJUANA"]),
+    ];
+    const { zonas, aspirantesConPosicion } = calcularPosicionesPorZona(aspirantes);
+    expect(zonas).not.toContain("0 Incondicional");
+    expect(zonas).toContain("7 TIJUANA");
+    const a1 = aspirantesConPosicion[0];
+    expect(a1.posicionesPorZona["7 TIJUANA"]).toBe(1);
+    const a2 = aspirantesConPosicion[1];
+    expect(a2.posicionesPorZona["7 TIJUANA"]).toBe(2);
+  });
+
+  it("calcula posiciones separadas por estatus — Activo y PEI no se mezclan", () => {
+    const aspirantes = [
+      aspirante(1, ["7 TIJUANA"], "Activo"),
+      aspirante(2, ["7 TIJUANA"], "PEI"),
+      aspirante(3, ["7 TIJUANA"], "Activo"),
+      aspirante(4, ["7 TIJUANA"], "PEI"),
+    ];
+    const { aspirantesConPosicion } = calcularPosicionesPorZona(aspirantes);
+    const [a1, pei2, a3, pei4] = aspirantesConPosicion;
+
+    // Activo-only: lugar 1 → pos 1, lugar 3 → pos 2
+    expect(a1.posicionesActivoPorZona["7 TIJUANA"]).toBe(1);
+    expect(a3.posicionesActivoPorZona["7 TIJUANA"]).toBe(2);
+    // Los PEI no tienen posición Activo
+    expect(pei2.posicionesActivoPorZona["7 TIJUANA"]).toBeUndefined();
+    expect(pei4.posicionesActivoPorZona["7 TIJUANA"]).toBeUndefined();
+
+    // PEI-only: lugar 2 → pos 1, lugar 4 → pos 2
+    expect(pei2.posicionesPeiPorZona["7 TIJUANA"]).toBe(1);
+    expect(pei4.posicionesPeiPorZona["7 TIJUANA"]).toBe(2);
+    // Los Activos no tienen posición PEI
+    expect(a1.posicionesPeiPorZona["7 TIJUANA"]).toBeUndefined();
+    expect(a3.posicionesPeiPorZona["7 TIJUANA"]).toBeUndefined();
+  });
+
+  it("un aspirante 0 Incondicional Activo aparece en posicionesActivoPorZona de todas las zonas", () => {
+    const a = aspirante(5, ["0 Incondicional"], "Activo");
+    const b = aspirante(10, ["7 TIJUANA"], "Activo");
+    const { aspirantesConPosicion } = calcularPosicionesPorZona([a, b]);
+    expect(aspirantesConPosicion[0].posicionesActivoPorZona["7 TIJUANA"]).toBe(1);
+    expect(aspirantesConPosicion[1].posicionesActivoPorZona["7 TIJUANA"]).toBe(2);
+  });
+
+  it("un aspirante 0 Incondicional PEI aparece en posicionesPeiPorZona de todas las zonas", () => {
+    const a = aspirante(5, ["0 Incondicional"], "PEI");
+    const b = aspirante(10, ["7 TIJUANA"], "PEI");
+    const { aspirantesConPosicion } = calcularPosicionesPorZona([a, b]);
+    expect(aspirantesConPosicion[0].posicionesPeiPorZona["7 TIJUANA"]).toBe(1);
+    expect(aspirantesConPosicion[1].posicionesPeiPorZona["7 TIJUANA"]).toBe(2);
+  });
+
   it("un aspirante condicionado solo aparece en su zona", () => {
     const aspirantes = [
       aspirante(1, ["7 TIJUANA"]),

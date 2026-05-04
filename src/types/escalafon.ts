@@ -18,7 +18,9 @@ export interface EscalafonAspirante {
   delegacion: string;
   fechaRegistro: string;
   preferencias: EscalafonPreferencia[];
-  posicionesPorZona?: Record<string, number>;
+  posicionesPorZona?: Record<string, number>;         // global — solo para saber si está en esa zona
+  posicionesActivoPorZona?: Record<string, number>;  // rank entre Activos (para promoción)
+  posicionesPeiPorZona?: Record<string, number>;     // rank entre PEI (para definitiva)
 }
 
 export interface EscalafonListado {

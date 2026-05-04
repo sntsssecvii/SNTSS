@@ -419,9 +419,78 @@ Estos puntos requieren confirmación antes de iniciar implementación:
 
 ---
 
+## Motor de posiciones por zona (`position-engine.ts`)
+
+> Implementado en `src/lib/escalafon/position-engine.ts`. Validado con la encargada de escalafón BC el 2026-04-30.
+
+### Qué calcula
+
+Al subir un listado PDF, el motor calcula tres campos para cada aspirante:
+
+| Campo | Descripción | Uso |
+|---|---|---|
+| `posicionesPorZona` | Posición global (Activos + PEI juntos) | Solo para filtros de UI (¿está en esa zona?) |
+| `posicionesActivoPorZona` | Posición entre **Activos únicamente** | Promoción escalafonaria (el Activo compite vs otros Activos) |
+| `posicionesPeiPorZona` | Posición entre **PEI únicamente** | Nominación a plaza definitiva (el interino compite vs otros interinos) |
+
+**Regla de negocio validada:** Los trabajadores Activo y PEI **no compiten entre sí**. Un PEI ya tiene su interinato; su posición relevante es frente a otros PEI para convertirlo en plaza definitiva. Un Activo compite con otros Activos para promoción.
+
+### Quién califica para una zona
+
+Un aspirante califica para zona X si **alguna de sus preferencias** cumple:
+
+```
+esIncondicional(zonaSolicitada) === true  →  califica para TODAS las zonas
+zonaSolicitada === zona                   →  califica solo para esa zona
+```
+
+### Reconocimiento de "Incondicional"
+
+SIAP representa zona incondicional de dos formas:
+
+| Valor en PDF | Normalizado | Reconocido como incondicional |
+|---|---|---|
+| `Incondicional` | `INCONDICIONAL` | ✅ |
+| `0 Incondicional` | `0INCONDICIONAL` | ✅ (SIAP usa zona 0 = acepta cualquier zona) |
+| `7 TIJUANA` | `7TIJUANA` | ❌ (zona específica) |
+
+La función `esIncondicional(zona)` aplica la regla:
+```typescript
+const norm = zona.replace(/\s/g, "").toUpperCase();
+return norm === "INCONDICIONAL" || /^\d{1,2}INCONDICIONAL$/.test(norm);
+```
+
+### Bug corregido en el parser (2026-04-30)
+
+El regex del parser capturaba la localidad "Incondicional" como parte del nombre de zona:
+
+- **Antes (bug):** `zonaSolicitada = "1 ENSENADA Incondicional"` → se creaban zonas duplicadas como `"7 TIJUANA"` y `"7 TIJUANA Incondicional"`
+- **Después (fix):** `zonaSolicitada = "1 ENSENADA"` → el "Incondicional" de localidad no se captura en el nombre de zona
+
+Fix: lookahead negativo en el regex de `parsearPreferenciaDesdeTexto`:
+```
+/^(\d{1,2}\s+[A-Z]+(?:\s+(?!Incondicional\b)[A-Z]+)?)\s+(.+)$/i
+```
+
+Se ejecutó migración `scripts/migrations/escalafon-fix-zonas.ts` para corregir datos históricos en Firestore.
+
+### Ejemplo validado
+
+**Listado quirúrgico — ZAZUETA ZATARAIN NOEMI (PEI, lugar 43, pide Mexicali y San Luis):**
+
+Antes de ella en Mexicali/San Luis había 4 PEI:
+1. García Arellano Francisco (lugar 10) — pide Mexicali/San Luis específicamente
+2. Mendoza Vargas Alan (lugar 37) — zona `0 Incondicional`
+3. Camarena Velasco Judith (lugar 39) — zona `0 Incondicional`
+4. Estrada Valles Itzel (lugar 41) — zona `0 Incondicional`
+
+→ `posicionesPeiPorZona["2 MEXICALLI"] = 5`, `posicionesPeiPorZona["4 SAN LUIS"] = 5`
+
+---
+
 ## Estado del documento
 
 - Fecha de creación: 2026-04-10
 - Basado en: CCT IMSS-SNTSS 2025-2027 + reunión con encargada del escalafón Sección BC
-- Estado: **Borrador — pendiente validación de preguntas abiertas**
-- Siguiente paso: segunda reunión con la encargada para resolver preguntas de la sección anterior
+- Última actualización: 2026-04-30 — motor de posiciones implementado y validado
+- Estado: **Activo en producción**

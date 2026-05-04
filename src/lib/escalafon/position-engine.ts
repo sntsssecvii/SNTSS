@@ -2,14 +2,23 @@ import type { EscalafonAspirante } from "@/types/escalafon";
 
 type AspiranteInput = Omit<
   EscalafonAspirante,
-  "id" | "listadoId" | "posicionesPorZona"
+  | "id"
+  | "listadoId"
+  | "posicionesPorZona"
+  | "posicionesActivoPorZona"
+  | "posicionesPeiPorZona"
 >;
 type AspiranteConPosicion = AspiranteInput & {
-  posicionesPorZona: Record<string, number>;
+  posicionesPorZona: Record<string, number>;       // global — membresía en zona
+  posicionesActivoPorZona: Record<string, number>; // rank entre Activos
+  posicionesPeiPorZona: Record<string, number>;    // rank entre PEI
 };
 
+// "INCONDICIONAL" exacto O "0 Incondicional", "1 Incondicional", etc.
+// SIAP usa zona 0 para representar zona incondicional.
 function esIncondicional(zona: string): boolean {
-  return zona.replace(/\s/g, "").toUpperCase() === "INCONDICIONAL";
+  const norm = zona.replace(/\s/g, "").toUpperCase();
+  return norm === "INCONDICIONAL" || /^\d{1,2}INCONDICIONAL$/.test(norm);
 }
 
 export function calcularPosicionesPorZona(aspirantes: AspiranteInput[]): {
@@ -20,7 +29,7 @@ export function calcularPosicionesPorZona(aspirantes: AspiranteInput[]): {
     return { aspirantesConPosicion: [], zonas: [] };
   }
 
-  // 1. Extraer zonas únicas (excluir INCONDICIONAL)
+  // 1. Zonas únicas — excluir toda forma de incondicional
   const zonasSet = new Set<string>();
   for (const a of aspirantes) {
     for (const p of a.preferencias) {
@@ -31,24 +40,38 @@ export function calcularPosicionesPorZona(aspirantes: AspiranteInput[]): {
   }
   const zonas = Array.from(zonasSet).sort();
 
-  // 2. Inicializar mapa de posiciones vacío para cada aspirante
+  // 2. Inicializar posiciones vacías
   const conPosicion: AspiranteConPosicion[] = aspirantes.map((a) => ({
     ...a,
     posicionesPorZona: {},
+    posicionesActivoPorZona: {},
+    posicionesPeiPorZona: {},
   }));
 
-  // 3. Para cada zona, calcular posiciones
+  // 3. Por zona: global (membresía) + rank Activo-solo + rank PEI-solo
   for (const zona of zonas) {
-    // Identificar aspirantes que califican para esta zona (en orden de lugar)
     const calificados = conPosicion.filter((a) =>
       a.preferencias.some(
         (p) => esIncondicional(p.zonaSolicitada) || p.zonaSolicitada === zona,
       ),
     );
-    // Ordenar por lugar antes de asignar posición
     calificados.sort((a, b) => a.lugar - b.lugar);
+
+    // Global — solo para saber si el aspirante está en esta zona (para filtros de UI)
     calificados.forEach((a, idx) => {
       a.posicionesPorZona[zona] = idx + 1;
+    });
+
+    // Activos-only (para promoción escalafonaria)
+    const activos = calificados.filter((a) => a.estatus === "Activo");
+    activos.forEach((a, idx) => {
+      a.posicionesActivoPorZona[zona] = idx + 1;
+    });
+
+    // PEI-only (para nominación a definitiva)
+    const peis = calificados.filter((a) => a.estatus === "PEI");
+    peis.forEach((a, idx) => {
+      a.posicionesPeiPorZona[zona] = idx + 1;
     });
   }
 

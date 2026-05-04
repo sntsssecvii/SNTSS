@@ -61,7 +61,7 @@ function parsearPreferenciaDesdeTexto(rest: string): EscalafonPreferencia {
     // zona puede tomar de más - hay que ser cuidadoso
     // La zona es "N WORD" donde N es 1-2 dígitos y WORD es el nombre de zona
     const zonaSimple = afterDeleg.match(
-      /^(\d{1,2}\s+[A-Z]+(?:\s+[A-Z]+)?)\s+(.+)$/i,
+      /^(\d{1,2}\s+[A-Z]+(?:\s+(?!Incondicional\b)[A-Z]+)?)\s+(.+)$/i,
     );
     if (zonaSimple) {
       // Verify what comes after isn't still part of zone by checking if next is a code or Incondicional
