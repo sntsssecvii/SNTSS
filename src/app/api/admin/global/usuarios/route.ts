@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldPath, Timestamp } from "firebase-admin/firestore";
 
-import { adminDb } from "@/lib/firebase/admin";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { resolveUserSearch } from "@/lib/firebase/user-search";
-import { requireSuperAdminRequest } from "@/lib/firebase/server-auth";
+import {
+  requireSuperAdminRequest,
+  requireAdminRequest,
+} from "@/lib/firebase/server-auth";
 import { normalizeUserRole } from "@/lib/auth/roles";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { ROLES } from "@/types/roles";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_PAGE_SIZE = 25;
@@ -57,7 +62,7 @@ export async function GET(request: NextRequest) {
       limit: 60,
       windowMs: 60_000,
     });
-    await requireSuperAdminRequest(request);
+    await requireAdminRequest(request);
 
     const limit = clampLimit(request.nextUrl.searchParams.get("limit"));
     const cursor = decodeCursor(request.nextUrl.searchParams.get("cursor"));
@@ -79,23 +84,38 @@ export async function GET(request: NextRequest) {
           ? ["USER", "user"]
           : roleFilter === "ADMIN"
             ? ["ADMIN", "admin"]
-            : [roleFilter];
+            : roleFilter === "STAFF"
+              ? ["CAPTURISTA", "BOLSA", "ESCALAFON"]
+              : [roleFilter];
 
       query = query.where("role", "in", roleValues);
       totalQuery = totalQuery.where("role", "in", roleValues);
     }
 
     if (search) {
-      query = query
-        .where(search.fieldPath, ">=", search.value)
-        .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
-        .orderBy(search.fieldPath, "asc")
-        .orderBy(FieldPath.documentId(), "asc")
-        .limit(limit + 1);
-
-      totalQuery = totalQuery
-        .where(search.fieldPath, ">=", search.value)
-        .where(search.fieldPath, "<=", `${search.value}\uf8ff`);
+      if (search.fieldPath === "searchTokens") {
+        // Búsqueda por token individual (nombre de pila o cualquier apellido)
+        query = query
+          .where("searchTokens", "array-contains", search.value)
+          .orderBy(FieldPath.documentId(), "asc")
+          .limit(limit + 1);
+        totalQuery = totalQuery.where(
+          "searchTokens",
+          "array-contains",
+          search.value,
+        );
+      } else {
+        // Búsqueda por prefijo (matrícula, email, nombre completo multi-palabra)
+        query = query
+          .where(search.fieldPath, ">=", search.value)
+          .where(search.fieldPath, "<=", `${search.value}\uf8ff`)
+          .orderBy(search.fieldPath, "asc")
+          .orderBy(FieldPath.documentId(), "asc")
+          .limit(limit + 1);
+        totalQuery = totalQuery
+          .where(search.fieldPath, ">=", search.value)
+          .where(search.fieldPath, "<=", `${search.value}\uf8ff`);
+      }
     } else {
       query = query
         .orderBy("updatedAt", "desc")
@@ -224,6 +244,141 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: "No se pudieron obtener los usuarios.",
+        details: error?.message || "UNKNOWN_ERROR",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    enforceRateLimit(request, {
+      bucket: "api:admin:global:usuarios:create",
+      limit: 20,
+      windowMs: 60_000,
+    });
+    await requireAdminRequest(request);
+
+    const body = await request.json().catch(() => ({}));
+    const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
+    const apellidoPaterno =
+      typeof body.apellidoPaterno === "string"
+        ? body.apellidoPaterno.trim()
+        : "";
+    const apellidoMaterno =
+      typeof body.apellidoMaterno === "string"
+        ? body.apellidoMaterno.trim()
+        : "";
+    const email =
+      typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const roleRaw =
+      typeof body.role === "string" ? body.role.trim().toUpperCase() : "";
+
+    const ALLOWED_ROLES = [ROLES.BOLSA, ROLES.ESCALAFON, ROLES.CAPTURISTA];
+    const role = ALLOWED_ROLES.includes(roleRaw as any)
+      ? (roleRaw as string)
+      : ROLES.CAPTURISTA;
+
+    if (!nombre || !apellidoPaterno || !email || !password) {
+      return NextResponse.json(
+        {
+          error:
+            "Nombre, apellido paterno, correo y contraseña son requeridos.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "La contraseña debe tener al menos 8 caracteres." },
+        { status: 400 },
+      );
+    }
+
+    const displayName = [nombre, apellidoPaterno, apellidoMaterno]
+      .filter(Boolean)
+      .join(" ");
+
+    const authUser = await adminAuth.createUser({
+      email,
+      password,
+      displayName,
+    });
+
+    const searchFields = buildUserSearchFields({
+      email,
+      matricula: "",
+      nombre,
+      apellidoPaterno,
+      apellidoMaterno,
+    });
+
+    await adminDb
+      .collection("users")
+      .doc(authUser.uid)
+      .set({
+        uid: authUser.uid,
+        nombre,
+        apellidoPaterno,
+        apellidoMaterno: apellidoMaterno || null,
+        matricula: "",
+        email,
+        role,
+        status: "active",
+        documents: {
+          identificacion: null,
+          tarjeton: null,
+          constanciaAfiliacion: null,
+        },
+        ...searchFields,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+    return NextResponse.json({
+      success: true,
+      data: { uid: authUser.uid, email, role },
+    });
+  } catch (error: any) {
+    console.error("Error creando usuario validador:", error);
+
+    if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Intenta de nuevo en un momento." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(error.retryAfterSeconds || 60) },
+        },
+      );
+    }
+
+    if (error?.message === "AUTH_REQUIRED") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+
+    if (
+      error?.message === "SUPER_ADMIN_REQUIRED" ||
+      error?.message === "ADMIN_REQUIRED"
+    ) {
+      return NextResponse.json(
+        { error: "Se requieren permisos de administrador." },
+        { status: 403 },
+      );
+    }
+
+    if (error?.code === "auth/email-already-exists") {
+      return NextResponse.json(
+        { error: "Este correo ya está registrado." },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "No se pudo crear el usuario.",
         details: error?.message || "UNKNOWN_ERROR",
       },
       { status: 500 },

@@ -6,6 +6,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { requireAdminRequest } from "@/lib/firebase/server-auth";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { validateFileMagicBytes } from "@/lib/security/file-validation";
+import { materializeSyncPositions } from "@/lib/bolsa-de-trabajo/materialize-sync-service";
 import type {
   BolsaDeTrabajoDocumento,
   BolsaDeTrabajoRegistro,
@@ -448,6 +449,33 @@ export async function POST(request: NextRequest) {
         totalRegistros: resultadoParse.registros.length,
       },
     });
+
+    // Re-materialización automática si el sync es fuente de verdad (fire-and-forget)
+    if (syncId && resultadoParse.registros.length > 0) {
+      (async () => {
+        try {
+          const syncSnap = await adminDb
+            .collection("sincronizaciones")
+            .doc(syncId)
+            .get();
+          if (syncSnap.exists && syncSnap.get("esFuenteVerdad") === true) {
+            const result = await materializeSyncPositions(syncId, {
+              anio,
+              mes,
+              quincena,
+            });
+            console.log(
+              `[auto-materialize] sync=${syncId} documentos=${result.totalDocumentos} posiciones=${result.totalMaterializados}`,
+            );
+          }
+        } catch (err: any) {
+          console.error(
+            `[auto-materialize] Error en sync=${syncId}:`,
+            err?.message || err,
+          );
+        }
+      })();
+    }
 
     return NextResponse.json({
       success: true,

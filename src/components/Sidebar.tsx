@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Crown,
   Activity,
+  UserRound,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -54,12 +55,23 @@ const getNavItems = (
       href: "/admin",
       icon: LayoutDashboard,
     });
-  } else if (roleUpper !== "BOLSA") {
-    baseItems.push({
-      title: "Dashboard",
-      href: "/dashboard",
-      icon: LayoutDashboard,
-    });
+  } else if (
+    roleUpper !== "BOLSA" &&
+    roleUpper !== "CAPTURISTA" &&
+    roleUpper !== "ESCALAFON"
+  ) {
+    baseItems.push(
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "Mi Perfil",
+        href: "/dashboard/perfil",
+        icon: UserRound,
+      },
+    );
   }
 
   // Solo ADMIN puede ver estas secciones en el MVP
@@ -76,7 +88,7 @@ const getNavItems = (
         icon: Users,
       },
       {
-        title: "Validaciones",
+        title: "Usuarios",
         href: "/admin/validaciones",
         icon: ShieldCheck,
         badge: pendingCount > 0 ? pendingCount.toString() : undefined,
@@ -137,11 +149,21 @@ const getNavItems = (
     });
   }
 
+  if (roleUpper === "CAPTURISTA") {
+    baseItems.push({
+      title: "Usuarios",
+      href: "/admin/validaciones",
+      icon: ShieldCheck,
+      badge: pendingCount > 0 ? pendingCount.toString() : undefined,
+    });
+  }
+
   // Items comunes para roles admin
   if (
     roleUpper === "ADMIN" ||
     roleUpper === "SUPER_ADMIN" ||
-    roleUpper === "BOLSA"
+    roleUpper === "BOLSA" ||
+    roleUpper === "CAPTURISTA"
   ) {
     baseItems.push(
       {
@@ -322,7 +344,7 @@ export function Sidebar() {
                   <p className="text-[10px] font-bold text-red-200/60 truncate leading-tight mb-1">
                     {user?.email}
                   </p>
-                  {userData?.role && (
+                  {userData?.role && userData.role.toUpperCase() !== "USER" && (
                     <span className="inline-flex px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-white/10 text-white rounded-md border border-white/10">
                       {getRoleLabel(userData.role)}
                     </span>

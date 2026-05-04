@@ -5,6 +5,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { auth } from "@/lib/firebase/firebase-client";
@@ -31,14 +32,34 @@ import { useToast } from "@/components/ui/use-toast";
 import { getRoleLabel } from "@/lib/auth/roles";
 import { ROLES } from "@/types/roles";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
+import {
   AlertTriangle,
   BadgeCheck,
+  Eye,
+  FileText,
+  FileX,
   Loader2,
+  Pencil,
+  RotateCcw,
+  RotateCw,
   Search,
   Shield,
   Trash2,
+  UserPlus,
   Users,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
+import { DialogDescription } from "@/components/ui/dialog";
 
 type UserStatus = "pending" | "active" | "rejected";
 
@@ -54,6 +75,16 @@ type ManagedUser = {
   status: UserStatus;
   createdAtMs: number | null;
   updatedAtMs: number | null;
+};
+
+type UserDetail = ManagedUser & {
+  validatedAt: number | null;
+  validatedBy: string | null;
+  documents: {
+    identificacion: string | null;
+    tarjeton: string | null;
+    constanciaAfiliacion: string | null;
+  };
 };
 
 type PaginationState = {
@@ -94,8 +125,44 @@ function formatStatusLabel(status: UserStatus) {
 export default function AdminGlobalManager() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [deletingUid, setDeletingUid] = useState<string | null>(null);
   const [confirmDeleteUid, setConfirmDeleteUid] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<ManagedUser | null>(null);
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    apellidoPaterno: "",
+    apellidoMaterno: "",
+    matricula: "",
+  });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [showNewValidador, setShowNewValidador] = useState(false);
+  const [newValidadorForm, setNewValidadorForm] = useState({
+    nombre: "",
+    apellidoPaterno: "",
+    apellidoMaterno: "",
+    email: "",
+    password: "",
+  });
+  const [isCreatingValidador, setIsCreatingValidador] = useState(false);
+  // Modal de detalle con documentos
+  const [detailUser, setDetailUser] = useState<UserDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  // Visor de documentos con zoom/pan
+  const [viewingDoc, setViewingDoc] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragState = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  }>({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
@@ -178,15 +245,22 @@ export default function AdminGlobalManager() {
     [deferredQuery, roleFilter, statusFilter],
   );
 
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
     let cancelled = false;
 
     const syncUsers = async () => {
       try {
-        if (!cancelled) setLoading(true);
+        if (isFirstLoad.current) {
+          if (!cancelled) setLoading(true);
+        } else {
+          if (!cancelled) setIsFetching(true);
+        }
         setCursorStack([]);
         setCurrentCursor(undefined);
         await loadUsers();
+        isFirstLoad.current = false;
       } catch (error) {
         console.error(error);
         if (!cancelled) {
@@ -197,7 +271,10 @@ export default function AdminGlobalManager() {
           });
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setIsFetching(false);
+        }
       }
     };
 
@@ -207,6 +284,12 @@ export default function AdminGlobalManager() {
       cancelled = true;
     };
   }, [loadUsers, toast]);
+
+  useEffect(() => {
+    setZoom(1);
+    setRotation(0);
+    setOffset({ x: 0, y: 0 });
+  }, [viewingDoc]);
 
   const filteredUsers = useMemo(() => users, [users]);
 
@@ -245,6 +328,149 @@ export default function AdminGlobalManager() {
     } finally {
       setDeletingUid(null);
       setConfirmDeleteUid(null);
+    }
+  };
+
+  const openDetailModal = async (user: ManagedUser) => {
+    setDetailUser({
+      ...user,
+      validatedAt: null,
+      validatedBy: null,
+      documents: {
+        identificacion: null,
+        tarjeton: null,
+        constanciaAfiliacion: null,
+      },
+    });
+    setIsLoadingDetail(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch(`/api/admin/global/usuarios/${user.uid}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as {
+        data?: UserDetail;
+        error?: string;
+      };
+      if (response.ok && payload.data) {
+        setDetailUser(payload.data);
+      }
+    } catch {
+      // Mantener datos básicos del listado si falla el fetch
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  const openEditDialog = (user: ManagedUser) => {
+    setEditUser(user);
+    setEditForm({
+      nombre: user.nombre,
+      apellidoPaterno: user.apellidoPaterno,
+      apellidoMaterno: user.apellidoMaterno,
+      matricula: user.matricula,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editUser) return;
+    setIsSavingEdit(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch(
+        `/api/admin/global/usuarios/${editUser.uid}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editForm),
+        },
+      );
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo guardar los cambios.");
+      }
+
+      setUsers((current) =>
+        current.map((u) =>
+          u.uid === editUser.uid
+            ? {
+                ...u,
+                nombre: editForm.nombre.trim(),
+                apellidoPaterno: editForm.apellidoPaterno.trim(),
+                apellidoMaterno: editForm.apellidoMaterno.trim(),
+                matricula: editForm.matricula.trim().toUpperCase(),
+              }
+            : u,
+        ),
+      );
+      setEditUser(null);
+      toast({
+        title: "Perfil actualizado",
+        description: "Los datos fueron guardados.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "No se pudo guardar.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleCreateValidador = async () => {
+    setIsCreatingValidador(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch("/api/admin/global/usuarios", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newValidadorForm),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Error al crear.");
+
+      toast({
+        title: "Usuario Validador creado",
+        description: `Cuenta creada para ${newValidadorForm.email}.`,
+      });
+      setShowNewValidador(false);
+      setNewValidadorForm({
+        nombre: "",
+        apellidoPaterno: "",
+        apellidoMaterno: "",
+        email: "",
+        password: "",
+      });
+      await loadUsers();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo crear el usuario.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingValidador(false);
     }
   };
 
@@ -326,9 +552,19 @@ export default function AdminGlobalManager() {
 
       <Card className="rounded-[2rem] border-slate-200/70 dark:border-slate-800">
         <CardHeader className="space-y-3">
-          <CardTitle className="text-2xl font-black tracking-tight">
-            Gobierno de usuarios
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-black tracking-tight">
+              Gobierno de usuarios
+            </CardTitle>
+            <Button
+              size="sm"
+              onClick={() => setShowNewValidador(true)}
+              className="gap-2"
+            >
+              <UserPlus className="h-4 w-4" />
+              Nuevo Validador
+            </Button>
+          </div>
           <CardDescription>
             Gestión operativa de cuentas. Solo disponible para desarrolladores.
           </CardDescription>
@@ -341,8 +577,11 @@ export default function AdminGlobalManager() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Buscar por nombre, correo o matrícula"
-                className="pl-9"
+                className="pl-9 pr-9"
               />
+              {isFetching && (
+                <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+              )}
             </div>
 
             <Select
@@ -452,14 +691,32 @@ export default function AdminGlobalManager() {
                               </Button>
                             </div>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setConfirmDeleteUid(user.uid)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openDetailModal(user)}
+                                title="Ver detalles y documentos"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEditDialog(user)}
+                                title="Editar perfil"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setConfirmDeleteUid(user.uid)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -505,6 +762,514 @@ export default function AdminGlobalManager() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal de detalle con documentos */}
+      <Dialog
+        open={!!detailUser}
+        onOpenChange={(open) => !open && setDetailUser(null)}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>
+                {detailUser?.nombre} {detailUser?.apellidoPaterno}{" "}
+                {detailUser?.apellidoMaterno}
+              </span>
+              <Badge
+                variant={getStatusBadgeVariant(
+                  (detailUser?.status as UserStatus) ?? "pending",
+                )}
+              >
+                {formatStatusLabel(
+                  (detailUser?.status as UserStatus) ?? "pending",
+                )}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {[
+              ["Correo", detailUser?.email],
+              ["Matrícula", detailUser?.matricula || "Sin matrícula"],
+              ["CURP", detailUser?.curp || "—"],
+              ["Rol", getRoleLabel(detailUser?.role)],
+              [
+                "Alta",
+                detailUser?.createdAtMs
+                  ? new Date(detailUser.createdAtMs).toLocaleString("es-MX", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "—",
+              ],
+              [
+                "Validado",
+                detailUser?.validatedAt
+                  ? new Date(detailUser.validatedAt).toLocaleString("es-MX", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "—",
+              ],
+            ].map(([label, value]) => (
+              <div key={label} className="space-y-0.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  {label}
+                </p>
+                <p className="font-medium text-slate-800 dark:text-slate-100 break-all">
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Documentos */}
+          <div className="space-y-2 pt-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Documentos de registro
+            </p>
+            {isLoadingDetail ? (
+              <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando documentos...
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {(
+                  [
+                    ["Identificación", detailUser?.documents?.identificacion],
+                    ["Tarjetón", detailUser?.documents?.tarjeton],
+                    [
+                      "Const. Afiliación",
+                      detailUser?.documents?.constanciaAfiliacion,
+                    ],
+                  ] as [string, string | null | undefined][]
+                ).map(([label, url]) => (
+                  <div key={label} className="space-y-1.5">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                      {label}
+                    </p>
+                    {url ? (
+                      <button
+                        type="button"
+                        className="block w-full group text-left"
+                        onClick={() =>
+                          setViewingDoc({ url, title: label as string })
+                        }
+                      >
+                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 aspect-[3/4]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={label as string}
+                            className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                            <ZoomIn className="h-5 w-5 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-[9px] text-slate-400 text-center mt-1">
+                          Clic para ampliar
+                        </p>
+                      </button>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 aspect-[3/4] flex flex-col items-center justify-center gap-1">
+                        <FileX className="h-6 w-6 text-slate-300" />
+                        <p className="text-[9px] text-slate-400">
+                          Sin documento
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (detailUser) openEditDialog(detailUser);
+                setDetailUser(null);
+              }}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar perfil
+            </Button>
+            <Button onClick={() => setDetailUser(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visualizador de Documentos Expandido */}
+      <Dialog
+        open={!!viewingDoc}
+        onOpenChange={(open) => !open && setViewingDoc(null)}
+      >
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden border-none bg-slate-900/95 backdrop-blur-xl">
+          <DialogHeader className="p-4 bg-white/10 text-white flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-600 rounded-lg">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">
+                  {viewingDoc?.title}
+                </DialogTitle>
+                <DialogDescription className="text-slate-300 text-xs">
+                  Visualización segura de documentos SNTSS
+                </DialogDescription>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setViewingDoc(null)}
+              className="text-white hover:bg-white/20 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </DialogHeader>
+
+          <div
+            className="flex-1 w-full h-full bg-slate-800/50 flex items-center justify-center p-4 overflow-hidden"
+            style={{ cursor: zoom > 1 ? "grab" : "default" }}
+            onWheel={(e) => {
+              if (viewingDoc?.url.toLowerCase().includes(".pdf")) return;
+              e.preventDefault();
+              setZoom((prev) =>
+                Math.min(5, Math.max(1, prev + (e.deltaY > 0 ? -0.2 : 0.2))),
+              );
+            }}
+            onMouseDown={(e) => {
+              if (zoom <= 1) return;
+              dragState.current = {
+                active: true,
+                startX: e.clientX,
+                startY: e.clientY,
+                originX: offset.x,
+                originY: offset.y,
+              };
+              (e.currentTarget as HTMLElement).style.cursor = "grabbing";
+            }}
+            onMouseMove={(e) => {
+              if (!dragState.current.active) return;
+              setOffset({
+                x:
+                  dragState.current.originX +
+                  e.clientX -
+                  dragState.current.startX,
+                y:
+                  dragState.current.originY +
+                  e.clientY -
+                  dragState.current.startY,
+              });
+            }}
+            onMouseUp={(e) => {
+              dragState.current.active = false;
+              (e.currentTarget as HTMLElement).style.cursor =
+                zoom > 1 ? "grab" : "default";
+            }}
+            onMouseLeave={() => {
+              dragState.current.active = false;
+            }}
+          >
+            {viewingDoc?.url.toLowerCase().includes(".pdf") ? (
+              <iframe
+                src={viewingDoc.url}
+                className="w-full h-full rounded-lg shadow-2xl bg-white"
+                title="Visor PDF"
+              />
+            ) : (
+              <div
+                className="relative w-full h-full flex items-center justify-center select-none"
+                style={{
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+                  transformOrigin: "center center",
+                  transition: dragState.current.active
+                    ? "none"
+                    : "transform 0.15s ease",
+                }}
+              >
+                <Image
+                  src={viewingDoc?.url || ""}
+                  alt="Documento expandido"
+                  fill
+                  unoptimized
+                  className="object-contain rounded-lg shadow-2xl"
+                  sizes="100vw"
+                  draggable={false}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 bg-white/5 border-t border-white/10 flex items-center justify-between">
+            {!viewingDoc?.url.toLowerCase().includes(".pdf") ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() =>
+                    setZoom((prev) =>
+                      Math.max(1, parseFloat((prev - 0.25).toFixed(2))),
+                    )
+                  }
+                  disabled={zoom <= 1}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-[11px] text-slate-300 w-10 text-center tabular-nums">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() =>
+                    setZoom((prev) =>
+                      Math.min(5, parseFloat((prev + 0.25).toFixed(2))),
+                    )
+                  }
+                  disabled={zoom >= 5}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <div className="w-px h-4 bg-white/20 mx-1" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev - 90 + 360) % 360)}
+                  title="Rotar izquierda"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                  title="Rotar derecha"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10 ml-1"
+                  onClick={() => {
+                    setZoom(1);
+                    setRotation(0);
+                    setOffset({ x: 0, y: 0 });
+                  }}
+                  disabled={
+                    zoom === 1 &&
+                    rotation === 0 &&
+                    offset.x === 0 &&
+                    offset.y === 0
+                  }
+                  title="Restablecer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div />
+            )}
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">
+              Propiedad del SNTSS Sección VII • Confidencial
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!editUser}
+        onOpenChange={(open) => !open && setEditUser(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar datos del usuario</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-nombre">Nombre(s)</Label>
+              <Input
+                id="edit-nombre"
+                value={editForm.nombre}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, nombre: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-ap">Apellido paterno</Label>
+              <Input
+                id="edit-ap"
+                value={editForm.apellidoPaterno}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    apellidoPaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-am">Apellido materno</Label>
+              <Input
+                id="edit-am"
+                value={editForm.apellidoMaterno}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    apellidoMaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="edit-matricula">Matrícula</Label>
+              <Input
+                id="edit-matricula"
+                value={editForm.matricula}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, matricula: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditUser(null)}
+              disabled={isSavingEdit}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
+              {isSavingEdit ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Guardar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Nuevo Usuario Validador */}
+      <Dialog
+        open={showNewValidador}
+        onOpenChange={(open) => !open && setShowNewValidador(false)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo Usuario Validador</DialogTitle>
+            <DialogDescription>
+              Crea una cuenta con acceso exclusivo al panel de validación de
+              usuarios.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-nombre">Nombre(s)</Label>
+              <Input
+                id="val-nombre"
+                value={newValidadorForm.nombre}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({ ...f, nombre: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-ap">Apellido paterno</Label>
+              <Input
+                id="val-ap"
+                value={newValidadorForm.apellidoPaterno}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({
+                    ...f,
+                    apellidoPaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-am">Apellido materno</Label>
+              <Input
+                id="val-am"
+                value={newValidadorForm.apellidoMaterno}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({
+                    ...f,
+                    apellidoMaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-email">Correo electrónico</Label>
+              <Input
+                id="val-email"
+                type="email"
+                value={newValidadorForm.email}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({ ...f, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-password">Contraseña temporal</Label>
+              <Input
+                id="val-password"
+                type="text"
+                value={newValidadorForm.password}
+                onChange={(e) =>
+                  setNewValidadorForm((f) => ({
+                    ...f,
+                    password: e.target.value,
+                  }))
+                }
+                placeholder="Mínimo 8 caracteres"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowNewValidador(false)}
+              disabled={isCreatingValidador}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateValidador}
+              disabled={
+                isCreatingValidador ||
+                !newValidadorForm.nombre ||
+                !newValidadorForm.apellidoPaterno ||
+                !newValidadorForm.email ||
+                newValidadorForm.password.length < 8
+              }
+            >
+              {isCreatingValidador ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Crear cuenta"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

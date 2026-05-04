@@ -25,8 +25,10 @@ import {
   TrendingUp,
   X,
   Building2,
-  Repeat,
   ChevronRight,
+  PartyPopper,
+  Clock,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -92,23 +94,19 @@ function getTramiteSubtitle(item: TramiteData) {
 }
 
 function getPrimaryMetric(item: TramiteData) {
-  if (
-    item.tipoDocumento === "NUEVO_INGRESO" &&
-    item.tipoContratacion === "8" &&
-    item.posicionInterinato
-  ) {
-    return {
-      label: "Posición para interinato",
-      value: item.posicionInterinato,
-      total: item.totalEventualesEnCategoria || item.totalEnCategoria,
-    };
-  }
-
   return {
     label: "Posición actual",
     value: item.posicionBase,
     total: item.totalEnCategoria,
   };
+}
+
+function isNuevoIngresoEventual(item: TramiteData) {
+  return (
+    item.tipoDocumento === "NUEVO_INGRESO" &&
+    item.tipoContratacion === "8" &&
+    Boolean(item.posicionInterinato)
+  );
 }
 
 export default function DashboardPage() {
@@ -190,10 +188,11 @@ export default function DashboardPage() {
         else if (msg.includes("No se pudo validar la sesión"))
           nextErrorStatus = 401;
         else if (msg.includes("no está activa")) nextErrorStatus = 403;
-        else if (
-          msg.includes("No hay información oficial activa") ||
-          msg.includes("No se encontraron trámites vigentes")
-        )
+        else if (msg.includes("No se encontraron trámites vigentes")) {
+          // Sin trámites no es un error — mostrar empty state de bienvenida
+          setTramites([]);
+          return;
+        } else if (msg.includes("No hay información oficial activa"))
           nextErrorStatus = 404;
         else if (msg.includes("todavía se está preparando"))
           nextErrorStatus = 503;
@@ -256,72 +255,82 @@ export default function DashboardPage() {
   return (
     <main className="container mx-auto p-4 md:p-8 min-h-[calc(100vh-4rem)] flex flex-col justify-start">
       <div className="max-w-7xl w-full mx-auto my-4 md:my-8 space-y-10">
-        {/* HERO HEADER PREMIUM */}
+        {/* HERO HEADER */}
         <motion.section
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-center relative"
+          className="relative rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-primary/8 via-white to-slate-50 dark:from-primary/10 dark:via-slate-900 dark:to-slate-950 border border-primary/10 shadow-sm px-6 py-10 md:px-12 md:py-14 text-center"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-xs font-black mb-6 shadow-sm border border-primary/20 backdrop-blur-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-            SNTSS SECCIÓN VII • {greetingInfo.dayMessage}
-          </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent mb-4 tracking-tighter leading-none">
-            {greetingInfo.greeting},{" "}
-            <span className="text-primary">
-              {userData?.nombre?.split(" ")[0]}
-            </span>
-          </h1>
-          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto font-bold mb-10 leading-relaxed uppercase tracking-tight">
-            Consulta tus posiciones vigentes y el estado oficial de tus trámites
-            sindicales.
-          </p>
+          {/* Decorative blobs */}
+          <div className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full bg-primary/6 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-emerald-500/8 blur-3xl" />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-xl mx-auto">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
-            >
-              <Card className="border-border/40 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden group border">
-                <CardContent className="flex items-center gap-4 p-5">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-inner group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                    <UserRound className="h-6 w-6" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary transition-colors">
-                      Matrícula vinculada
-                    </p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">
-                      {userData.matricula}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-xs font-black mb-6 shadow-sm border border-primary/20">
+              <Sparkles className="h-3.5 w-3.5" />
+              SNTSS SECCIÓN VII • {greetingInfo.dayMessage}
+            </div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent mb-3 tracking-tighter leading-none">
+              {greetingInfo.greeting},{" "}
+              <span className="text-primary">
+                {userData?.nombre?.split(" ")[0]}
+              </span>
+            </h1>
+            <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 max-w-xl mx-auto font-semibold mb-8 leading-relaxed">
+              Portal sindical oficial · Sección VII Baja California
+            </p>
 
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            <div
+              className={cn(
+                "grid gap-4 max-w-xl mx-auto",
+                periodo ? "grid-cols-2" : "grid-cols-1 max-w-xs",
+              )}
             >
-              <Card className="border-border/40 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden group border">
-                <CardContent className="flex items-center gap-4 p-5">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-inner group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
-                    <CalendarDays className="h-6 w-6" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-emerald-600 transition-colors">
-                      Corte oficial activo
-                    </p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1 uppercase tracking-tight">
-                      {periodo
-                        ? `${periodo.quincena}° Q ${periodo.mes}/${periodo.anio}`
-                        : "S/D"}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              >
+                <Card className="border-border/40 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden group border">
+                  <CardContent className="flex items-center gap-4 p-5">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-inner group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                      <UserRound className="h-6 w-6" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-primary transition-colors">
+                        Matrícula
+                      </p>
+                      <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">
+                        {userData.matricula}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {periodo && (
+                <motion.div
+                  whileHover={{ scale: 1.03 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                >
+                  <Card className="border-border/40 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md shadow-sm rounded-3xl overflow-hidden group border">
+                    <CardContent className="flex items-center gap-4 p-5">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-inner group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
+                        <CalendarDays className="h-6 w-6" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-emerald-600 transition-colors">
+                          Corte oficial
+                        </p>
+                        <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1 uppercase tracking-tight">
+                          {`${periodo.quincena}ª Q ${periodo.mes}/${periodo.anio}`}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </div>
           </div>
         </motion.section>
 
@@ -383,28 +392,75 @@ export default function DashboardPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
+              className="space-y-4"
             >
-              <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 rounded-[2rem] border shadow-xl">
-                <CardContent className="flex flex-col items-center text-center gap-6 p-12">
-                  <div className="w-20 h-20 rounded-[2rem] bg-slate-100 dark:bg-slate-800 flex items-center justify-center shadow-inner">
-                    <ClipboardList className="h-10 w-10 text-slate-400" />
+              {/* Bienvenida */}
+              <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/[0.02] rounded-[2rem] border shadow-sm overflow-hidden">
+                <CardContent className="flex flex-col items-center text-center gap-5 p-10">
+                  <div className="w-20 h-20 rounded-[2rem] bg-primary/10 flex items-center justify-center shadow-inner">
+                    <PartyPopper className="h-10 w-10 text-primary" />
                   </div>
                   <div className="space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-1">
+                      <ShieldCheck className="h-3 w-3" />
+                      Cuenta verificada y activa
+                    </div>
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                      No tienes trámites vigentes
+                      ¡Bienvenido al Portal Sindical!
                     </h2>
-                    <p className="text-sm font-bold text-slate-500 max-w-sm mx-auto uppercase tracking-tight leading-relaxed">
-                      Si esperabas ver información aquí, valida con tu
-                      representación sindical que tu matrícula aparezca en la
-                      sincronización publicada.
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                      Tu acceso está confirmado. Aquí aparecerán tus posiciones
+                      en la bolsa de trabajo una vez que tu matrícula sea
+                      incluida en la siguiente sincronización oficial de la
+                      Sección VII.
                     </p>
-                  </div>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Solo se muestran datos oficiales vinculados
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Qué esperar + Contacto */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 rounded-[2rem] border">
+                  <CardContent className="flex items-start gap-4 p-6">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">
+                        ¿Cuándo aparece mi información?
+                      </p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        Los datos se actualizan cada quincena a partir de los
+                        cortes oficiales. Si acabas de ser validado, verás tu
+                        posición en el siguiente corte.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 rounded-[2rem] border">
+                  <CardContent className="flex items-start gap-4 p-6">
+                    <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                      <Phone className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">
+                        ¿Ves algo incorrecto?
+                      </p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        Contacta a tu representación sindical de la Sección VII
+                        para verificar que tu matrícula esté registrada
+                        correctamente.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-200 dark:border-slate-700">
+                <ClipboardList className="h-3.5 w-3.5" />
+                Solo se muestran datos oficiales vinculados a tu matrícula
+              </div>
             </motion.div>
           ) : (
             <motion.section
@@ -459,15 +515,27 @@ export default function DashboardPage() {
                               </h3>
                             </div>
 
-                            <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500 shrink-0">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
-                                {metric.label.split(" ").pop()}
-                              </p>
-                              <div className="flex items-baseline justify-center gap-1">
-                                <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
-                                  {metric.value}
-                                </span>
+                            <div className="flex flex-col gap-2 shrink-0">
+                              <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
+                                  BASE
+                                </p>
+                                <div className="flex items-baseline justify-center gap-1">
+                                  <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
+                                    {metric.value}
+                                  </span>
+                                </div>
                               </div>
+                              {isNuevoIngresoEventual(item) && (
+                                <div className="rounded-3xl bg-amber-500/10 border border-amber-500/20 p-3 text-center min-w-[90px]">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">
+                                    INTERINATO
+                                  </p>
+                                  <span className="text-2xl font-black text-amber-700">
+                                    {item.posicionInterinato}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -574,13 +642,31 @@ export default function DashboardPage() {
                           <TrendingUp className="w-32 h-32" />
                         </div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 tracking-widest">
-                          Tu Posición Vigente
+                          {isNuevoIngresoEventual(detailData)
+                            ? "Posición Base"
+                            : "Tu Posición Vigente"}
                         </p>
                         <div className="flex items-center justify-center gap-2">
                           <span className="text-8xl font-black text-white tracking-tighter leading-none">
                             {getPrimaryMetric(detailData).value}
                           </span>
                         </div>
+                        {isNuevoIngresoEventual(detailData) && (
+                          <div className="mt-6 pt-6 border-t border-white/10">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2">
+                              Posición para Interinato
+                            </p>
+                            <span className="text-5xl font-black text-amber-400 tracking-tighter leading-none">
+                              {detailData.posicionInterinato}
+                            </span>
+                            {detailData.totalEventualesEnCategoria && (
+                              <p className="text-[10px] font-bold text-slate-400 mt-1">
+                                de {detailData.totalEventualesEnCategoria}{" "}
+                                eventuales
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Info Sections */}
@@ -609,18 +695,22 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {detailData.adscripcionNueva && (
+                        {(detailData.adscripcionNueva ||
+                          detailData.turnoNuevo ||
+                          detailData.turnoNueva) && (
                           <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 md:col-span-2 space-y-3">
                             <p className="text-[10px] font-black uppercase tracking-widest text-primary">
                               Detalle de Solicitud
                             </p>
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                              <div className="flex items-start gap-3">
-                                <Building2 className="h-4 w-4 text-primary mt-1 shrink-0" />
-                                <span className="text-base font-black text-slate-900 dark:text-white uppercase leading-tight">
-                                  {detailData.adscripcionNueva}
-                                </span>
-                              </div>
+                              {detailData.adscripcionNueva && (
+                                <div className="flex items-start gap-3">
+                                  <Building2 className="h-4 w-4 text-primary mt-1 shrink-0" />
+                                  <span className="text-base font-black text-slate-900 dark:text-white uppercase leading-tight">
+                                    {detailData.adscripcionNueva}
+                                  </span>
+                                </div>
+                              )}
                               {(detailData.turnoNuevo ||
                                 detailData.turnoNueva) && (
                                 <div className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest shadow-sm self-start sm:self-auto border border-primary/20">

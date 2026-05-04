@@ -8,6 +8,7 @@ import { registroSchema } from "@/lib/schemas/registro";
 import { assertSameOrigin } from "@/lib/security/cors";
 import { RateLimitError } from "@/lib/security/rate-limit";
 import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
+import { toTitleCase } from "@/lib/utils/text";
 
 export const dynamic = "force-dynamic";
 
@@ -124,9 +125,9 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const payload = {
-      nombre: getStringField(formData, "nombre"),
-      apellidoPaterno: getStringField(formData, "apellidoPaterno"),
-      apellidoMaterno: getStringField(formData, "apellidoMaterno"),
+      nombre: toTitleCase(getStringField(formData, "nombre")),
+      apellidoPaterno: toTitleCase(getStringField(formData, "apellidoPaterno")),
+      apellidoMaterno: toTitleCase(getStringField(formData, "apellidoMaterno")),
       matricula: getStringField(formData, "matricula"),
       email: getStringField(formData, "email").toLowerCase(),
       password: getStringField(formData, "password"),
@@ -193,18 +194,37 @@ export async function POST(request: NextRequest) {
         .get(),
     ]);
 
-    if (!existingEmailProfile.empty) {
-      return NextResponse.json(
-        { error: "Este correo ya está registrado." },
-        { status: 409 },
-      );
+    const docByEmail = existingEmailProfile.docs[0];
+    const docByMatricula = existingMatriculaProfile.docs[0];
+
+    // Usuarios rechazados pueden volver a registrarse — limpiamos su registro anterior.
+    // Si el bloqueo es por un usuario activo o pendiente, rechazamos normalmente.
+    if (docByEmail) {
+      if (docByEmail.data().status === "rejected") {
+        await Promise.all([
+          adminAuth.deleteUser(docByEmail.id).catch(() => null),
+          docByEmail.ref.delete(),
+        ]);
+      } else {
+        return NextResponse.json(
+          { error: "Este correo ya está registrado." },
+          { status: 409 },
+        );
+      }
     }
 
-    if (!existingMatriculaProfile.empty) {
-      return NextResponse.json(
-        { error: "Ya existe una solicitud registrada para esta matrícula." },
-        { status: 409 },
-      );
+    if (docByMatricula && docByMatricula.id !== docByEmail?.id) {
+      if (docByMatricula.data().status === "rejected") {
+        await Promise.all([
+          adminAuth.deleteUser(docByMatricula.id).catch(() => null),
+          docByMatricula.ref.delete(),
+        ]);
+      } else {
+        return NextResponse.json(
+          { error: "Ya existe una solicitud registrada para esta matrícula." },
+          { status: 409 },
+        );
+      }
     }
 
     // Recuperar usuario huérfano: puede existir en Auth sin doc en Firestore si un

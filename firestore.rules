@@ -17,6 +17,11 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isBolsa() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'BOLSA';
+    }
+
     // Colección legacy (mantener compatibilidad)
     match /usuarios/{userId} {
       allow read: if isOwner(userId) || isAdmin();
@@ -68,13 +73,13 @@ service cloud.firestore {
     }
 
     match /sincronizaciones/{syncId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAdmin() || isBolsa();
     }
 
     match /bolsa_de_trabajo_documentos/{documentoId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAdmin() || isBolsa();
       match /registros/{registroId} {
-        allow read, write: if isAdmin();
+        allow read, write: if isAdmin() || isBolsa();
       }
     }
 

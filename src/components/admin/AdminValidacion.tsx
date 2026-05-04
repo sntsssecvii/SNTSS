@@ -35,11 +35,14 @@ import {
   Eye,
   FileText,
   Loader2,
+  Pencil,
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  RotateCw,
 } from "lucide-react";
 import Image from "next/image";
+import { Label } from "@/components/ui/label";
 
 interface UserRequest {
   uid: string;
@@ -57,6 +60,7 @@ interface UserRequest {
   };
   rejectionReason?: string;
   createdAtMs: number | null;
+  updatedAtMs: number | null;
 }
 
 interface AdminValidacionProps {
@@ -70,7 +74,8 @@ interface UserRequestsResponse {
     pagination?: {
       total: number;
       limit: number;
-      nextCursor: string | null;
+      page: number;
+      totalPages: number;
       hasMore: boolean;
     };
   };
@@ -89,14 +94,16 @@ interface ValidationActionResponse {
 type PaginationState = {
   total: number;
   limit: number;
-  nextCursor: string | null;
+  page: number;
+  totalPages: number;
   hasMore: boolean;
 };
 
 const DEFAULT_PAGINATION: PaginationState = {
   total: 0,
   limit: 25,
-  nextCursor: null,
+  page: 1,
+  totalPages: 1,
   hasMore: false,
 };
 
@@ -116,7 +123,9 @@ export default function AdminValidacion({
     title: string;
   } | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isFetching, setIsFetching] = useState(false);
   const dragState = useRef<{
     active: boolean;
     startX: number;
@@ -126,10 +135,16 @@ export default function AdminValidacion({
   }>({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const [pagination, setPagination] =
     useState<PaginationState>(DEFAULT_PAGINATION);
-  const [cursorStack, setCursorStack] = useState<string[]>([]);
-  const [currentCursor, setCurrentCursor] = useState<string | undefined>(
-    undefined,
-  );
+  const [page, setPage] = useState(1);
+  const pageRef = useRef(1);
+  const [editingUser, setEditingUser] = useState<UserRequest | null>(null);
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    apellidoPaterno: "",
+    apellidoMaterno: "",
+    matricula: "",
+  });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
 
@@ -137,11 +152,12 @@ export default function AdminValidacion({
 
   useEffect(() => {
     setZoom(1);
+    setRotation(0);
     setOffset({ x: 0, y: 0 });
   }, [viewingDoc]);
 
   const loadRequests = useCallback(
-    async (cursor?: string) => {
+    async (targetPage: number) => {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         setRequests([]);
@@ -152,15 +168,13 @@ export default function AdminValidacion({
       const idToken = await currentUser.getIdToken();
       const searchParams = new URLSearchParams({
         status: filterStatus,
+        scope: "workers",
         limit: "25",
+        page: String(targetPage),
       });
 
       if (deferredQuery.trim()) {
         searchParams.set("q", deferredQuery.trim());
-      }
-
-      if (cursor) {
-        searchParams.set("cursor", cursor);
       }
 
       const response = await fetch(
@@ -178,35 +192,49 @@ export default function AdminValidacion({
 
       setRequests(payload.data?.requests || []);
       setPagination(payload.data?.pagination || DEFAULT_PAGINATION);
-      setCurrentCursor(cursor);
+      setPage(targetPage);
+      pageRef.current = targetPage;
     },
     [deferredQuery, filterStatus],
   );
+
+  const isFirstLoad = useRef(true);
 
   useEffect(() => {
     let cancelled = false;
 
     const syncRequests = async () => {
       try {
-        if (!cancelled) setLoading(true);
+        if (isFirstLoad.current) {
+          if (!cancelled) setLoading(true);
+        } else {
+          if (!cancelled) setIsFetching(true);
+        }
         if (!cancelled) {
-          setCursorStack([]);
-          setCurrentCursor(undefined);
-          await loadRequests();
-          setLoading(false);
+          setPage(1);
+          pageRef.current = 1;
+          await loadRequests(1);
+          isFirstLoad.current = false;
+          if (!cancelled) {
+            setLoading(false);
+            setIsFetching(false);
+          }
         }
       } catch (error) {
         console.error("Error fetching validation requests:", error);
         if (!cancelled) {
           setRequests([]);
-          setCurrentCursor(undefined);
           setLoading(false);
+          setIsFetching(false);
         }
       }
     };
 
     syncRequests();
-    const intervalId = window.setInterval(syncRequests, 45_000);
+    const intervalId = window.setInterval(
+      () => loadRequests(pageRef.current),
+      45_000,
+    );
 
     return () => {
       cancelled = true;
@@ -215,7 +243,7 @@ export default function AdminValidacion({
   }, [loadRequests]);
 
   const refreshRequests = async () => {
-    await loadRequests(currentCursor);
+    await loadRequests(pageRef.current);
   };
 
   const handleApprove = async () => {
@@ -321,6 +349,67 @@ export default function AdminValidacion({
     setViewingDoc({ url, title });
   };
 
+  const openEditDialog = (user: UserRequest) => {
+    setEditingUser(user);
+    setEditForm({
+      nombre: user.nombre,
+      apellidoPaterno: user.apellidoPaterno,
+      apellidoMaterno: user.apellidoMaterno,
+      matricula: user.matricula,
+    });
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editingUser) return;
+    setIsSavingEdit(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch(
+        `/api/admin/validaciones/solicitudes/${editingUser.uid}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editForm),
+        },
+      );
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "No se pudo guardar.");
+
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.uid === editingUser.uid
+            ? {
+                ...r,
+                nombre: editForm.nombre.trim(),
+                apellidoPaterno: editForm.apellidoPaterno.trim(),
+                apellidoMaterno: editForm.apellidoMaterno.trim(),
+                matricula: editForm.matricula.trim().toUpperCase(),
+              }
+            : r,
+        ),
+      );
+      setEditingUser(null);
+      toast({
+        title: "Perfil actualizado",
+        description: "Los datos fueron guardados correctamente.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "No se pudo guardar.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   if (loading)
     return (
       <div className="flex justify-center p-12">
@@ -358,12 +447,16 @@ export default function AdminValidacion({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar por nombre, correo o matrícula"
-          className="max-w-md"
-        />
+        <div className="relative max-w-md">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por nombre, correo o matrícula"
+          />
+          {isFetching && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />
+          )}
+        </div>
         <p className="text-sm text-slate-500">
           La búsqueda consulta al backend y devuelve coincidencias por prefijo.
         </p>
@@ -376,7 +469,7 @@ export default function AdminValidacion({
               <TableHead>Nombre</TableHead>
               <TableHead>Matrícula</TableHead>
               <TableHead>Fecha</TableHead>
-              <TableHead>Documentos</TableHead>
+              {filterStatus === "pending" && <TableHead>Documentos</TableHead>}
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -384,7 +477,7 @@ export default function AdminValidacion({
             {requests.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={filterStatus === "pending" ? 5 : 4}
                   className="text-center py-8 text-slate-500"
                 >
                   No hay solicitudes pendientes.
@@ -405,60 +498,80 @@ export default function AdminValidacion({
                       ? new Date(req.createdAtMs).toLocaleDateString()
                       : "Reciente"}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          openDocument(
-                            req.documents.identificacion,
-                            `INE - ${req.nombre}`,
-                          )
-                        }
-                      >
-                        <FileText className="w-4 h-4 mr-1" /> INE
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          openDocument(
-                            req.documents.tarjeton,
-                            `Tarjetón - ${req.nombre}`,
-                          )
-                        }
-                      >
-                        <FileText className="w-4 h-4 mr-1" /> Tarjetón
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          openDocument(
-                            req.documents.constanciaAfiliacion,
-                            `Constancia - ${req.nombre}`,
-                          )
-                        }
-                      >
-                        <FileText className="w-4 h-4 mr-1" /> Constancia
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {filterStatus === "pending" && (
+                    <TableCell>
+                      <div className="flex gap-2">
+                        {req.documents.identificacion ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              openDocument(
+                                req.documents.identificacion,
+                                `INE - ${req.nombre}`,
+                              )
+                            }
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> INE
+                          </Button>
+                        ) : null}
+                        {req.documents.tarjeton ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              openDocument(
+                                req.documents.tarjeton,
+                                `Tarjetón - ${req.nombre}`,
+                              )
+                            }
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> Tarjetón
+                          </Button>
+                        ) : null}
+                        {req.documents.constanciaAfiliacion ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              openDocument(
+                                req.documents.constanciaAfiliacion,
+                                `Constancia - ${req.nombre}`,
+                              )
+                            }
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> Constancia
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
-                    {filterStatus === "pending" ? (
-                      <Button size="sm" onClick={() => setSelectedRequest(req)}>
-                        <Eye className="w-4 h-4 mr-2" /> Revisar
-                      </Button>
-                    ) : (
+                    <div className="flex items-center justify-end gap-1">
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedRequest(req)}
+                        variant="ghost"
+                        onClick={() => openEditDialog(req)}
                       >
-                        <Eye className="w-4 h-4 mr-2" /> Ver Detalles
+                        <Pencil className="w-4 h-4" />
                       </Button>
-                    )}
+                      {filterStatus === "pending" ? (
+                        <Button
+                          size="sm"
+                          onClick={() => setSelectedRequest(req)}
+                        >
+                          <Eye className="w-4 h-4 mr-2" /> Revisar
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedRequest(req)}
+                        >
+                          <Eye className="w-4 h-4 mr-2" /> Ver
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -471,39 +584,66 @@ export default function AdminValidacion({
         <p className="text-sm text-slate-500">
           Mostrando {requests.length} de {pagination.total} registros.
         </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const nextStack = cursorStack.slice(0, -1);
-              setCursorStack(nextStack);
-              await loadRequests(nextStack[nextStack.length - 1]);
-            }}
-            disabled={cursorStack.length === 0}
-          >
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              if (!pagination.nextCursor) return;
-              const currentCursor = cursorStack[cursorStack.length - 1];
-              setCursorStack((current) => [...current, currentCursor || ""]);
-              await loadRequests(pagination.nextCursor);
-            }}
-            disabled={!pagination.hasMore || !pagination.nextCursor}
-          >
-            Siguiente
-          </Button>
-        </div>
+        {pagination.totalPages > 1 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadRequests(page - 1)}
+              disabled={page <= 1}
+            >
+              ‹
+            </Button>
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+              .filter(
+                (p) =>
+                  p === 1 ||
+                  p === pagination.totalPages ||
+                  Math.abs(p - page) <= 1,
+              )
+              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (arr[idx - 1] as number) + 1 < p) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "…" ? (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-1 text-slate-400 text-sm"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === page ? "default" : "outline"}
+                    size="sm"
+                    className="min-w-[2rem]"
+                    onClick={() => loadRequests(p as number)}
+                  >
+                    {p}
+                  </Button>
+                ),
+              )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadRequests(page + 1)}
+              disabled={page >= pagination.totalPages}
+            >
+              ›
+            </Button>
+          </div>
+        )}
       </div>
 
       <Dialog
         open={!!selectedRequest}
         onOpenChange={(open) => !open && setSelectedRequest(null)}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl flex flex-col max-h-[90vh]">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Revisión de Solicitud</DialogTitle>
             <DialogDescription>
               Valida la información y documentos del usuario.
@@ -511,7 +651,7 @@ export default function AdminValidacion({
           </DialogHeader>
 
           {selectedRequest && (
-            <div className="grid gap-6 py-4">
+            <div className="grid gap-6 py-4 overflow-y-auto flex-1 min-h-0 pr-1">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-semibold block">Nombre:</span>
@@ -523,13 +663,46 @@ export default function AdminValidacion({
                   {selectedRequest.matricula}
                 </div>
                 <div>
-                  <span className="font-semibold block">CURP:</span>
-                  {selectedRequest.curp}
-                </div>
-                <div>
                   <span className="font-semibold block">Correo:</span>
                   {selectedRequest.email}
                 </div>
+                <div>
+                  <span className="font-semibold block">
+                    Fecha de registro:
+                  </span>
+                  {selectedRequest.createdAtMs
+                    ? new Date(selectedRequest.createdAtMs).toLocaleString(
+                        "es-MX",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )
+                    : "—"}
+                </div>
+                {selectedRequest.status !== "pending" &&
+                  selectedRequest.updatedAtMs && (
+                    <div>
+                      <span className="font-semibold block">
+                        {selectedRequest.status === "active"
+                          ? "Fecha de aprobación:"
+                          : "Fecha de rechazo:"}
+                      </span>
+                      {new Date(selectedRequest.updatedAtMs).toLocaleString(
+                        "es-MX",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
+                      )}
+                    </div>
+                  )}
                 {selectedRequest.rejectionReason ? (
                   <div className="col-span-2">
                     <span className="font-semibold block">
@@ -540,218 +713,145 @@ export default function AdminValidacion({
                 ) : null}
               </div>
 
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-slate-900">
-                  Documentación Adjunta
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
-                    <div className="p-2 border-b bg-white flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Identificación (INE)
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          openDocument(
-                            selectedRequest.documents.identificacion,
-                            "Identificación Oficial",
-                          )
-                        }
+              {filterStatus === "pending" && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm text-slate-900">
+                    Documentación Adjunta
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {(
+                      [
+                        {
+                          label: "Identificación (INE)",
+                          url: selectedRequest.documents.identificacion,
+                          title: "Identificación Oficial",
+                          alt: "Identificación",
+                        },
+                        {
+                          label: "Tarjetón de Pago",
+                          url: selectedRequest.documents.tarjeton,
+                          title: "Tarjetón de Pago",
+                          alt: "Tarjetón",
+                        },
+                        {
+                          label: "Constancia de Afiliación",
+                          url: selectedRequest.documents.constanciaAfiliacion,
+                          title: "Constancia de Afiliación Sindical",
+                          alt: "Constancia de Afiliación",
+                        },
+                      ] as const
+                    ).map(({ label, url, title, alt }) => (
+                      <div
+                        key={label}
+                        className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20"
                       >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
-                      {selectedRequest.documents.identificacion
-                        .toLowerCase()
-                        .includes(".pdf") ? (
-                        <iframe
-                          src={`${selectedRequest.documents.identificacion}#toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-none pointer-events-none"
-                          title="Preview INE"
-                        />
-                      ) : (
-                        <Image
-                          src={selectedRequest.documents.identificacion}
-                          alt="Identificación"
-                          fill
-                          unoptimized
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 50vw"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              selectedRequest.documents.identificacion,
-                              "Identificación Oficial",
-                            )
-                          }
-                        >
-                          Ver en Grande
-                        </Button>
+                        <div className="p-2 border-b bg-white flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">
+                            {label}
+                          </span>
+                          {url ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => openDocument(url, title)}
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                          ) : null}
+                        </div>
+                        <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
+                          {!url ? (
+                            <p className="text-xs text-slate-400">
+                              No adjuntado
+                            </p>
+                          ) : url.toLowerCase().includes(".pdf") ? (
+                            <iframe
+                              src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
+                              className="w-full h-full border-none pointer-events-none"
+                              title={`Preview ${label}`}
+                            />
+                          ) : (
+                            <Image
+                              src={url}
+                              alt={alt}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 100vw, 33vw"
+                            />
+                          )}
+                          {url && (
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => openDocument(url, title)}
+                              >
+                                Ver en Grande
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
-                    <div className="p-2 border-b bg-white flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Tarjetón de Pago
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          openDocument(
-                            selectedRequest.documents.tarjeton,
-                            "Tarjetón de Pago",
-                          )
-                        }
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
-                      {selectedRequest.documents.tarjeton
-                        .toLowerCase()
-                        .includes(".pdf") ? (
-                        <iframe
-                          src={`${selectedRequest.documents.tarjeton}#toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-none pointer-events-none"
-                          title="Preview Tarjetón"
-                        />
-                      ) : (
-                        <Image
-                          src={selectedRequest.documents.tarjeton}
-                          alt="Tarjetón"
-                          fill
-                          unoptimized
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 50vw"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              selectedRequest.documents.tarjeton,
-                              "Tarjetón de Pago",
-                            )
-                          }
-                        >
-                          Ver en Grande
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="group relative border rounded-xl overflow-hidden bg-slate-50 transition-all hover:ring-2 hover:ring-red-500/20">
-                    <div className="p-2 border-b bg-white flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">
-                        Constancia de Afiliación
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          openDocument(
-                            selectedRequest.documents.constanciaAfiliacion,
-                            "Constancia de Afiliación Sindical",
-                          )
-                        }
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="h-48 relative bg-slate-200 flex items-center justify-center overflow-hidden">
-                      {selectedRequest.documents.constanciaAfiliacion
-                        .toLowerCase()
-                        .includes(".pdf") ? (
-                        <iframe
-                          src={`${selectedRequest.documents.constanciaAfiliacion}#toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-full border-none pointer-events-none"
-                          title="Preview Constancia"
-                        />
-                      ) : (
-                        <Image
-                          src={selectedRequest.documents.constanciaAfiliacion}
-                          alt="Constancia de Afiliación"
-                          fill
-                          unoptimized
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 33vw"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            openDocument(
-                              selectedRequest.documents.constanciaAfiliacion,
-                              "Constancia de Afiliación Sindical",
-                            )
-                          }
-                        >
-                          Ver en Grande
-                        </Button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {!rejectReason && (
+              {filterStatus === "pending" && !rejectReason && (
                 <p className="text-sm text-red-500">
                   Razón de rechazo requerida para rechazar.
                 </p>
               )}
 
-              <Textarea
-                placeholder="Razón de rechazo (requerido si se rechaza)..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
+              {filterStatus === "pending" && (
+                <Textarea
+                  placeholder="Razón de rechazo (requerido si se rechaza)..."
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                />
+              )}
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex-col gap-3 sm:flex-col shrink-0">
             {filterStatus === "pending" && (
               <>
+                {/* Botón Rechazar — rojo outline, solo habilitado con razón */}
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   onClick={handleReject}
                   disabled={isProcessing || !rejectReason}
+                  className="w-full border-2 border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold disabled:opacity-40"
                 >
                   {isProcessing ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <X className="w-4 h-4 mr-2" /> Rechazar
+                      <X className="w-4 h-4 mr-2" /> Rechazar solicitud
                     </>
                   )}
                 </Button>
+
+                {/* Separador visual */}
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="flex-1 border-t border-slate-200" />
+                  <span>o</span>
+                  <div className="flex-1 border-t border-slate-200" />
+                </div>
+
+                {/* Botón Aprobar — verde sólido grande */}
                 <Button
-                  className="bg-green-600 hover:bg-green-700"
+                  className="w-full h-12 text-base bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/20"
                   onClick={handleApprove}
                   disabled={isProcessing}
                 >
                   {isProcessing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      <Check className="w-4 h-4 mr-2" /> Aprobar
+                      <Check className="w-5 h-5 mr-2" /> Aprobar y activar
+                      acceso
                     </>
                   )}
                 </Button>
@@ -759,9 +859,10 @@ export default function AdminValidacion({
             )}
             {filterStatus === "active" && (
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={handleReject}
                 disabled={isProcessing || !rejectReason}
+                className="w-full border-2 border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold disabled:opacity-40"
               >
                 {isProcessing ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -774,19 +875,95 @@ export default function AdminValidacion({
             )}
             {filterStatus === "rejected" && (
               <Button
-                className="bg-green-600 hover:bg-green-700"
+                className="w-full h-12 text-base bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/20"
                 onClick={handleApprove}
                 disabled={isProcessing}
               >
                 {isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    <Check className="w-4 h-4 mr-2" /> Reactivar / Aprobar
+                    <Check className="w-5 h-5 mr-2" /> Reactivar / Aprobar
                   </>
                 )}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit profile dialog */}
+      <Dialog
+        open={!!editingUser}
+        onOpenChange={(open) => !open && setEditingUser(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar datos del usuario</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-edit-nombre">Nombre(s)</Label>
+              <Input
+                id="val-edit-nombre"
+                value={editForm.nombre}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, nombre: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-edit-ap">Apellido paterno</Label>
+              <Input
+                id="val-edit-ap"
+                value={editForm.apellidoPaterno}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    apellidoPaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-edit-am">Apellido materno</Label>
+              <Input
+                id="val-edit-am"
+                value={editForm.apellidoMaterno}
+                onChange={(e) =>
+                  setEditForm((f) => ({
+                    ...f,
+                    apellidoMaterno: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="val-edit-matricula">Matrícula</Label>
+              <Input
+                id="val-edit-matricula"
+                value={editForm.matricula}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, matricula: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingUser(null)}
+              disabled={isSavingEdit}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={isSavingEdit}>
+              {isSavingEdit ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Guardar"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -874,7 +1051,7 @@ export default function AdminValidacion({
               <div
                 className="relative w-full h-full flex items-center justify-center select-none"
                 style={{
-                  transform: `scale(${zoom}) translate(${offset.x / zoom}px, ${offset.y / zoom}px)`,
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
                   transformOrigin: "center center",
                   transition: dragState.current.active
                     ? "none"
@@ -926,17 +1103,43 @@ export default function AdminValidacion({
                 >
                   <ZoomIn className="h-4 w-4" />
                 </Button>
+                <div className="w-px h-4 bg-white/20 mx-1" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev - 90 + 360) % 360)}
+                  title="Rotar izquierda"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                  title="Rotar derecha"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10 ml-1"
                   onClick={() => {
                     setZoom(1);
+                    setRotation(0);
                     setOffset({ x: 0, y: 0 });
                   }}
-                  disabled={zoom === 1 && offset.x === 0 && offset.y === 0}
+                  disabled={
+                    zoom === 1 &&
+                    rotation === 0 &&
+                    offset.x === 0 &&
+                    offset.y === 0
+                  }
+                  title="Restablecer"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ) : (

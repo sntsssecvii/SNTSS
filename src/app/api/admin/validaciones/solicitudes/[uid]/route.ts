@@ -1,10 +1,16 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
 
-import { sendApprovalEmail, sendRejectionEmail } from "@/lib/email";
+import {
+  sendApprovalEmail,
+  sendRejectionEmail,
+  sendPasswordResetEmail,
+} from "@/lib/email";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
-import { adminDb, adminStorage } from "@/lib/firebase/admin";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { requireAdminRequest } from "@/lib/firebase/server-auth";
+import { toTitleCase } from "@/lib/utils/text";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
 type UserStatus = "active" | "rejected";
@@ -71,6 +77,7 @@ export async function POST(
 
     const userData = userSnap.data() || {};
     const fullName = getFullName(userData);
+    const prevStatus = userData.status as string | undefined;
     let warning: string | null = null;
 
     await userRef.update({
@@ -80,39 +87,12 @@ export async function POST(
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // Borrar documentos de Storage al aprobar (datos sensibles)
+    // Documentos de Storage conservados para auditoría — no se eliminan al aprobar
     if (nextStatus === "active") {
-      try {
-        const bucket = adminStorage.bucket();
-        const [storageFiles] = await bucket.getFiles({
-          prefix: `uploads/${uid}/`,
-        });
-
-        await Promise.all(
-          storageFiles.map((f) =>
-            f.delete().catch((err) => {
-              console.error(`[validaciones] Error borrando ${f.name}:`, err);
-            }),
-          ),
-        );
-
-        await userRef.update({
-          documents: {
-            identificacion: null,
-            tarjeton: null,
-            constanciaAfiliacion: null,
-          },
-          documentsDeletedAt: FieldValue.serverTimestamp(),
-          validatedBy: actorUid,
-          validatedAt: FieldValue.serverTimestamp(),
-        });
-      } catch (storageErr) {
-        // El borrado no revierte la aprobación — solo loguear
-        console.error(
-          "[validaciones] Error en cleanup de Storage:",
-          storageErr,
-        );
-      }
+      await userRef.update({
+        validatedBy: actorUid,
+        validatedAt: FieldValue.serverTimestamp(),
+      });
     }
 
     await adminDb.collection("notifications").add({
@@ -133,6 +113,23 @@ export async function POST(
       try {
         if (nextStatus === "active") {
           await sendApprovalEmail(userData.email, fullName);
+          // Si se reactiva desde rechazado, mandar también un reset de contraseña
+          // para que el usuario pueda acceder aunque haya olvidado o perdido su clave
+          if (prevStatus === "rejected") {
+            try {
+              const resetLink = await adminAuth.generatePasswordResetLink(
+                userData.email,
+              );
+              await sendPasswordResetEmail(userData.email, fullName, resetLink);
+            } catch (resetError) {
+              console.error(
+                "Error enviando correo de reset al reactivar usuario:",
+                resetError,
+              );
+              warning =
+                "La cuenta se activó y se envió el correo de aprobación, pero no se pudo enviar el enlace para restablecer contraseña. El usuario puede solicitarlo desde la pantalla de login.";
+            }
+          }
         } else {
           await sendRejectionEmail(userData.email, fullName, rejectionReason);
         }
@@ -236,6 +233,180 @@ export async function POST(
     return NextResponse.json(
       {
         error: "No se pudo actualizar la solicitud.",
+        details: error?.message || "UNKNOWN_ERROR",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ uid: string }> },
+) {
+  let actorUid = "";
+  let actorEmail = "";
+  let targetUid = "";
+
+  try {
+    enforceRateLimit(request, {
+      bucket: "api:admin:validaciones:accion",
+      limit: 30,
+      windowMs: 60_000,
+    });
+    const adminContext = await requireAdminRequest(request);
+    actorUid = adminContext.uid;
+    actorEmail = adminContext.email || "";
+
+    const { uid } = await params;
+    targetUid = uid;
+    const body = await request.json().catch(() => ({}));
+
+    const nextNombre =
+      typeof body?.nombre === "string" ? toTitleCase(body.nombre) : undefined;
+    const nextApellidoPaterno =
+      typeof body?.apellidoPaterno === "string"
+        ? toTitleCase(body.apellidoPaterno)
+        : undefined;
+    const nextApellidoMaterno =
+      typeof body?.apellidoMaterno === "string"
+        ? toTitleCase(body.apellidoMaterno)
+        : undefined;
+    const nextMatricula =
+      typeof body?.matricula === "string"
+        ? body.matricula.trim().toUpperCase()
+        : undefined;
+
+    if (
+      nextNombre === undefined &&
+      nextApellidoPaterno === undefined &&
+      nextApellidoMaterno === undefined &&
+      nextMatricula === undefined
+    ) {
+      return NextResponse.json(
+        { error: "No se enviaron campos para actualizar." },
+        { status: 400 },
+      );
+    }
+
+    const userRef = adminDb.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return NextResponse.json(
+        { error: "Usuario no encontrado." },
+        { status: 404 },
+      );
+    }
+
+    const currentData = userSnap.data() || {};
+
+    const resolvedNombre = nextNombre ?? currentData.nombre ?? "";
+    const resolvedAP = nextApellidoPaterno ?? currentData.apellidoPaterno ?? "";
+    const resolvedAM =
+      nextApellidoMaterno ?? currentData.apellidoMaterno ?? null;
+    const resolvedMatricula = nextMatricula ?? currentData.matricula ?? "";
+
+    const searchFields = buildUserSearchFields({
+      email: currentData.email,
+      matricula: resolvedMatricula,
+      nombre: resolvedNombre,
+      apellidoPaterno: resolvedAP,
+      apellidoMaterno: resolvedAM,
+    });
+
+    const updates: Record<string, unknown> = {
+      updatedAt: FieldValue.serverTimestamp(),
+      ...searchFields,
+    };
+    if (nextNombre !== undefined) updates.nombre = resolvedNombre;
+    if (nextApellidoPaterno !== undefined) updates.apellidoPaterno = resolvedAP;
+    if (nextApellidoMaterno !== undefined) updates.apellidoMaterno = resolvedAM;
+    if (nextMatricula !== undefined) updates.matricula = resolvedMatricula;
+
+    await userRef.update(updates);
+
+    const newDisplayName = [resolvedNombre, resolvedAP, resolvedAM]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    await adminAuth
+      .updateUser(uid, { displayName: newDisplayName })
+      .catch(() => null);
+
+    await writeAdminAuditLog({
+      action: "USER_PROFILE_EDITED",
+      actorUid,
+      actorEmail,
+      targetType: "users",
+      targetId: uid,
+      status: "SUCCESS",
+      ip:
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        request.headers.get("x-real-ip") ||
+        "unknown",
+      userAgent: request.headers.get("user-agent") || "unknown",
+      metadata: {
+        updatedFields: Object.keys(updates).filter(
+          (k) => !["updatedAt", ...Object.keys(searchFields)].includes(k),
+        ),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        uid,
+        nombre: resolvedNombre,
+        apellidoPaterno: resolvedAP,
+        apellidoMaterno: resolvedAM,
+        matricula: resolvedMatricula,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error editando perfil de usuario:", error);
+
+    if (actorUid && targetUid) {
+      await writeAdminAuditLog({
+        action: "USER_PROFILE_EDITED",
+        actorUid,
+        actorEmail,
+        targetType: "users",
+        targetId: targetUid,
+        status: "ERROR",
+        ip:
+          request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+          request.headers.get("x-real-ip") ||
+          "unknown",
+        userAgent: request.headers.get("user-agent") || "unknown",
+        metadata: { error: error?.message || "UNKNOWN_ERROR" },
+      }).catch(() => null);
+    }
+
+    if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Intenta de nuevo en un momento." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(error.retryAfterSeconds || 60) },
+        },
+      );
+    }
+
+    if (error?.message === "AUTH_REQUIRED") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+
+    if (error?.message === "ADMIN_REQUIRED") {
+      return NextResponse.json(
+        { error: "Se requiere perfil de administrador." },
+        { status: 403 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "No se pudo actualizar el perfil.",
         details: error?.message || "UNKNOWN_ERROR",
       },
       { status: 500 },

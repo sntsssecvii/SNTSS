@@ -17,6 +17,7 @@ interface DocumentScannerSheetProps {
   onClose: () => void;
   onCapture: (file: File) => void;
   documentLabel: string;
+  documentType?: "identificacion" | "tarjeton" | "constanciaAfiliacion";
 }
 
 type Phase = "loading" | "camera" | "preview" | "error";
@@ -26,7 +27,19 @@ export default function DocumentScannerSheet({
   onClose,
   onCapture,
   documentLabel,
+  documentType = "identificacion",
 }: DocumentScannerSheetProps) {
+  // INE es horizontal (landscape). Tarjetón y constancia son verticales (portrait, tamaño carta)
+  const isPortrait =
+    documentType === "constanciaAfiliacion" || documentType === "tarjeton";
+  // Aspect ratios reales: INE = 85.6×54mm (tarjeta), carta = 8.5×11"
+  // min() garantiza que el guía cabe en landscape y tablets:
+  //   - primer valor: % del ancho del contenedor (teléfono portrait)
+  //   - segundo valor: altura disponible × ratio (teléfono landscape / tablet corto)
+  const guideWidth = isPortrait
+    ? "min(72%, calc(78dvh * 0.773))"
+    : "min(88%, calc(78dvh * 1.585))";
+  const guideAspectRatio = isPortrait ? "8.5 / 11" : "85.6 / 54";
   const videoRef = useRef<HTMLVideoElement>(null);
   const displayCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -252,32 +265,50 @@ export default function DocumentScannerSheet({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0"
+              className="absolute inset-0 flex items-center justify-center"
             >
-              {/* Instrucción */}
-              <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10">
-                <div className="bg-black/50 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                  <ScanLine className="w-3.5 h-3.5 text-white" />
-                  <span className="text-white text-xs font-semibold whitespace-nowrap">
-                    Alinea el documento con el marco
-                  </span>
-                </div>
-              </div>
-
-              {/* Guía de encuadre */}
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-[75%] h-[55%] relative">
+              {/* Overlay con recorte centrado — aspect ratio real del documento */}
+              <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+                <div
+                  style={{
+                    width: guideWidth,
+                    aspectRatio: guideAspectRatio,
+                    boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
+                    position: "relative",
+                  }}
+                >
+                  {/* Esquinas prominentes */}
                   {[
-                    "top-0 left-0 border-t-2 border-l-2",
-                    "top-0 right-0 border-t-2 border-r-2",
-                    "bottom-0 left-0 border-b-2 border-l-2",
-                    "bottom-0 right-0 border-b-2 border-r-2",
+                    "top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-md",
+                    "top-0 right-0 border-t-[3px] border-r-[3px] rounded-tr-md",
+                    "bottom-0 left-0 border-b-[3px] border-l-[3px] rounded-bl-md",
+                    "bottom-0 right-0 border-b-[3px] border-r-[3px] rounded-br-md",
                   ].map((cls, i) => (
                     <div
                       key={i}
-                      className={`absolute w-6 h-6 ${cls} border-white/70`}
+                      className={`absolute w-8 h-8 ${cls} border-white`}
                     />
                   ))}
+                  {/* Línea de escaneo animada */}
+                  <motion.div
+                    className="absolute left-2 right-2 h-[2px] bg-gradient-to-r from-transparent via-red-400 to-transparent"
+                    animate={{ top: ["8%", "88%", "8%"] }}
+                    transition={{
+                      duration: 2.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Instrucción — debajo del área de guía */}
+              <div className="absolute bottom-[13%] left-1/2 -translate-x-1/2 z-20 w-full flex justify-center">
+                <div className="bg-black/60 px-4 py-2 rounded-full flex items-center gap-2">
+                  <ScanLine className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                  <span className="text-white text-xs font-semibold whitespace-nowrap">
+                    Coloca el documento dentro del marco
+                  </span>
                 </div>
               </div>
             </motion.div>
