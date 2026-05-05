@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase/firebase-client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getMisTramitesCliente,
@@ -32,6 +33,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConveniosCarrusel } from "@/components/ConveniosCarrusel";
+import type { ConvenioPublico } from "@/types/convenios";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -122,6 +125,8 @@ export default function DashboardPage() {
     dayMessage: "",
   });
 
+  const [convenios, setConvenios] = useState<ConvenioPublico[]>([]);
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [detailData, setDetailData] = useState<TramiteData | null>(null);
@@ -205,6 +210,25 @@ export default function DashboardPage() {
 
     fetchTramites();
   }, [user, userData]);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchConvenios = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        const token = await currentUser.getIdToken();
+        const res = await fetch("/api/convenios", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (json.success) setConvenios(json.data);
+      } catch {
+        // silencioso — convenios no son críticos
+      }
+    };
+    fetchConvenios();
+  }, [user]);
 
   const handleOpenDetail = useCallback(async (item: TramiteData) => {
     setSelectedTramiteId(item.documentoId);
@@ -333,6 +357,18 @@ export default function DashboardPage() {
             </div>
           </div>
         </motion.section>
+
+        {/* CONVENIOS CARRUSEL */}
+        {convenios.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="px-4 md:px-8"
+          >
+            <ConveniosCarrusel convenios={convenios} />
+          </motion.div>
+        )}
 
         {/* ERROR / EMPTY STATE */}
         <AnimatePresence mode="wait">
