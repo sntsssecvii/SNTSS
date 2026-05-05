@@ -11,8 +11,7 @@ import {
   getMaxOrden,
 } from "@/lib/firebase/convenios";
 import { adminStorage } from "@/lib/firebase/admin";
-import { FieldValue } from "firebase-admin/firestore";
-
+import { Timestamp } from "firebase-admin/firestore";
 export const dynamic = "force-dynamic";
 
 function handleError(error: any) {
@@ -71,6 +70,26 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
 
+    const ALLOWED_TYPES = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+    if (!ALLOWED_TYPES.includes(file.type))
+      return NextResponse.json(
+        { error: "Solo se permiten imágenes (JPG, PNG, WEBP, GIF)." },
+        { status: 400 },
+      );
+
+    if (file.size > MAX_SIZE)
+      return NextResponse.json(
+        { error: "La imagen no puede superar 5 MB." },
+        { status: 400 },
+      );
+
     const storagePath = `convenios/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
     const bucket = adminStorage.bucket();
     const fileRef = bucket.file(storagePath);
@@ -85,7 +104,7 @@ export async function POST(request: NextRequest) {
       link: link || undefined,
       orden,
       publicado: false,
-      creadoEn: FieldValue.serverTimestamp() as any,
+      creadoEn: Timestamp.fromDate(new Date()),
       creadoPor: context.uid,
     });
 

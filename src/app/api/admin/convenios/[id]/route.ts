@@ -39,6 +39,25 @@ export async function PATCH(
     });
     await requireAdminRequest(request);
     const body = await request.json();
+
+    // Validación básica
+    if (
+      body.titulo !== undefined &&
+      (typeof body.titulo !== "string" || body.titulo.length > 255)
+    )
+      return NextResponse.json({ error: "Título inválido." }, { status: 400 });
+    if (
+      body.link !== undefined &&
+      body.link !== "" &&
+      typeof body.link === "string"
+    ) {
+      try {
+        new URL(body.link);
+      } catch {
+        return NextResponse.json({ error: "Link inválido." }, { status: 400 });
+      }
+    }
+
     await updateConvenio(params.id, {
       ...(body.titulo !== undefined && { titulo: body.titulo }),
       ...(body.link !== undefined && { link: body.link || undefined }),
@@ -61,13 +80,7 @@ export async function DELETE(
       windowMs: 60_000,
     });
     await requireAdminRequest(request);
-    const body = await request.json();
-    if (!body.imageUrl)
-      return NextResponse.json(
-        { error: "imageUrl requerida." },
-        { status: 400 },
-      );
-    await deleteConvenio(params.id, body.imageUrl);
+    await deleteConvenio(params.id);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return handleError(error);

@@ -43,24 +43,26 @@ export async function updateConvenio(
   await adminDb.collection(COLLECTION).doc(id).update(data);
 }
 
-export async function deleteConvenio(
-  id: string,
-  imageUrl: string,
-): Promise<void> {
-  const url = new URL(imageUrl);
-  const pathEncoded = url.pathname.split("/o/")[1];
-  if (pathEncoded) {
-    const storagePath = decodeURIComponent(pathEncoded.split("?")[0]);
-    try {
-      await adminStorage.bucket().file(storagePath).delete();
-    } catch (err: any) {
-      // 404 significa que el archivo ya no existe en Storage — continuar igual
-      if (err?.code !== 404 && err?.message !== "No such object") {
-        console.error("[convenios] Error al borrar archivo de Storage:", err);
+export async function deleteConvenio(id: string): Promise<void> {
+  const docRef = adminDb.collection(COLLECTION).doc(id);
+  const snap = await docRef.get();
+  const data = snap.data();
+  if (data?.imageUrl) {
+    const imageUrl = data.imageUrl as string;
+    const url = new URL(imageUrl);
+    const pathEncoded = url.pathname.split("/o/")[1];
+    if (pathEncoded) {
+      const storagePath = decodeURIComponent(pathEncoded.split("?")[0]);
+      try {
+        await adminStorage.bucket().file(storagePath).delete();
+      } catch (err: any) {
+        if (err?.code !== 404 && err?.message !== "No such object") {
+          console.error("[convenios] Error al borrar archivo de Storage:", err);
+        }
       }
     }
   }
-  await adminDb.collection(COLLECTION).doc(id).delete();
+  await docRef.delete();
 }
 
 export async function publishConvenios(
