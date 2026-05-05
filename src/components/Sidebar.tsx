@@ -22,6 +22,7 @@ import {
   Crown,
   Activity,
   UserRound,
+  Tag,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -92,6 +93,11 @@ const getNavItems = (
         href: "/admin/validaciones",
         icon: ShieldCheck,
         badge: pendingCount > 0 ? pendingCount.toString() : undefined,
+      },
+      {
+        title: "Convenios",
+        href: "/admin/convenios",
+        icon: Tag,
       },
       {
         title: "Monitor",
