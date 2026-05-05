@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import type { Convenio } from "@/types/convenios";
 import { auth } from "@/lib/firebase/firebase-client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ConvenioLocal extends Convenio {
   seleccionado: boolean;
@@ -89,6 +90,7 @@ function SortableItem({
     >
       {/* Handle drag — solo visible en md+ */}
       <button
+        aria-label="Arrastrar para reordenar"
         className="hidden md:flex items-center text-slate-300 hover:text-slate-500 cursor-grab mt-1"
         {...attributes}
         {...listeners}
@@ -99,6 +101,7 @@ function SortableItem({
       {/* Flechas mobile */}
       <div className="flex md:hidden flex-col gap-1">
         <button
+          aria-label="Mover arriba"
           onClick={() => onMoveUp(convenio.id)}
           disabled={isFirst}
           className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
@@ -106,6 +109,7 @@ function SortableItem({
           <ChevronUp className="h-4 w-4" />
         </button>
         <button
+          aria-label="Mover abajo"
           onClick={() => onMoveDown(convenio.id)}
           disabled={isLast}
           className="p-1 rounded text-slate-400 hover:text-slate-700 disabled:opacity-30"
@@ -159,6 +163,7 @@ function SortableItem({
 
       {/* Eliminar */}
       <button
+        aria-label="Eliminar convenio"
         onClick={() => onDelete(convenio)}
         className="text-red-400 hover:text-red-600 mt-1 shrink-0"
       >
@@ -178,6 +183,7 @@ export default function AdminConveniosPage() {
     Record<string, { titulo?: string; link?: string }>
   >({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -194,18 +200,24 @@ export default function AdminConveniosPage() {
 
   const fetchConvenios = useCallback(async () => {
     setLoading(true);
-    const token = await getToken();
-    const res = await fetch("/api/admin/convenios", {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    const json = await res.json();
-    if (json.success) {
-      setConvenios(
-        json.data.map((c: Convenio) => ({ ...c, seleccionado: c.publicado })),
-      );
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/admin/convenios", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const json = await res.json();
+      if (json.success) {
+        setConvenios(
+          json.data.map((c: Convenio) => ({ ...c, seleccionado: c.publicado })),
+        );
+      }
+    } catch (err) {
+      console.error("[convenios] Error al cargar:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [getToken]);
 
   useEffect(() => {
@@ -293,32 +305,47 @@ export default function AdminConveniosPage() {
 
   async function handlePublish() {
     setSaving(true);
-    const token = await getToken();
-    for (const [id, cambios] of Object.entries(pendingUpdates)) {
-      await fetch(`/api/admin/convenios/${id}`, {
+    try {
+      const token = await getToken();
+      await Promise.all(
+        Object.entries(pendingUpdates).map(([id, cambios]) =>
+          fetch(`/api/admin/convenios/${id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(cambios),
+          }),
+        ),
+      );
+      const res = await fetch("/api/admin/convenios", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(cambios),
+        body: JSON.stringify({
+          action: "publish",
+          publicadosIds: convenios
+            .filter((c) => c.seleccionado)
+            .map((c) => c.id),
+          todosIds: convenios.map((c) => c.id),
+        }),
       });
+      if (!res.ok) throw new Error("Error al publicar");
+      setPendingUpdates({});
+      await fetchConvenios();
+    } catch (err) {
+      console.error("[convenios] Error al publicar:", err);
+      toast({
+        title: "Error al publicar",
+        description: "No se pudieron guardar los cambios. Intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
-    await fetch("/api/admin/convenios", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        action: "publish",
-        publicadosIds: convenios.filter((c) => c.seleccionado).map((c) => c.id),
-        todosIds: convenios.map((c) => c.id),
-      }),
-    });
-    setPendingUpdates({});
-    await fetchConvenios();
-    setSaving(false);
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -340,13 +367,24 @@ export default function AdminConveniosPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
-    const token = await getToken();
-    await fetch(`/api/admin/convenios/${deleteTarget.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setDeleteTarget(null);
-    await fetchConvenios();
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/admin/convenios/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error al eliminar");
+      setDeleteTarget(null);
+      await fetchConvenios();
+    } catch (err) {
+      console.error("[convenios] Error al eliminar:", err);
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar el convenio. Intenta de nuevo.",
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
+    }
   }
 
   if (loading) {
