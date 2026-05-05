@@ -72,6 +72,11 @@ const getNavItems = (
         href: "/dashboard/perfil",
         icon: UserRound,
       },
+      {
+        title: "Convenios",
+        href: "/dashboard/convenios",
+        icon: Tag,
+      },
     );
   }
 
