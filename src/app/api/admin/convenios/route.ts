@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, id, imageUrl });
   } catch (error: any) {
+    console.error("[admin/convenios] POST error:", error?.message ?? error);
     return handleError(error);
   }
 }
