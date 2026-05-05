@@ -12,6 +12,7 @@ import {
 } from "@/lib/firebase/convenios";
 import { adminStorage } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
+import { randomUUID } from "crypto";
 export const dynamic = "force-dynamic";
 
 function handleError(error: any) {
@@ -94,8 +95,17 @@ export async function POST(request: NextRequest) {
     const bucket = adminStorage.bucket();
     const fileRef = bucket.file(storagePath);
     const buffer = Buffer.from(await file.arrayBuffer());
-    await fileRef.save(buffer, { contentType: file.type, public: true });
-    const imageUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+    const downloadToken = randomUUID();
+    await fileRef.save(buffer, {
+      resumable: false,
+      contentType: file.type,
+      metadata: {
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken,
+        },
+      },
+    });
+    const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`;
 
     const orden = await getMaxOrden();
     const id = await createConvenio({
