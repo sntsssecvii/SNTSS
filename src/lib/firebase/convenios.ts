@@ -1,16 +1,24 @@
 import { adminDb, adminStorage } from "@/lib/firebase/admin";
-import type { Convenio } from "@/types/convenios";
+import type { Convenio, ConvenioPublico } from "@/types/convenios";
 import type { WriteBatch } from "firebase-admin/firestore";
 
 const COLLECTION = "convenios";
 
-export async function getConveniosPublicos(): Promise<Convenio[]> {
+export async function getConveniosPublicos(): Promise<ConvenioPublico[]> {
   const snap = await adminDb
     .collection(COLLECTION)
     .where("publicado", "==", true)
     .orderBy("orden", "asc")
     .get();
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Convenio);
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      imageUrl: data.imageUrl as string,
+      link: data.link as string | undefined,
+      orden: data.orden as number,
+    };
+  });
 }
 
 export async function getConveniosAdmin(): Promise<Convenio[]> {
@@ -45,8 +53,11 @@ export async function deleteConvenio(
     const storagePath = decodeURIComponent(pathEncoded.split("?")[0]);
     try {
       await adminStorage.bucket().file(storagePath).delete();
-    } catch {
-      // Si el archivo no existe en Storage, continuar igual
+    } catch (err: any) {
+      // 404 significa que el archivo ya no existe en Storage — continuar igual
+      if (err?.code !== 404 && err?.message !== "No such object") {
+        console.error("[convenios] Error al borrar archivo de Storage:", err);
+      }
     }
   }
   await adminDb.collection(COLLECTION).doc(id).delete();
