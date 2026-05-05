@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
     const orden = await getMaxOrden();
     const id = await createConvenio({
       imageUrl,
-      titulo: titulo || undefined,
-      link: link || undefined,
+      ...(titulo ? { titulo } : {}),
+      ...(link ? { link } : {}),
       orden,
       publicado: false,
       creadoEn: Timestamp.fromDate(new Date()),
@@ -120,7 +120,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, id, imageUrl });
   } catch (error: any) {
-    console.error("[admin/convenios] POST error:", error?.message ?? error);
     return handleError(error);
   }
 }
