@@ -22,6 +22,8 @@ const MAX_IMAGE_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 // PDFs no se comprimen en cliente — límite conservador para que 3 archivos
 // no superen el límite de body de Vercel (~4.5 MB total).
 const MAX_PDF_FILE_SIZE_BYTES = 1.4 * 1024 * 1024;
+// Límite máximo por archivo después de procesar (incluye imágenes comprimidas).
+const MAX_PROCESSED_FILE_SIZE_BYTES = 1.4 * 1024 * 1024;
 const ALLOWED_REGISTRATION_FILE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -233,6 +235,14 @@ export default function StepDocs({
       let finalFile = file;
       if (file.type.startsWith("image/")) {
         finalFile = await optimizeImage(file);
+      }
+      if (finalFile.size > MAX_PROCESSED_FILE_SIZE_BYTES) {
+        setErrors((prev) => ({
+          ...prev,
+          [type]:
+            "El archivo es demasiado grande incluso después de comprimirlo. Máximo 1.4 MB por documento.",
+        }));
+        return;
       }
       setFile(type, finalFile);
     } catch {
