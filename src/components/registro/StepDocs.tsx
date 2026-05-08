@@ -19,7 +19,9 @@ interface StepDocsProps {
 }
 
 const MAX_IMAGE_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-const MAX_PDF_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+// PDFs no se comprimen en cliente — límite conservador para que 3 archivos
+// no superen el límite de body de Vercel (~4.5 MB total).
+const MAX_PDF_FILE_SIZE_BYTES = 1.4 * 1024 * 1024;
 const ALLOWED_REGISTRATION_FILE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -216,7 +218,7 @@ export default function StepDocs({
         : MAX_IMAGE_FILE_SIZE_BYTES;
 
     if (file.size <= 0 || file.size > maxSize) {
-      const limitLabel = file.type === "application/pdf" ? "5 MB" : "20 MB";
+      const limitLabel = file.type === "application/pdf" ? "1.4 MB" : "20 MB";
       setErrors((prev) => ({
         ...prev,
         [type]: `El archivo es demasiado grande. Máximo ${limitLabel}.`,
