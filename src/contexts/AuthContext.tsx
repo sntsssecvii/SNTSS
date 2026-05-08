@@ -7,6 +7,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -111,6 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // GUARDIA DE STATUS: Si el usuario es 'pending', no le dejamos entrar
         if (userDataFromFirestore.status === "pending") {
           await signOut(auth);
+          // flushSync garantiza que el null se commitea antes del mensaje,
+          // forzando al useEffect de LoginForm a re-disparar incluso en reintentos.
+          flushSync(() => setError(null));
           setError(
             "Tu solicitud de registro está en revisión. El sindicato te avisará por correo cuando sea aprobada.",
           );
@@ -123,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // GUARDIA DE STATUS: Si el usuario fue rechazado, tampoco entra
         if (userDataFromFirestore.status === "rejected") {
           await signOut(auth);
+          flushSync(() => setError(null));
           setError(
             "Tu solicitud fue rechazada. Puedes volver a registrarte con tus documentos correctos.",
           );
