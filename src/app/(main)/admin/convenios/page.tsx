@@ -135,6 +135,15 @@ function SortableItem({
 
       {/* Campos */}
       <div className="flex-1 min-w-0 space-y-2">
+        <span
+          className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            convenio.publicado
+              ? "bg-green-100 text-green-700"
+              : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {convenio.publicado ? "Publicado" : "Borrador"}
+        </span>
         <Input
           placeholder="Título interno (opcional)"
           value={convenio.titulo || ""}
@@ -349,17 +358,19 @@ export default function AdminConveniosPage() {
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     setUploading(true);
     const token = await getToken();
-    const formData = new FormData();
-    formData.append("file", file);
-    await fetch("/api/admin/convenios", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("file", file);
+      await fetch("/api/admin/convenios", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+    }
     await fetchConvenios();
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -431,6 +442,7 @@ export default function AdminConveniosPage() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={handleUpload}
           />

@@ -56,8 +56,11 @@ export function ConveniosCarrusel({ convenios }: Props) {
       <div
         className="relative w-full cursor-pointer"
         onClick={() =>
-          convenio.link &&
-          window.open(convenio.link, "_blank", "noopener,noreferrer")
+          window.open(
+            convenio.link || convenio.imageUrl,
+            "_blank",
+            "noopener,noreferrer",
+          )
         }
       >
         <img

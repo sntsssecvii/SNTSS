@@ -106,9 +106,7 @@ function getPrimaryMetric(item: TramiteData) {
 
 function isNuevoIngresoEventual(item: TramiteData) {
   return (
-    item.tipoDocumento === "NUEVO_INGRESO" &&
-    item.tipoContratacion === "8" &&
-    Boolean(item.posicionInterinato)
+    item.tipoDocumento === "NUEVO_INGRESO" && Boolean(item.posicionInterinato)
   );
 }
 

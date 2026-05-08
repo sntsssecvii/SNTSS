@@ -57,7 +57,11 @@ export default function ConveniosPage() {
               <button
                 key={c.id}
                 onClick={() =>
-                  c.link && window.open(c.link, "_blank", "noopener,noreferrer")
+                  window.open(
+                    c.link || c.imageUrl,
+                    "_blank",
+                    "noopener,noreferrer",
+                  )
                 }
                 aria-label={`Ver convenio${c.link ? " (abre enlace)" : ""}`}
                 className="rounded-xl overflow-hidden border border-slate-100 hover:border-amber-300 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"

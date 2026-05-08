@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
     const orden = await getMaxOrden();
     const id = await createConvenio({
       imageUrl,
-      titulo: titulo || undefined,
-      link: link || undefined,
+      ...(titulo ? { titulo } : {}),
+      ...(link ? { link } : {}),
       orden,
       publicado: false,
       creadoEn: Timestamp.fromDate(new Date()),

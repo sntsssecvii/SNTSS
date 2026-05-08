@@ -331,6 +331,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "convenios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "publicado",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orden",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
