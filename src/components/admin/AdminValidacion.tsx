@@ -36,6 +36,7 @@ import {
   FileText,
   Loader2,
   Pencil,
+  Trash2,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -286,6 +287,55 @@ export default function AdminValidacion({
       toast({
         title: "Error",
         description: "No se pudo aprobar al usuario.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedRequest) return;
+    const fullName = [
+      selectedRequest.nombre,
+      selectedRequest.apellidoPaterno,
+    ].join(" ");
+    if (
+      !confirm(
+        `¿Eliminar permanentemente a ${fullName}? El usuario podrá volver a registrarse desde cero.`,
+      )
+    )
+      return;
+    setIsProcessing(true);
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch(
+        `/api/admin/global/usuarios/${selectedRequest.uid}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${idToken}` },
+        },
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || `HTTP_${response.status}`);
+      }
+
+      await refreshRequests();
+      onDataChanged?.();
+      toast({
+        title: "Usuario eliminado",
+        description: `${fullName} fue eliminado. Ya puede volver a registrarse.`,
+      });
+      setSelectedRequest(null);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar al usuario.",
         variant: "destructive",
       });
     } finally {
@@ -874,19 +924,35 @@ export default function AdminValidacion({
               </Button>
             )}
             {filterStatus === "rejected" && (
-              <Button
-                className="w-full h-12 text-base bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/20"
-                onClick={handleApprove}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <Check className="w-5 h-5 mr-2" /> Reactivar / Aprobar
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2 w-full">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-12 border-2 border-red-300 text-red-600 hover:bg-red-50 font-semibold"
+                  onClick={handleDelete}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" /> Eliminar
+                    </>
+                  )}
+                </Button>
+                <Button
+                  className="flex-1 h-12 text-base bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-500/20"
+                  onClick={handleApprove}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5 mr-2" /> Reactivar
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </DialogFooter>
         </DialogContent>

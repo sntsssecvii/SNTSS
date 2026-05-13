@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await signOut(auth);
           flushSync(() => setError(null));
           setError(
-            "Tu solicitud fue rechazada. Puedes volver a registrarte con tus documentos correctos.",
+            "Tu solicitud fue rechazada. Para intentarlo de nuevo, ve a la pantalla de Registro y crea una nueva cuenta con tus documentos correctos.",
           );
           setUser(null);
           setUserData(null);
