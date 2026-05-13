@@ -6,6 +6,7 @@ import {
   useEffect,
   useCallback,
   useRef,
+  useId,
 } from "react";
 import { auth } from "@/lib/firebase/firebase-client";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ import {
   Loader2,
   Pencil,
   Trash2,
+  Upload,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -148,6 +150,22 @@ export default function AdminValidacion({
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
+
+  // Reemplazo de documentos (tab rechazados)
+  type DocKey = "identificacion" | "tarjeton" | "constanciaAfiliacion";
+  const [replacementFiles, setReplacementFiles] = useState<
+    Partial<Record<DocKey, File>>
+  >({});
+  const [isUploadingDocs, setIsUploadingDocs] = useState(false);
+  const idInputRef = useRef<HTMLInputElement>(null);
+  const tarjetonInputRef = useRef<HTMLInputElement>(null);
+  const constanciaInputRef = useRef<HTMLInputElement>(null);
+  const docInputRefs: Record<DocKey, React.RefObject<HTMLInputElement>> = {
+    identificacion: idInputRef,
+    tarjeton: tarjetonInputRef,
+    constanciaAfiliacion: constanciaInputRef,
+  };
+  const docId = useId();
 
   const { toast } = useToast();
 
@@ -291,6 +309,67 @@ export default function AdminValidacion({
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleReplaceDocuments = async () => {
+    if (!selectedRequest || Object.keys(replacementFiles).length === 0) return;
+    setIsUploadingDocs(true);
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("AUTH_REQUIRED");
+      const idToken = await currentUser.getIdToken();
+
+      const formData = new FormData();
+      for (const [key, file] of Object.entries(replacementFiles)) {
+        formData.append(key, file);
+      }
+
+      const response = await fetch(
+        `/api/admin/validaciones/solicitudes/${selectedRequest.uid}/documentos`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${idToken}` },
+          body: formData,
+        },
+      );
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.error || `HTTP_${response.status}`);
+
+      // Actualizar URLs en el modal sin cerrar
+      setSelectedRequest((prev) =>
+        prev
+          ? {
+              ...prev,
+              documents: {
+                ...prev.documents,
+                ...payload.data.documents,
+              },
+            }
+          : prev,
+      );
+      setReplacementFiles({});
+      // Limpiar file inputs
+      Object.values(docInputRefs).forEach((ref) => {
+        if (ref.current) ref.current.value = "";
+      });
+
+      toast({
+        title: "Documentos actualizados",
+        description:
+          "Los documentos fueron reemplazados. Ya puedes reactivar al usuario.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "No se pudieron subir los documentos.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingDocs(false);
     }
   };
 
@@ -690,7 +769,12 @@ export default function AdminValidacion({
 
       <Dialog
         open={!!selectedRequest}
-        onOpenChange={(open) => !open && setSelectedRequest(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedRequest(null);
+            setReplacementFiles({});
+          }
+        }}
       >
         <DialogContent className="max-w-2xl flex flex-col max-h-[90vh]">
           <DialogHeader className="shrink-0">
@@ -762,6 +846,138 @@ export default function AdminValidacion({
                   </div>
                 ) : null}
               </div>
+
+              {filterStatus === "rejected" && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm text-slate-900">
+                    Documentos actuales
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {(
+                      [
+                        {
+                          label: "Identificación (INE)",
+                          url: selectedRequest.documents.identificacion,
+                          title: "Identificación Oficial",
+                          alt: "Identificación",
+                          key: "identificacion" as DocKey,
+                        },
+                        {
+                          label: "Tarjetón de Pago",
+                          url: selectedRequest.documents.tarjeton,
+                          title: "Tarjetón de Pago",
+                          alt: "Tarjetón",
+                          key: "tarjeton" as DocKey,
+                        },
+                        {
+                          label: "Constancia de Afiliación",
+                          url: selectedRequest.documents.constanciaAfiliacion,
+                          title: "Constancia de Afiliación Sindical",
+                          alt: "Constancia",
+                          key: "constanciaAfiliacion" as DocKey,
+                        },
+                      ] as const
+                    ).map(({ label, url, title, alt, key }) => (
+                      <div
+                        key={label}
+                        className="group relative border rounded-xl overflow-hidden bg-slate-50"
+                      >
+                        <input
+                          id={`${docId}-${key}`}
+                          ref={docInputRefs[key]}
+                          type="file"
+                          className="hidden"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file)
+                              setReplacementFiles((prev) => ({
+                                ...prev,
+                                [key]: file,
+                              }));
+                          }}
+                        />
+                        <div className="p-2 border-b bg-white flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 truncate mr-1">
+                            {replacementFiles[key]
+                              ? replacementFiles[key]!.name
+                              : label}
+                          </span>
+                          <div className="flex gap-1 shrink-0">
+                            {url && (
+                              <button
+                                type="button"
+                                className="p-1 rounded hover:bg-slate-100"
+                                onClick={() => openDocument(url, title)}
+                              >
+                                <Eye className="h-3 w-3" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="p-1 rounded hover:bg-slate-100 text-red-600"
+                              title="Reemplazar"
+                              onClick={() => docInputRefs[key].current?.click()}
+                            >
+                              <Upload className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="h-32 relative bg-slate-200 flex items-center justify-center overflow-hidden">
+                          {replacementFiles[key] ? (
+                            <div className="flex flex-col items-center gap-1 p-2 text-center">
+                              <FileText className="h-6 w-6 text-red-500" />
+                              <span className="text-[10px] text-slate-600 leading-tight">
+                                Nuevo archivo listo
+                              </span>
+                            </div>
+                          ) : !url ? (
+                            <p className="text-xs text-slate-400">
+                              No adjuntado
+                            </p>
+                          ) : url.toLowerCase().includes(".pdf") ? (
+                            <iframe
+                              src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
+                              className="w-full h-full border-none pointer-events-none"
+                              title={`Preview ${label}`}
+                            />
+                          ) : (
+                            <Image
+                              src={url}
+                              alt={alt}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 100vw, 33vw"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {Object.keys(replacementFiles).length > 0 && (
+                    <Button
+                      onClick={handleReplaceDocuments}
+                      disabled={isUploadingDocs}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold"
+                    >
+                      {isUploadingDocs ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Subiendo documentos...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Guardar{" "}
+                          {Object.keys(replacementFiles).length === 1
+                            ? "1 documento nuevo"
+                            : `${Object.keys(replacementFiles).length} documentos nuevos`}
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {filterStatus === "pending" && (
                 <div className="space-y-4">
