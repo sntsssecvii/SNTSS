@@ -55,10 +55,17 @@ export default function RegistroForm() {
       payload.set("tarjeton", files.tarjeton);
       payload.set("constanciaAfiliacion", files.constanciaAfiliacion);
 
-      const response = await fetch("/api/registro", {
-        method: "POST",
-        body: payload,
-      });
+      let response: Response;
+      try {
+        response = await fetch("/api/registro", {
+          method: "POST",
+          body: payload,
+        });
+      } catch {
+        throw new Error(
+          "No se pudo enviar el registro. Revisa tu señal de internet e intenta de nuevo.",
+        );
+      }
 
       let result: {
         error?: string;
