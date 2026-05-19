@@ -11,6 +11,7 @@ import { enforceRateLimitRedis } from "@/lib/security/rate-limit-redis";
 import { toTitleCase } from "@/lib/utils/text";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const MAX_REGISTRATION_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_REGISTRATION_FILE_TYPES = new Set([
@@ -293,53 +294,44 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       });
 
-    const adminUsersSnapshot = await adminDb
+    // Notificaciones y email son fire-and-forget — no bloqueamos la respuesta
+    // para evitar timeouts en conexiones móviles lentas.
+    void adminDb
       .collection("users")
       .where("role", "in", ["ADMIN", "SUPER_ADMIN", "admin"])
       .get()
-      .catch(() => null);
-
-    if (adminUsersSnapshot) {
-      const batch = adminDb.batch();
-      adminUsersSnapshot.docs.forEach((adminDoc) => {
-        batch.set(adminDb.collection("notifications").doc(), {
-          userId: adminDoc.id,
-          title: "Nuevo Registro Pendiente",
-          message: `El usuario ${parsed.data.nombre} ${parsed.data.apellidoPaterno} se ha registrado y espera validación.`,
-          type: "registration",
-          link: "/admin/validaciones",
-          read: false,
-          createdAt: new Date(),
+      .then((snapshot) => {
+        if (!snapshot) return;
+        const batch = adminDb.batch();
+        snapshot.docs.forEach((adminDoc) => {
+          batch.set(adminDb.collection("notifications").doc(), {
+            userId: adminDoc.id,
+            title: "Nuevo Registro Pendiente",
+            message: `El usuario ${parsed.data.nombre} ${parsed.data.apellidoPaterno} se ha registrado y espera validación.`,
+            type: "registration",
+            link: "/admin/validaciones",
+            read: false,
+            createdAt: new Date(),
+          });
         });
-      });
-      await batch.commit();
-    }
+        return batch.commit();
+      })
+      .catch((err) => console.error("Error escribiendo notificaciones:", err));
 
-    let emailWarning: string | null = null;
-    try {
-      await sendRegistrationEmail(parsed.data.email, parsed.data.nombre);
-    } catch (error) {
-      console.error("Error enviando correo de registro:", error);
-      emailWarning =
-        "La solicitud se registró, pero no se pudo enviar el correo de confirmación.";
-    }
+    void sendRegistrationEmail(parsed.data.email, parsed.data.nombre).catch(
+      (err) => console.error("Error enviando correo de registro:", err),
+    );
 
-    await writeRegistrationAuditLog({
+    void writeRegistrationAuditLog({
       status: "SUCCESS",
       email: parsed.data.email,
       uid: authUser.uid,
       ip: clientIp,
       userAgent,
-      metadata: {
-        uploadedPathsCount: uploadedPaths.length,
-        emailWarning: emailWarning || null,
-      },
-    }).catch((auditError) => {
-      console.error(
-        "Error escribiendo auditoría de registro exitoso:",
-        auditError,
-      );
-    });
+      metadata: { uploadedPathsCount: uploadedPaths.length },
+    }).catch((err) =>
+      console.error("Error escribiendo auditoría de registro exitoso:", err),
+    );
 
     return NextResponse.json({
       success: true,
@@ -347,7 +339,6 @@ export async function POST(request: NextRequest) {
         uid: authUser.uid,
         status: "pending",
       },
-      warning: emailWarning,
     });
   } catch (error: any) {
     console.error("Error en registro público:", error);
