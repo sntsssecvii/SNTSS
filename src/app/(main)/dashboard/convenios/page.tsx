@@ -69,7 +69,7 @@ export default function ConveniosPage() {
                 <img
                   src={c.imageUrl}
                   alt="Convenio de descuento"
-                  className="w-full aspect-video object-cover"
+                  className="w-full h-auto"
                 />
               </button>
             ))}

@@ -55,12 +55,34 @@ export default function RegistroForm() {
       payload.set("tarjeton", files.tarjeton);
       payload.set("constanciaAfiliacion", files.constanciaAfiliacion);
 
-      const response = await fetch("/api/registro", {
-        method: "POST",
-        body: payload,
-      });
+      let response: Response;
+      try {
+        response = await fetch("/api/registro", {
+          method: "POST",
+          body: payload,
+        });
+      } catch {
+        throw new Error(
+          "No se pudo enviar el registro. Revisa tu señal de internet e intenta de nuevo.",
+        );
+      }
 
-      const result = await response.json();
+      let result: {
+        error?: string;
+        success?: boolean;
+        warning?: string;
+        data?: { uid: string; status: string };
+      };
+      try {
+        result = await response.json();
+      } catch {
+        if (response.status === 413) {
+          throw new Error(
+            "Los archivos son demasiado grandes. Si subes PDFs, cada uno debe pesar menos de 1.4 MB. Intenta subir fotos JPG en su lugar.",
+          );
+        }
+        throw new Error("Error de conexión. Intenta de nuevo.");
+      }
 
       if (!response.ok) {
         throw new Error(result?.error || "Ocurrió un error inesperado.");
