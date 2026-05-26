@@ -1,127 +1,78 @@
-// Enumeración de categorías basadas en la tabla proporcionada
-export enum CategoriaPropuesta {
-  ASISTENTE_MEDICA = 'Asistente Médica',
-  AUX_ADMON_UM = 'Aux. Admon en UM',
-  AUX_ALMACEN = 'Aux. de Almacen',
-  AUX_FARMACIA = 'Aux. de Farmacia',
-  AUX_LABORATORIO = 'Aux. de Laboratorio',
-  AUX_SERV_GRALES_UM = 'Aux. Serv. Grales UM',
-  AUX_SERV_INTENDEN = 'Aux. Serv. Intenden.',
-  AUX_SERV_ADMTVOS = 'Aux. Serv. Admtvos.',
-  AUX_TRABAJO_SOCIAL = 'Aux. Trabajo Social',
-  AUX_UNIV_OFNA = 'Aux. Univ. De Ofna.',
-  CHOFER = 'Chofer',
-  LABORATORIO = 'Laboratorio',
-  MANEJADOR_ALIM = 'Manejador de Alim.',
-  MENSAJERO = 'Mensajero',
-  OFICIAL_PUERICULTURA = 'Oficial de Puericultura',
-  OP_AMBULANCIAS = 'Op. De Ambulancias',
-  OP_LAVANDERIA = 'Op. De Lavanderia',
-  TEC_POLIVALENTE = 'Tec. Polivalente',
-  TEC_RADIOLOGA = 'Tec. Radióloga',
-  TRABAJO_SOCIAL = 'Trabajo Social',
-  NUTRICIONISTA_DIETISTA = 'Nutricionista Dietista',
-  ESTOMATOLOGO = 'Estomatólogo',
-  PSICOLOGO = 'Psicólogo',
-  MEDICO_GENERAL = 'MEDICO GENERAL',
-  AUX_ENF_GRAL = 'AUX. ENF. GRAL',
-  ENFERMERA_GRAL = 'ENFERMERA GRAL',
-}
+import type { Timestamp } from "firebase/firestore";
+import type { EstadoPropuesta, EstadoFase2, EventoHistorial } from "./workflow";
 
-// Constantes para parentescos comunes
-export const PARENTESCOS = [
-  'Cónyuge',
-  'Hijo(a)',
-  'Padre',
-  'Madre',
-  'Hermano(a)',
-  'Otro',
-] as const
+export type Parentesco = "Hijo" | "Hija" | "Cónyuge" | "Otro";
 
-export type Parentesco = typeof PARENTESCOS[number]
-
-// Interface para datos del Trabajador Activo
-export interface TrabajadorActivo {
-  nombre: string
-  matricula: string
-  adscripcion: string
-  localidad: string
-  antiguedad: string
-  telefono: string
-}
-
-// Interface para datos del Aspirante
 export interface Aspirante {
-  nombre: string
-  domicilio: string
-  curp?: string
-  rfc?: string
-  parentesco: Parentesco
-  localidadDeseada: string
-  telefono: string
-  categoria: CategoriaPropuesta
+  nombreCompleto: string;
+  curp: string;
+  parentesco: Parentesco | null;
+  telefono: string;
 }
 
-// Importar tipos de workflow
-import { EstadoPropuesta, HistorialCambio, ComentarioPropuesta } from './workflow'
+export interface WarningsPropuesta {
+  propuestaActivaExistente: boolean;
+  sinRequerimientoDisponible: boolean;
+  curpDuplicado: boolean;
+  categoriaIncompatible: boolean;
+  documentoFaltante: boolean;
+}
 
-// Interface principal de Propuesta
 export interface Propuesta {
-  id?: string
-  trabajadorActivo: TrabajadorActivo
-  aspirante: Aspirante
-  fechaCreacion: Date | any // Firestore Timestamp
-  fechaActualizacion: Date | any // Firestore Timestamp
-  creadoPor: string // UID del usuario que creó la propuesta
-  creadoPorEmail?: string // Email del usuario que creó la propuesta
-  // Nuevos campos del sistema de workflow
-  estado?: EstadoPropuesta
-  historial?: HistorialCambio[]
-  comentarios?: ComentarioPropuesta[]
-  etiquetas?: string[]
-  prioridad?: 'ALTA' | 'MEDIA' | 'BAJA'
-  fechaVencimiento?: Date | any // Firestore Timestamp
-  archivosAdjuntos?: string[] // URLs de archivos en Firebase Storage
+  id?: string;
+  numeroCaso: string;
+  folio: string | null;
+  estado: EstadoPropuesta;
+  estadoFase2: EstadoFase2 | null;
+  motivoRechazo: string | null;
+  matricula: string;
+  sinFamiliar: boolean;
+  aspirante: Aspirante | null;
+  documentos: { ineUrl: string | null };
+  warnings: WarningsPropuesta;
+  historial: EventoHistorial[];
+  creadoEn: Timestamp;
+  actualizadoEn: Timestamp;
 }
 
-// Interface para resultados de búsqueda de duplicados
-export interface DuplicadoDetectado {
-  propuesta: Propuesta
-  camposCoincidentes: string[] // Lista de campos que coinciden
-  porcentajeCoincidencia?: number
-}
+export const CATEGORIAS_PROPUESTA = [
+  "Asistente Médica",
+  "Aux. Admon en UM",
+  "Aux. de Almacen",
+  "Aux. de Farmacia",
+  "Aux. de Laboratorio",
+  "Aux. Serv. Grales UM",
+  "Aux. Serv. Intenden.",
+  "Aux. Serv. Admtvos.",
+  "Aux. Trabajo Social",
+  "Aux. Univ. De Ofna.",
+  "Chofer",
+  "Laboratorio",
+  "Manejador de Alim.",
+  "Mensajero",
+  "Oficial de Puericultura",
+  "Op. De Ambulancias",
+  "Op. De Lavanderia",
+  "Tec. Polivalente",
+  "Tec. Radióloga",
+  "Trabajo Social",
+  "Nutricionista Dietista",
+  "Estomatólogo",
+  "Psicólogo",
+  "Medico General",
+  "Aux. Enf. Gral",
+  "Enfermera Gral",
+] as const;
 
-// Interface para filtros de búsqueda
-export interface FiltrosPropuesta {
-  fechaDesde?: Date
-  fechaHasta?: Date
-  categoria?: CategoriaPropuesta
-  trabajadorNombre?: string
-  trabajadorMatricula?: string
-  aspiranteNombre?: string
-  localidad?: string
-}
+export type CategoriaPropuesta = (typeof CATEGORIAS_PROPUESTA)[number];
 
-// Helper para obtener todas las categorías como array
-export const CATEGORIAS_ARRAY = Object.values(CategoriaPropuesta)
-
-// Helper para validar CURP (18 caracteres alfanuméricos)
 export const validarCURP = (curp: string): boolean => {
-  if (!curp) return true // Opcional
-  const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/
-  return curpRegex.test(curp.toUpperCase())
-}
+  if (!curp) return false;
+  const curpRegex = /^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/;
+  return curpRegex.test(curp.toUpperCase());
+};
 
-// Helper para validar RFC (12-13 caracteres)
-export const validarRFC = (rfc: string): boolean => {
-  if (!rfc) return true // Opcional
-  const rfcRegex = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/
-  return rfcRegex.test(rfc.toUpperCase())
-}
-
-// Helper para validar teléfono (10 dígitos)
 export const validarTelefono = (telefono: string): boolean => {
-  if (!telefono) return false
-  const telefonoRegex = /^\d{10}$/
-  return telefonoRegex.test(telefono.replace(/\D/g, ''))
-}
+  if (!telefono) return false;
+  return /^\d{10}$/.test(telefono.replace(/\D/g, ""));
+};
