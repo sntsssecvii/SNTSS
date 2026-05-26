@@ -15,12 +15,22 @@ export function isAdminRole(role?: string | null): boolean {
     normalized === ROLES.SUPER_ADMIN ||
     normalized === ROLES.BOLSA ||
     normalized === ROLES.ESCALAFON ||
-    normalized === ROLES.CAPTURISTA
+    normalized === ROLES.CAPTURISTA ||
+    normalized === ROLES.ADMISION
   );
 }
 
 export function isBolsaRole(role?: string | null): boolean {
   return normalizeUserRole(role) === ROLES.BOLSA;
+}
+
+export function isAdmisionRole(role?: string | null): boolean {
+  const normalized = normalizeUserRole(role);
+  return (
+    normalized === ROLES.ADMISION ||
+    normalized === ROLES.ADMIN ||
+    normalized === ROLES.SUPER_ADMIN
+  );
 }
 
 export function getHomeRouteForRole(role?: string | null): string | null {
@@ -50,6 +60,10 @@ export function getHomeRouteForRole(role?: string | null): string | null {
     return "/admin/validaciones";
   }
 
+  if (normalized === ROLES.ADMISION) {
+    return "/admin/propuestas";
+  }
+
   return null;
 }
 
@@ -73,6 +87,8 @@ export function getRoleLabel(role?: UserRole | string | null): string {
       return "Bolsa de Trabajo";
     case ROLES.ESCALAFON:
       return "Escalafón";
+    case ROLES.ADMISION:
+      return "Admisión y Cambios";
     default:
       return normalized || "Sin rol";
   }
