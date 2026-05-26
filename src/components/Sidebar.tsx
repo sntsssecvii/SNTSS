@@ -105,27 +105,15 @@ const getNavItems = (
         icon: Tag,
       },
       {
+        title: "Propuestas",
+        href: "/admin/propuestas",
+        icon: FileText,
+      },
+      {
         title: "Monitor",
         href: "/admin/observabilidad",
         icon: Activity,
       },
-      /* Oculto para MVP:
-      {
-        title: 'Propuestas',
-        href: '/admin/propuestas',
-        icon: FileText,
-      },
-      {
-        title: 'Estadísticas',
-        href: '/admin/estadisticas',
-        icon: BarChart3,
-      },
-      {
-        title: 'Reportes',
-        href: '/admin/reportes',
-        icon: FileBarChart,
-      }
-      */
     );
   }
 
@@ -169,12 +157,21 @@ const getNavItems = (
     });
   }
 
+  if (roleUpper === "ADMISION") {
+    baseItems.push({
+      title: "Propuestas",
+      href: "/admin/propuestas",
+      icon: FileText,
+    });
+  }
+
   // Items comunes para roles admin
   if (
     roleUpper === "ADMIN" ||
     roleUpper === "SUPER_ADMIN" ||
     roleUpper === "BOLSA" ||
-    roleUpper === "CAPTURISTA"
+    roleUpper === "CAPTURISTA" ||
+    roleUpper === "ADMISION"
   ) {
     baseItems.push(
       {
