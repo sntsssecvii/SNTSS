@@ -81,9 +81,16 @@ export async function POST(request: NextRequest) {
     const { matricula, sinFamiliar, aspirante } = parsed.data;
 
     // Subir INE si viene
+    const ALLOWED_INE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
     let ineUrl: string | null = null;
     const ineFile = formData.get("ine") as File | null;
     if (ineFile && ineFile.size > 0) {
+      if (!ALLOWED_INE_TYPES.includes(ineFile.type)) {
+        return NextResponse.json(
+          { error: "Tipo de archivo no permitido. Use JPG, PNG o PDF." },
+          { status: 400 },
+        );
+      }
       if (ineFile.size > MAX_INE_BYTES) {
         return NextResponse.json(
           { error: "El archivo INE excede 5 MB." },
