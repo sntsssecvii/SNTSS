@@ -1,53 +1,62 @@
-'use client'
+"use client";
 
-import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { FileDown, Calendar, Filter } from 'lucide-react'
-import { getPropuestasPorMes, getDistribucionPorEstado, getTotalPropuestas } from '@/lib/firebase/analytics'
-import { EstadoPropuesta } from '@/types/workflow'
-import { Skeleton } from '@/components/ui/skeleton'
-import { isAdminRole } from '@/lib/auth/roles'
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { FileDown, Calendar, Filter } from "lucide-react";
+import {
+  getPropuestasPorMes,
+  getDistribucionPorEstado,
+  getTotalPropuestas,
+} from "@/lib/firebase/analytics";
+import { Skeleton } from "@/components/ui/skeleton";
+import { isAdminRole } from "@/lib/auth/roles";
 
 export default function ReportesPage() {
-  const { user, userData, loading: authLoading } = useAuth()
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [tipoReporte, setTipoReporte] = useState('mensual')
-  const [periodo, setPeriodo] = useState('ultimo-mes')
+  const { user, userData, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [tipoReporte, setTipoReporte] = useState("mensual");
+  const [periodo, setPeriodo] = useState("ultimo-mes");
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdminRole(userData?.role))) {
-      router.push('/login')
+      router.push("/login");
     }
-  }, [user, userData, authLoading, router])
+  }, [user, userData, authLoading, router]);
 
   const generarReporte = async () => {
     try {
-      setLoading(true)
+      setLoading(true);
       // Aquí se implementaría la lógica de generación de reportes
       // Por ahora solo mostramos un mensaje
-      alert('Funcionalidad de generación de reportes en desarrollo')
+      alert("Funcionalidad de generación de reportes en desarrollo");
     } catch (error) {
-      console.error('Error generando reporte:', error)
+      console.error("Error generando reporte:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const exportarExcel = () => {
     // Implementar exportación a Excel
-    alert('Funcionalidad de exportación a Excel en desarrollo')
-  }
+    alert("Funcionalidad de exportación a Excel en desarrollo");
+  };
 
   const exportarPDF = () => {
     // Implementar exportación a PDF
-    alert('Funcionalidad de exportación a PDF en desarrollo')
-  }
+    alert("Funcionalidad de exportación a PDF en desarrollo");
+  };
 
   if (authLoading || loading) {
     return (
@@ -58,11 +67,11 @@ export default function ReportesPage() {
           <Skeleton className="h-64" />
         </div>
       </div>
-    )
+    );
   }
 
   if (!user || !isAdminRole(userData?.role)) {
-    return null
+    return null;
   }
 
   return (
@@ -78,7 +87,9 @@ export default function ReportesPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Configuración del Reporte</CardTitle>
-            <CardDescription>Selecciona el tipo de reporte y período</CardDescription>
+            <CardDescription>
+              Selecciona el tipo de reporte y período
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -137,11 +148,15 @@ export default function ReportesPage() {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">Total de Propuestas</p>
+                <p className="text-sm text-muted-foreground">
+                  Total de Propuestas
+                </p>
                 <p className="text-2xl font-bold">-</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Período Seleccionado</p>
+                <p className="text-sm text-muted-foreground">
+                  Período Seleccionado
+                </p>
                 <p className="text-lg font-semibold">{periodo}</p>
               </div>
             </div>
@@ -149,5 +164,5 @@ export default function ReportesPage() {
         </Card>
       </div>
     </main>
-  )
+  );
 }
