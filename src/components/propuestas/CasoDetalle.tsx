@@ -241,24 +241,33 @@ export default function CasoDetalle({ id }: { id: string }) {
             {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
             {propuesta.estado === "PENDIENTE" && (
-              <div className="flex gap-3">
-                <button
-                  onClick={aprobar}
-                  disabled={procesando}
-                  className="flex-1 bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <button
+                    onClick={aprobar}
+                    disabled={procesando}
+                    className="flex-1 bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                  >
+                    Aprobar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setError("");
+                      setModalRechazo(true);
+                    }}
+                    disabled={procesando}
+                    className="flex-1 bg-red-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+                <a
+                  href={`/admin/propuestas/${id}/print`}
+                  target="_blank"
+                  className="block text-center text-sm text-blue-600 hover:underline"
                 >
-                  Aprobar
-                </button>
-                <button
-                  onClick={() => {
-                    setError("");
-                    setModalRechazo(true);
-                  }}
-                  disabled={procesando}
-                  className="flex-1 bg-red-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-                >
-                  Rechazar
-                </button>
+                  Generar PDF
+                </a>
               </div>
             )}
 

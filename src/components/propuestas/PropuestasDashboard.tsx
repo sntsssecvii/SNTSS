@@ -70,11 +70,18 @@ export default function PropuestasDashboard() {
 
   async function cargarAsignaciones() {
     const token = await getToken();
-    const res = await fetch("/api/asignaciones", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setAsignaciones(data.asignaciones ?? []);
+    const [resAsig, resProp] = await Promise.all([
+      fetch("/api/asignaciones", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch("/api/propuestas?estado=APROBADA", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]);
+    const asigData = await resAsig.json();
+    const propData = await resProp.json();
+    setAsignaciones(asigData.asignaciones ?? []);
+    setPropuestas(propData.propuestas ?? []);
   }
 
   useEffect(() => {
@@ -153,7 +160,7 @@ export default function PropuestasDashboard() {
                     <th className="px-4 py-3 text-left">Matrícula</th>
                     <th className="px-4 py-3 text-left">Aspirante</th>
                     <th className="px-4 py-3 text-left">Fecha</th>
-                    <th className="px-4 py-3 text-center">Alerts</th>
+                    <th className="px-4 py-3 text-center">Warnings</th>
                     <th className="px-4 py-3 text-left">Estado</th>
                   </tr>
                 </thead>
@@ -304,9 +311,10 @@ export default function PropuestasDashboard() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
-                <th className="px-4 py-3 text-left">Propuesta ID</th>
-                <th className="px-4 py-3 text-left">Zona</th>
+                <th className="px-4 py-3 text-left">Folio</th>
+                <th className="px-4 py-3 text-left">Aspirante</th>
                 <th className="px-4 py-3 text-left">Categoría</th>
+                <th className="px-4 py-3 text-left">Requerimiento</th>
                 <th className="px-4 py-3 text-left">Estado</th>
               </tr>
             </thead>
@@ -314,29 +322,43 @@ export default function PropuestasDashboard() {
               {asignaciones.length === 0 && (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-4 py-8 text-center text-gray-400"
                   >
                     Sin asignaciones
                   </td>
                 </tr>
               )}
-              {asignaciones.map((a) => (
-                <tr key={a.id}>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    {a.propuestaId}
-                  </td>
-                  <td className="px-4 py-3">{a.zona}</td>
-                  <td className="px-4 py-3">{a.categoria}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.estado === "ACTIVA" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}`}
-                    >
-                      {a.estado}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {asignaciones.map((a) => {
+                const prop = propuestas.find((p) => p.id === a.propuestaId);
+                return (
+                  <tr key={a.id}>
+                    <td className="px-4 py-3 font-mono text-xs text-green-700 font-medium">
+                      {prop?.folio ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {prop?.sinFamiliar ? (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                          Sin familiar
+                        </span>
+                      ) : (
+                        (prop?.aspirante?.nombreCompleto ?? "—")
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{a.categoria}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs font-mono">
+                      {a.requerimientoId.slice(0, 8)}…
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.estado === "ACTIVA" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}`}
+                      >
+                        {a.estado}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -364,6 +386,12 @@ function ModalRequerimiento({
 
   function agregarPartida() {
     setPartidas([...partidas, { zona: "", categoria: "", cantidadTotal: 1 }]);
+  }
+
+  function quitarPartida(idx: number) {
+    if (partidas.length > 1) {
+      setPartidas(partidas.filter((_, i) => i !== idx));
+    }
   }
 
   function actualizarPartida(
@@ -456,7 +484,10 @@ function ModalRequerimiento({
               </button>
             </div>
             {partidas.map((p, i) => (
-              <div key={i} className="grid grid-cols-3 gap-2 mb-2">
+              <div
+                key={i}
+                className="grid grid-cols-[1fr_1fr_80px_24px] gap-2 mb-2 items-center"
+              >
                 <input
                   placeholder="Zona"
                   value={p.zona}
@@ -474,13 +505,20 @@ function ModalRequerimiento({
                 <input
                   type="number"
                   min={1}
-                  placeholder="Cantidad"
+                  placeholder="Cant."
                   value={p.cantidadTotal}
                   onChange={(e) =>
                     actualizarPartida(i, "cantidadTotal", e.target.value)
                   }
                   className="border border-gray-300 rounded-lg px-2 py-1 text-sm"
                 />
+                <button
+                  onClick={() => quitarPartida(i)}
+                  className="text-gray-400 hover:text-red-500 text-sm"
+                  title="Quitar fila"
+                >
+                  ✕
+                </button>
               </div>
             ))}
           </div>
