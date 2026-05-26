@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth } from "firebase/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Propuesta } from "@/types/propuestas";
 import type { Requerimiento } from "@/types/requerimientos";
@@ -23,6 +25,7 @@ const ESTADO_COLORS: Record<EstadoPropuesta, string> = {
 
 export default function PropuestasDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("solicitudes");
   const [propuestas, setPropuestas] = useState<(Propuesta & { id: string })[]>(
     [],
@@ -38,8 +41,7 @@ export default function PropuestasDashboard() {
   const [modalRequerimiento, setModalRequerimiento] = useState(false);
 
   async function getToken() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return user ? await (user as any).getIdToken() : "";
+    return (await getAuth().currentUser?.getIdToken()) ?? "";
   }
 
   async function cargarPropuestas() {
@@ -60,28 +62,36 @@ export default function PropuestasDashboard() {
   }
 
   async function cargarRequerimientos() {
-    const token = await getToken();
-    const res = await fetch("/api/requerimientos", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setRequerimientos(data.requerimientos ?? []);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/requerimientos", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setRequerimientos(data.requerimientos ?? []);
+    } catch {
+      // Error silencioso — tabla queda vacía
+    }
   }
 
   async function cargarAsignaciones() {
-    const token = await getToken();
-    const [resAsig, resProp] = await Promise.all([
-      fetch("/api/asignaciones", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-      fetch("/api/propuestas?estado=APROBADA", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    ]);
-    const asigData = await resAsig.json();
-    const propData = await resProp.json();
-    setAsignaciones(asigData.asignaciones ?? []);
-    setPropuestas(propData.propuestas ?? []);
+    try {
+      const token = await getToken();
+      const [resAsig, resProp] = await Promise.all([
+        fetch("/api/asignaciones", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/api/propuestas?estado=APROBADA", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      const asigData = await resAsig.json();
+      const propData = await resProp.json();
+      setAsignaciones(asigData.asignaciones ?? []);
+      setPropuestas(propData.propuestas ?? []);
+    } catch {
+      // Error silencioso — tablas quedan vacías
+    }
   }
 
   useEffect(() => {
@@ -178,9 +188,7 @@ export default function PropuestasDashboard() {
                   {propuestas.map((p) => (
                     <tr
                       key={p.id}
-                      onClick={() =>
-                        (window.location.href = `/admin/propuestas/${p.id}`)
-                      }
+                      onClick={() => router.push(`/admin/propuestas/${p.id}`)}
                       className="hover:bg-gray-50 cursor-pointer"
                     >
                       <td className="px-4 py-3 font-mono text-xs text-gray-600">
@@ -405,6 +413,24 @@ function ModalRequerimiento({
   }
 
   async function enviar() {
+    if (!numeroOficio.trim()) {
+      setError("El número de oficio es requerido.");
+      return;
+    }
+    if (!fechaCircular) {
+      setError("La fecha del circular es requerida.");
+      return;
+    }
+    if (
+      partidas.some(
+        (p) => !p.zona.trim() || !p.categoria.trim() || p.cantidadTotal < 1,
+      )
+    ) {
+      setError(
+        "Todas las partidas deben tener zona, categoría y cantidad válida.",
+      );
+      return;
+    }
     setEnviando(true);
     setError("");
     try {

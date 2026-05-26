@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getAuth } from "firebase/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Propuesta } from "@/types/propuestas";
 import type { Requerimiento } from "@/types/requerimientos";
@@ -36,9 +37,8 @@ export default function CasoDetalle({ id }: { id: string }) {
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState("");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function getToken() {
-    return user ? await (user as any).getIdToken() : "";
+    return (await getAuth().currentUser?.getIdToken()) ?? "";
   }
 
   async function cargar() {
@@ -46,7 +46,7 @@ export default function CasoDetalle({ id }: { id: string }) {
     try {
       const token = await getToken();
       const [resProp, resReq] = await Promise.all([
-        fetch(`/api/propuestas`, {
+        fetch(`/api/propuestas/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch("/api/requerimientos", {
@@ -54,11 +54,7 @@ export default function CasoDetalle({ id }: { id: string }) {
         }),
       ]);
       const propData = await resProp.json();
-      const propEncontrada =
-        propData.propuestas?.find(
-          (p: Propuesta & { id: string }) => p.id === id,
-        ) ?? null;
-      setPropuesta(propEncontrada);
+      setPropuesta(propData.propuesta ?? null);
       const reqData = await resReq.json();
       setRequerimientos(reqData.requerimientos ?? []);
     } finally {

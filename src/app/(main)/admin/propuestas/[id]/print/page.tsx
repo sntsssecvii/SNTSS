@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getAuth } from "firebase/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Propuesta } from "@/types/propuestas";
 
@@ -12,17 +13,12 @@ export default function PrintPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     async function cargar() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const token = user ? await (user as any).getIdToken() : "";
-      const res = await fetch(`/api/propuestas`, {
+      const token = (await getAuth().currentUser?.getIdToken()) ?? "";
+      const res = await fetch(`/api/propuestas/${params.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      const p =
-        data.propuestas?.find(
-          (p: Propuesta & { id: string }) => p.id === params.id,
-        ) ?? null;
-      setPropuesta(p);
+      setPropuesta(data.propuesta ?? null);
     }
     if (user) cargar();
   }, [user, params.id]);
