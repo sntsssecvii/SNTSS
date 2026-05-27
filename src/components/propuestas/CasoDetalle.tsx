@@ -259,6 +259,42 @@ export default function CasoDetalle({ id }: { id: string }) {
             {/* Datos trabajador */}
             <InfoCard title="Trabajador solicitante">
               <DataRow label="Matrícula">{propuesta.matricula}</DataRow>
+              {propuesta.solicitante && (
+                <>
+                  <DataRow label="Nombre">
+                    {propuesta.solicitante.nombreCompleto}
+                  </DataRow>
+                  <DataRow label="RFC">
+                    <span className="font-mono text-xs uppercase">
+                      {propuesta.solicitante.rfc}
+                    </span>
+                  </DataRow>
+                  <DataRow label="Correo">
+                    {propuesta.solicitante.correo}
+                  </DataRow>
+                  <DataRow label="Teléfono">
+                    {propuesta.solicitante.telefono}
+                  </DataRow>
+                  <DataRow label="Domicilio">
+                    {propuesta.solicitante.domicilioCalle}{" "}
+                    {propuesta.solicitante.domicilioNumero},{" "}
+                    {propuesta.solicitante.domicilioColonia},{" "}
+                    {propuesta.solicitante.domicilioMunicipio},{" "}
+                    {propuesta.solicitante.domicilioEstado} C.P.{" "}
+                    {propuesta.solicitante.codigoPostal}
+                  </DataRow>
+                  <DataRow label="Escolaridad">
+                    {propuesta.solicitante.escolaridad}
+                  </DataRow>
+                  <DataRow label="Nacimiento">
+                    {propuesta.solicitante.fechaNacimiento} (
+                    {propuesta.solicitante.edad} años)
+                  </DataRow>
+                  <DataRow label="Edo. nac.">
+                    {propuesta.solicitante.estadoNacimiento}
+                  </DataRow>
+                </>
+              )}
             </InfoCard>
 
             {/* Datos aspirante */}

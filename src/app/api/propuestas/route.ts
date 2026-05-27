@@ -49,8 +49,28 @@ const PARENTESCO_VALUES = [
   "SIN FAMILIAR",
 ] as const;
 
+const SolicitanteSchema = z.object({
+  nombreCompleto: z.string().min(2).max(120),
+  correo: z.string().email(),
+  domicilioCalle: z.string().min(1).max(200),
+  domicilioNumero: z.string().min(1).max(50),
+  domicilioColonia: z.string().min(1).max(150),
+  domicilioMunicipio: z.string().min(1).max(100),
+  domicilioEstado: z.string().min(1).max(100),
+  codigoPostal: z.string().regex(/^\d{5}$/),
+  telefono: z.string().regex(/^\d{10}$/),
+  escolaridad: z.string().min(1).max(100),
+  fechaNacimiento: z.string().min(1),
+  edad: z.coerce.number().min(16).max(100),
+  estadoNacimiento: z.string().min(1).max(100),
+  rfc: z
+    .string()
+    .regex(/^[A-Z]{4}\d{6}[A-Z0-9]{3}$/, "RFC inválido — 13 caracteres"),
+});
+
 const CrearSchema = z.object({
   matricula: z.string().min(4).max(20),
+  solicitante: SolicitanteSchema.nullable(),
   sinFamiliar: z.boolean().default(false),
   aspirante: z
     .object({
@@ -78,6 +98,9 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const raw = {
       matricula: formData.get("matricula"),
+      solicitante: formData.get("solicitante")
+        ? JSON.parse(String(formData.get("solicitante")))
+        : null,
       sinFamiliar: formData.get("sinFamiliar") === "true",
       aspirante: formData.get("aspirante")
         ? JSON.parse(String(formData.get("aspirante")))
@@ -91,7 +114,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { matricula, sinFamiliar, aspirante } = parsed.data;
+    const { matricula, solicitante, sinFamiliar, aspirante } = parsed.data;
 
     // Subir INE si viene
     const ALLOWED_INE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
@@ -137,6 +160,7 @@ export async function POST(request: NextRequest) {
     const id = await createPropuesta({
       numeroCaso,
       matricula,
+      solicitante,
       sinFamiliar,
       aspirante,
       ineUrl,

@@ -6,6 +6,7 @@ import type {
   Propuesta,
   WarningsPropuesta,
   Aspirante,
+  DatosSolicitante,
 } from "@/types/propuestas";
 import type {
   EstadoPropuesta,
@@ -18,6 +19,7 @@ const COL = "propuestas";
 export async function createPropuesta(data: {
   numeroCaso: string;
   matricula: string;
+  solicitante: DatosSolicitante | null;
   sinFamiliar: boolean;
   aspirante: Aspirante | null;
   ineUrl: string | null;
@@ -38,6 +40,7 @@ export async function createPropuesta(data: {
     estadoFase2: null,
     motivoRechazo: null,
     matricula: data.matricula,
+    solicitante: data.solicitante,
     sinFamiliar: data.sinFamiliar,
     aspirante: data.aspirante,
     documentos: { ineUrl: data.ineUrl },

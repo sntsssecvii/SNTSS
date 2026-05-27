@@ -21,6 +21,45 @@ export interface Aspirante {
   unidadAdscripcion: string;
 }
 
+export const MUNICIPIOS_BC = [
+  "Mexicali",
+  "Tijuana",
+  "Ensenada",
+  "Tecate",
+  "Rosarito",
+  "San Felipe",
+  "San Quintín",
+  "San Luis Rio Colorado",
+] as const;
+
+export const ESCOLARIDAD_OPTIONS = [
+  "Primaria",
+  "Secundaria",
+  "Preparatoria / Bachillerato",
+  "Técnico / Tecnológico",
+  "Licenciatura",
+  "Especialidad",
+  "Maestría",
+  "Doctorado",
+] as const;
+
+export interface DatosSolicitante {
+  nombreCompleto: string;
+  correo: string;
+  domicilioCalle: string;
+  domicilioNumero: string;
+  domicilioColonia: string;
+  domicilioMunicipio: string; // includes "Otro: <texto>" for custom
+  domicilioEstado: string;
+  codigoPostal: string;
+  telefono: string;
+  escolaridad: string;
+  fechaNacimiento: string; // YYYY-MM-DD
+  edad: number;
+  estadoNacimiento: string;
+  rfc: string; // 13 chars: AAAA######AAA
+}
+
 export interface WarningsPropuesta {
   propuestaActivaExistente: boolean;
   sinRequerimientoDisponible: boolean;
@@ -37,6 +76,7 @@ export interface Propuesta {
   estadoFase2: EstadoFase2 | null;
   motivoRechazo: string | null;
   matricula: string;
+  solicitante: DatosSolicitante | null;
   sinFamiliar: boolean;
   aspirante: Aspirante | null;
   documentos: { ineUrl: string | null };

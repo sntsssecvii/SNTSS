@@ -75,15 +75,66 @@ export default function PrintPage({ params }: { params: { id: string } }) {
 
         {/* Datos trabajador */}
         <div className="border border-gray-300 rounded p-4 mb-4">
-          <p className="font-bold text-sm mb-2">DATOS DEL TRABAJADOR</p>
+          <p className="font-bold text-sm mb-2">
+            DATOS DEL TRABAJADOR SOLICITANTE
+          </p>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
               <span className="text-gray-500">Matrícula:</span>{" "}
               <span className="font-medium">{propuesta.matricula}</span>
             </div>
             <div>
-              <span className="text-gray-500">Fecha:</span> <span>{fecha}</span>
+              <span className="text-gray-500">Fecha de solicitud:</span>{" "}
+              <span>{fecha}</span>
             </div>
+            {propuesta.solicitante && (
+              <>
+                <div className="col-span-2">
+                  <span className="text-gray-500">Nombre:</span>{" "}
+                  <span className="font-medium">
+                    {propuesta.solicitante.nombreCompleto}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">RFC:</span>{" "}
+                  <span className="font-mono">{propuesta.solicitante.rfc}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Correo:</span>{" "}
+                  <span>{propuesta.solicitante.correo}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Teléfono:</span>{" "}
+                  <span>{propuesta.solicitante.telefono}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Escolaridad:</span>{" "}
+                  <span>{propuesta.solicitante.escolaridad}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Fecha nacimiento:</span>{" "}
+                  <span>
+                    {propuesta.solicitante.fechaNacimiento} (
+                    {propuesta.solicitante.edad} años)
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Estado nac.:</span>{" "}
+                  <span>{propuesta.solicitante.estadoNacimiento}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-gray-500">Domicilio:</span>{" "}
+                  <span>
+                    {propuesta.solicitante.domicilioCalle}{" "}
+                    {propuesta.solicitante.domicilioNumero},{" "}
+                    {propuesta.solicitante.domicilioColonia},{" "}
+                    {propuesta.solicitante.domicilioMunicipio},{" "}
+                    {propuesta.solicitante.domicilioEstado}, C.P.{" "}
+                    {propuesta.solicitante.codigoPostal}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
