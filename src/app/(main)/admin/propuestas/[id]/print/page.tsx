@@ -99,16 +99,36 @@ export default function PrintPage({ params }: { params: { id: string } }) {
                 </span>
               </div>
               <div>
-                <span className="text-gray-500">CURP:</span>{" "}
-                <span>{propuesta.aspirante.curp}</span>
-              </div>
-              <div>
                 <span className="text-gray-500">Parentesco:</span>{" "}
                 <span>{propuesta.aspirante.parentesco}</span>
               </div>
               <div>
+                <span className="text-gray-500">Matrícula familiar:</span>{" "}
+                <span>{propuesta.aspirante.matriculaFamiliar}</span>
+              </div>
+              <div>
                 <span className="text-gray-500">Teléfono:</span>{" "}
                 <span>{propuesta.aspirante.telefono}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Contratación:</span>{" "}
+                <span>{propuesta.aspirante.tipoContratacion}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Correo:</span>{" "}
+                <span>{propuesta.aspirante.correo}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-500">Antigüedad:</span>{" "}
+                <span>{propuesta.aspirante.antiguedad}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Fecha de ingreso:</span>{" "}
+                <span>{propuesta.aspirante.fechaIngreso}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-500">Unidad de adscripción:</span>{" "}
+                <span>{propuesta.aspirante.unidadAdscripcion}</span>
               </div>
             </div>
           </div>

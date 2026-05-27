@@ -6,7 +6,6 @@ import {
   createPropuesta,
   listPropuestas,
   propuestaActivaPorMatricula,
-  curpExisteEnPropuestasActivas,
 } from "@/lib/firebase/propuestas";
 import { getRequerimientosActivos } from "@/lib/firebase/requerimientos";
 import { generarNumeroCaso } from "@/lib/firebase/contadores";
@@ -41,15 +40,29 @@ export async function GET(request: NextRequest) {
 }
 
 // POST — crear propuesta desde formulario público (sin auth)
+const PARENTESCO_VALUES = [
+  "PADRE/MADRE",
+  "ESPOSO/A",
+  "HERMANO/A",
+  "HIJO/A",
+  "OTRO",
+  "SIN FAMILIAR",
+] as const;
+
 const CrearSchema = z.object({
   matricula: z.string().min(4).max(20),
   sinFamiliar: z.boolean().default(false),
   aspirante: z
     .object({
       nombreCompleto: z.string().min(2).max(120),
-      curp: z.string().length(18),
-      parentesco: z.enum(["Hijo", "Hija", "Cónyuge", "Otro"]).nullable(),
+      parentesco: z.enum(PARENTESCO_VALUES).nullable(),
+      matriculaFamiliar: z.string().min(1).max(20),
       telefono: z.string().regex(/^\d{10}$/),
+      tipoContratacion: z.string().min(1).max(60),
+      correo: z.string().email(),
+      antiguedad: z.string().min(1).max(100),
+      fechaIngreso: z.string().min(1),
+      unidadAdscripcion: z.string().min(1).max(200),
     })
     .nullable(),
 });
@@ -107,9 +120,7 @@ export async function POST(request: NextRequest) {
 
     // Calcular warnings
     const propuestaActiva = await propuestaActivaPorMatricula(matricula);
-    const curpDuplicado = aspirante?.curp
-      ? await curpExisteEnPropuestasActivas(aspirante.curp)
-      : false;
+    const curpDuplicado = false;
     const requerimientos = await getRequerimientosActivos();
     const hayRequerimiento = requerimientos.some((r) =>
       r.partidas.some((p) => p.cantidadDisponible > 0),

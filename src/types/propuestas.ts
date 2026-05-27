@@ -1,13 +1,24 @@
 import type { Timestamp } from "firebase/firestore";
 import type { EstadoPropuesta, EstadoFase2, EventoHistorial } from "./workflow";
 
-export type Parentesco = "Hijo" | "Hija" | "Cónyuge" | "Otro";
+export type Parentesco =
+  | "PADRE/MADRE"
+  | "ESPOSO/A"
+  | "HERMANO/A"
+  | "HIJO/A"
+  | "OTRO"
+  | "SIN FAMILIAR";
 
 export interface Aspirante {
   nombreCompleto: string;
-  curp: string;
   parentesco: Parentesco | null;
+  matriculaFamiliar: string;
   telefono: string;
+  tipoContratacion: string;
+  correo: string;
+  antiguedad: string; // "xx años xx qnas xx dias"
+  fechaIngreso: string; // YYYY-MM-DD
+  unidadAdscripcion: string;
 }
 
 export interface WarningsPropuesta {

@@ -267,16 +267,27 @@ export default function CasoDetalle({ id }: { id: string }) {
                 <DataRow label="Nombre">
                   {propuesta.aspirante.nombreCompleto}
                 </DataRow>
-                <DataRow label="CURP">
-                  <span className="font-mono text-xs uppercase">
-                    {propuesta.aspirante.curp}
-                  </span>
-                </DataRow>
                 <DataRow label="Parentesco">
                   {propuesta.aspirante.parentesco ?? "—"}
                 </DataRow>
+                <DataRow label="Matrícula">
+                  {propuesta.aspirante.matriculaFamiliar}
+                </DataRow>
                 <DataRow label="Teléfono">
                   {propuesta.aspirante.telefono}
+                </DataRow>
+                <DataRow label="Contratación">
+                  {propuesta.aspirante.tipoContratacion}
+                </DataRow>
+                <DataRow label="Correo">{propuesta.aspirante.correo}</DataRow>
+                <DataRow label="Antigüedad">
+                  {propuesta.aspirante.antiguedad}
+                </DataRow>
+                <DataRow label="Ingreso">
+                  {propuesta.aspirante.fechaIngreso}
+                </DataRow>
+                <DataRow label="Unidad">
+                  {propuesta.aspirante.unidadAdscripcion}
                 </DataRow>
               </InfoCard>
             )}
