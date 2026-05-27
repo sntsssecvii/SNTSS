@@ -7,6 +7,7 @@ import type {
   WarningsPropuesta,
   Aspirante,
   DatosSolicitante,
+  DatosPropuesta,
 } from "@/types/propuestas";
 import type {
   EstadoPropuesta,
@@ -20,6 +21,7 @@ export async function createPropuesta(data: {
   numeroCaso: string;
   matricula: string;
   solicitante: DatosSolicitante | null;
+  datosPropuesta: DatosPropuesta | null;
   sinFamiliar: boolean;
   aspirante: Aspirante | null;
   ineUrl: string | null;
@@ -41,6 +43,7 @@ export async function createPropuesta(data: {
     motivoRechazo: null,
     matricula: data.matricula,
     solicitante: data.solicitante,
+    datosPropuesta: data.datosPropuesta,
     sinFamiliar: data.sinFamiliar,
     aspirante: data.aspirante,
     documentos: { ineUrl: data.ineUrl },

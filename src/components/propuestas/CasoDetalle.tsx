@@ -256,6 +256,16 @@ export default function CasoDetalle({ id }: { id: string }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Columna izquierda */}
           <div className="space-y-4">
+            {/* Datos propuesta solicitada */}
+            {propuesta.datosPropuesta && (
+              <InfoCard title="Propuesta solicitada">
+                <DataRow label="Categoría">
+                  {propuesta.datosPropuesta.categoriaSolicitada}
+                </DataRow>
+                <DataRow label="Zona">{propuesta.datosPropuesta.zona}</DataRow>
+              </InfoCard>
+            )}
+
             {/* Datos trabajador */}
             <InfoCard title="Trabajador solicitante">
               <DataRow label="Matrícula">{propuesta.matricula}</DataRow>

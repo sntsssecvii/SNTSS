@@ -10,7 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { MUNICIPIOS_BC, ESCOLARIDAD_OPTIONS } from "@/types/propuestas";
+import {
+  MUNICIPIOS_BC,
+  ESCOLARIDAD_OPTIONS,
+  ZONAS_BC,
+  CATEGORIAS_PROPUESTA,
+} from "@/types/propuestas";
 
 const ESTADOS_MEXICO = [
   "Aguascalientes",
@@ -103,6 +108,10 @@ const FormSchema = z
         /^[A-Za-z]{4}\d{6}[A-Za-z0-9]{3}$/,
         "RFC inválido — deben ser 13 caracteres (AAAA######AAA)",
       ),
+
+    // -- Página 3: datos de la propuesta --
+    categoriaSolicitada: z.string().min(1, "Categoría requerida"),
+    zona: z.string().min(1, "Zona requerida"),
   })
   .superRefine((data, ctx) => {
     if (data.parentesco === "SIN FAMILIAR") return;
@@ -242,6 +251,14 @@ export default function SolicitudForm() {
       } else {
         fd.append("aspirante", "null");
       }
+
+      fd.append(
+        "datosPropuesta",
+        JSON.stringify({
+          categoriaSolicitada: data.categoriaSolicitada,
+          zona: data.zona,
+        }),
+      );
 
       if (ineFile) fd.append("ine", ineFile);
 
@@ -679,6 +696,38 @@ export default function SolicitudForm() {
               })
             }
           />
+        </Field>
+      </FormCard>
+
+      {/* ── Sección 3: Datos de la propuesta ── */}
+      <FormCard label="Datos de la propuesta">
+        <p className="text-xs text-slate-500 leading-relaxed -mt-1">
+          Elige correctamente de acuerdo a la propuesta que se otorgó.
+        </p>
+
+        <Field
+          label="Categoría solicitada"
+          error={form.formState.errors.categoriaSolicitada?.message}
+        >
+          <Select {...form.register("categoriaSolicitada")} className="w-full">
+            <option value="">Seleccionar categoría...</option>
+            {CATEGORIAS_PROPUESTA.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Zona" error={form.formState.errors.zona?.message}>
+          <Select {...form.register("zona")} className="w-full">
+            <option value="">Seleccionar zona...</option>
+            {ZONAS_BC.map((z) => (
+              <option key={z} value={z}>
+                {z}
+              </option>
+            ))}
+          </Select>
         </Field>
       </FormCard>
 

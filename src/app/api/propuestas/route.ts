@@ -49,6 +49,23 @@ const PARENTESCO_VALUES = [
   "SIN FAMILIAR",
 ] as const;
 
+const ZONAS_VALUES = [
+  "01= San Luis RCS",
+  "02= Mexicali",
+  "03= Tijuana",
+  "04= Ensenada",
+  "05= Tecate",
+  "06= Valle de Ensenada",
+  "07= Valle de Mexicali",
+  "08= Valle de San Luis RCS",
+  "09= San Felipe",
+] as const;
+
+const DatosPropuestaSchema = z.object({
+  categoriaSolicitada: z.string().min(1).max(100),
+  zona: z.enum(ZONAS_VALUES),
+});
+
 const SolicitanteSchema = z.object({
   nombreCompleto: z.string().min(2).max(120),
   correo: z.string().email(),
@@ -71,6 +88,7 @@ const SolicitanteSchema = z.object({
 const CrearSchema = z.object({
   matricula: z.string().min(4).max(20),
   solicitante: SolicitanteSchema.nullable(),
+  datosPropuesta: DatosPropuestaSchema.nullable(),
   sinFamiliar: z.boolean().default(false),
   aspirante: z
     .object({
@@ -101,6 +119,9 @@ export async function POST(request: NextRequest) {
       solicitante: formData.get("solicitante")
         ? JSON.parse(String(formData.get("solicitante")))
         : null,
+      datosPropuesta: formData.get("datosPropuesta")
+        ? JSON.parse(String(formData.get("datosPropuesta")))
+        : null,
       sinFamiliar: formData.get("sinFamiliar") === "true",
       aspirante: formData.get("aspirante")
         ? JSON.parse(String(formData.get("aspirante")))
@@ -114,7 +135,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { matricula, solicitante, sinFamiliar, aspirante } = parsed.data;
+    const { matricula, solicitante, datosPropuesta, sinFamiliar, aspirante } =
+      parsed.data;
 
     // Subir INE si viene
     const ALLOWED_INE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
@@ -161,6 +183,7 @@ export async function POST(request: NextRequest) {
       numeroCaso,
       matricula,
       solicitante,
+      datosPropuesta,
       sinFamiliar,
       aspirante,
       ineUrl,

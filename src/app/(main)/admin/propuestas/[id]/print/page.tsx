@@ -138,6 +138,27 @@ export default function PrintPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
+        {/* Propuesta solicitada */}
+        {propuesta.datosPropuesta && (
+          <div className="border border-gray-300 rounded p-4 mb-4">
+            <p className="font-bold text-sm mb-2">DATOS DE LA PROPUESTA</p>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-gray-500">Categoría solicitada:</span>{" "}
+                <span className="font-medium">
+                  {propuesta.datosPropuesta.categoriaSolicitada}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Zona:</span>{" "}
+                <span className="font-medium">
+                  {propuesta.datosPropuesta.zona}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Datos aspirante */}
         {!propuesta.sinFamiliar && propuesta.aspirante && (
           <div className="border border-gray-300 rounded p-4 mb-4">

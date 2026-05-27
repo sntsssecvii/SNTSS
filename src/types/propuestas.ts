@@ -43,6 +43,20 @@ export const ESCOLARIDAD_OPTIONS = [
   "Doctorado",
 ] as const;
 
+export const ZONAS_BC = [
+  "01= San Luis RCS",
+  "02= Mexicali",
+  "03= Tijuana",
+  "04= Ensenada",
+  "05= Tecate",
+  "06= Valle de Ensenada",
+  "07= Valle de Mexicali",
+  "08= Valle de San Luis RCS",
+  "09= San Felipe",
+] as const;
+
+export type ZonaBC = (typeof ZONAS_BC)[number];
+
 export interface DatosSolicitante {
   nombreCompleto: string;
   correo: string;
@@ -68,6 +82,11 @@ export interface WarningsPropuesta {
   documentoFaltante: boolean;
 }
 
+export interface DatosPropuesta {
+  categoriaSolicitada: string;
+  zona: string;
+}
+
 export interface Propuesta {
   id?: string;
   numeroCaso: string;
@@ -77,6 +96,7 @@ export interface Propuesta {
   motivoRechazo: string | null;
   matricula: string;
   solicitante: DatosSolicitante | null;
+  datosPropuesta: DatosPropuesta | null;
   sinFamiliar: boolean;
   aspirante: Aspirante | null;
   documentos: { ineUrl: string | null };
