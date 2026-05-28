@@ -185,10 +185,13 @@ function parsearHeader(lines: string[]): Partial<HeaderData> {
   const totalMatch = texto.match(/NUMERO DE ASPIRANTES[:\s]+(\d+)/);
   const totalAspirantes = totalMatch ? Number(totalMatch[1]) : 0;
 
-  // Categoría: código (8 dígitos) + descripción
-  const catMatch = texto.match(/CATEGORIA[:\s]+(\d{8})\s+([A-Z\s]+?\d{2})/);
-  const categoriaCode = catMatch?.[1] ?? "";
-  const categoriaDesc = catMatch?.[2]?.trim() ?? "";
+  // Categoría: código (8 dígitos) + descripción opcional hasta keyword siguiente
+  const catCodeMatch = texto.match(/CATEGORIA[:\s]+(\d{8})/);
+  const categoriaCode = catCodeMatch?.[1] ?? "";
+  const catDescMatch = texto.match(
+    /CATEGORIA[:\s]+\d{8}\s+([A-Z\s0-9]+?)(?=\s+CONVOCATORIA|\s+VIGENCIA|\s+AREA|\s+PERIODO)/,
+  );
+  const categoriaDesc = catDescMatch?.[1]?.trim() ?? "";
 
   // Area: código (3 dígitos) + descripción
   const areaMatch = texto.match(

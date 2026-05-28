@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   try {
     enforceRateLimit(req, {
       bucket: "escalafon-procesar",
-      limit: 10,
+      limit: 60,
       windowMs: 60_000,
     });
 
