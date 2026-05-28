@@ -31,6 +31,9 @@ const nextConfig = {
     }
     return config;
   },
+  // pdfjs-dist debe estar fuera del bundle para que su worker (.mjs) sea
+  // accesible en runtime via require.resolve() en Vercel.
+  serverExternalPackages: ["pdfjs-dist"],
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
