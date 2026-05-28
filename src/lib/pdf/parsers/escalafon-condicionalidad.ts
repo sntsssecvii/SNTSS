@@ -1,7 +1,10 @@
 import { readFile } from "fs/promises";
 import { createRequire } from "module";
 import { pathToFileURL } from "url";
+import path from "path";
+import * as XLSX from "xlsx";
 import { callPythonExtractor } from "@/lib/pdf/pythonBridge";
+import { AdobePdfService } from "@/lib/excel/services/adobePdfService";
 import type {
   EscalafonParseResult,
   EscalafonAspirante,
@@ -304,6 +307,49 @@ function esLineaDato(line: string): boolean {
   return ROW_PATTERN.test(line);
 }
 
+// --- Extracción vía Adobe PDF Services → Excel ---
+
+/**
+ * Convierte el PDF a Excel con Adobe y aplana cada fila en una línea de texto.
+ * Esto replica el mismo output que pdfplumber/pdfjs (lista de líneas por página),
+ * por lo que los parsers de header y filas de datos no necesitan cambios.
+ */
+async function extraerLineasConAdobe(
+  pdfPath: string,
+): Promise<{ page_number: number; lines: string[] }[]> {
+  const buffer = await readFile(pdfPath);
+  const excelBuffer = await AdobePdfService.convertPdfToExcel(
+    buffer,
+    path.basename(pdfPath),
+  );
+
+  const workbook = XLSX.read(excelBuffer);
+  const results: { page_number: number; lines: string[] }[] = [];
+
+  for (let i = 0; i < workbook.SheetNames.length; i++) {
+    const sheet = workbook.Sheets[workbook.SheetNames[i]];
+    // Cada fila del Excel → array de celdas; unimos con espacio para reconstruir la línea
+    const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+      header: 1,
+      defval: null,
+    });
+
+    const lines = rows
+      .map((row) =>
+        row
+          .filter((cell) => cell !== null && String(cell).trim() !== "")
+          .map((cell) => String(cell).trim())
+          .join(" ")
+          .trim(),
+      )
+      .filter((l) => l.length > 0);
+
+    results.push({ page_number: i + 1, lines });
+  }
+
+  return results;
+}
+
 // --- Función principal ---
 
 export async function parsearListadoCondicionalidad(
@@ -320,15 +366,32 @@ export async function parsearListadoCondicionalidad(
   try {
     let pages: { page_number: number; lines: string[] }[];
 
-    try {
-      const data = await callPythonExtractor(pdfPath);
-      pages = data.pages.map((p) => ({
-        page_number: p.page_number,
-        lines: p.lines ?? [],
-      }));
-    } catch {
-      // Python no disponible (Vercel u otro entorno sin venv) — usar pdfjs-dist
-      pages = await extraerLineasConPdfjs(pdfPath);
+    // 1. Adobe PDF Services (primario) — igual que bolsa de trabajo
+    // 2. Python bridge (local dev con venv)
+    // 3. pdfjs-dist (último recurso en Node.js)
+    const adobeClientId = process.env.ADOBE_CLIENT_ID;
+    const adobeClientSecret = process.env.ADOBE_CLIENT_SECRET;
+
+    if (adobeClientId && adobeClientSecret) {
+      try {
+        pages = await extraerLineasConAdobe(pdfPath);
+      } catch (adobeErr) {
+        errores.push(
+          `Adobe falló, usando fallback: ${adobeErr instanceof Error ? adobeErr.message : String(adobeErr)}`,
+        );
+        pages = await extraerLineasConPdfjs(pdfPath);
+      }
+    } else {
+      try {
+        const data = await callPythonExtractor(pdfPath);
+        pages = data.pages.map((p) => ({
+          page_number: p.page_number,
+          lines: p.lines ?? [],
+        }));
+      } catch {
+        // Python no disponible (Vercel u otro entorno sin venv) — usar pdfjs-dist
+        pages = await extraerLineasConPdfjs(pdfPath);
+      }
     }
 
     for (const page of pages) {
