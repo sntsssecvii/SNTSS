@@ -6,21 +6,63 @@ import type {
   EscalafonPreferencia,
 } from "@/types/escalafon";
 
-// Extrae líneas del PDF usando pdf-parse (fallback Node.js puro sin Python)
-// El require es lazy para no cargar pdfjs-dist en el entorno de tests
-async function extraerLineasConPdfParse(
+// Extrae líneas del PDF usando pdfjs-dist con reconstrucción espacial por coordenada Y.
+// A diferencia de pdf-parse, agrupa los items de texto por posición Y (tolerancia 5pt)
+// y los ordena por X, preservando el layout de columnas de los PDFs SIAP.
+// Carga lazy para no inicializar pdfjs-dist en el entorno de tests.
+async function extraerLineasConPdfjs(
   pdfPath: string,
 ): Promise<{ page_number: number; lines: string[] }[]> {
   const buffer = await readFile(pdfPath);
-  const pdfParse = require("pdf-parse") as (
-    buf: Buffer,
-  ) => Promise<{ text: string }>;
-  const result = await pdfParse(buffer);
-  // pdf-parse no pagina, devolvemos todo como página 1
-  const lines = result.text
-    .split("\n")
-    .filter((l: string) => l.trim().length > 0);
-  return [{ page_number: 1, lines }];
+
+  const pdfjsLib = await import("pdfjs-dist");
+  // Deshabilitar worker para ejecución server-side en Node.js
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+    .promise;
+
+  const results: { page_number: number; lines: string[] }[] = [];
+  const Y_TOLERANCE = 5;
+
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    const page = await doc.getPage(pageNum);
+    const content = await page.getTextContent();
+
+    // Agrupar items por coordenada Y (reconstrucción de filas horizontales)
+    const rows: { y: number; items: { x: number; text: string }[] }[] = [];
+
+    for (const item of content.items) {
+      if (!("str" in item) || !item.str.trim()) continue;
+      const typed = item as { transform: number[]; str: string };
+      const x = typed.transform[4];
+      const y = typed.transform[5];
+
+      const row = rows.find((r) => Math.abs(r.y - y) <= Y_TOLERANCE);
+      if (row) {
+        row.items.push({ x, text: typed.str });
+      } else {
+        rows.push({ y, items: [{ x, text: typed.str }] });
+      }
+    }
+
+    // PDF coords son de abajo hacia arriba → ordenar descendente = top-first
+    rows.sort((a, b) => b.y - a.y);
+
+    const lines = rows
+      .map((row) => {
+        row.items.sort((a, b) => a.x - b.x);
+        return row.items
+          .map((i) => i.text)
+          .join(" ")
+          .trim();
+      })
+      .filter((l) => l.length > 0);
+
+    results.push({ page_number: pageNum, lines });
+  }
+
+  return results;
 }
 
 // --- Helpers ---
@@ -270,8 +312,8 @@ export async function parsearListadoCondicionalidad(
         lines: p.lines ?? [],
       }));
     } catch {
-      // Python no disponible (Vercel u otro entorno sin venv) — usar pdf-parse
-      pages = await extraerLineasConPdfParse(pdfPath);
+      // Python no disponible (Vercel u otro entorno sin venv) — usar pdfjs-dist
+      pages = await extraerLineasConPdfjs(pdfPath);
     }
 
     for (const page of pages) {
