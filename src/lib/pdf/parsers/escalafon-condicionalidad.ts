@@ -1,4 +1,6 @@
 import { readFile } from "fs/promises";
+import { createRequire } from "module";
+import { pathToFileURL } from "url";
 import { callPythonExtractor } from "@/lib/pdf/pythonBridge";
 import type {
   EscalafonParseResult,
@@ -15,9 +17,22 @@ async function extraerLineasConPdfjs(
 ): Promise<{ page_number: number; lines: string[] }[]> {
   const buffer = await readFile(pdfPath);
 
+  // Polyfill mínimo para que pdfjs-dist funcione en Node.js sin DOM
+  if (typeof global !== "undefined") {
+    if (!(global as Record<string, unknown>).DOMMatrix)
+      (global as Record<string, unknown>).DOMMatrix = class DOMMatrix {};
+    if (!(global as Record<string, unknown>).Path2D)
+      (global as Record<string, unknown>).Path2D = class Path2D {};
+    if (!(global as Record<string, unknown>).ImageData)
+      (global as Record<string, unknown>).ImageData = class ImageData {};
+  }
+
   const pdfjsLib = await import("pdfjs-dist");
-  // Deshabilitar worker para ejecución server-side en Node.js
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+  // Apuntar al worker real para que pdfjs pueda inicializar en Node.js.
+  // Requiere que pdfjs-dist esté en serverExternalPackages en next.config.js.
+  const req = createRequire(import.meta.url);
+  const workerPath = req.resolve("pdfjs-dist/build/pdf.worker.mjs");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString();
 
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
     .promise;
