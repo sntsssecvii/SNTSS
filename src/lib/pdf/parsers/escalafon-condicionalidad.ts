@@ -322,6 +322,49 @@ function excelSerialAFecha(serial: number): string {
 }
 
 /**
+ * Parsea cols 6-10 de una fila Excel de Adobe para extraer la preferencia del aspirante.
+ *   Col 6: delegación solicitada  (ej. "02 BAJA CALIFORNIA")
+ *   Col 7: zona solicitada        (ej. "7 TIJUANA")
+ *   Col 8: localidad solicitada   (ej. "0205321 RIO TIJUANA")
+ *   Col 9: adscripción solicitada (ej. "02HA010000 HOSPITAL GENERAL REGIONAL 01")
+ *   Col 10: turno solicitado      (ej. "1 Matutino" o "Incondicional")
+ */
+function parsearPreferenciaDesdeColumnas(
+  row: (string | number | null)[],
+): EscalafonPreferencia {
+  const str = (v: unknown): string => (v == null ? "" : String(v).trim());
+
+  const delegacionSolicitada = str(row[6]) || "Incondicional";
+  const zonaSolicitada = str(row[7]) || "Incondicional";
+  const localidadSolicitada = str(row[8]) || "Incondicional";
+
+  // Adscripción: "02HA010000 HOSPITAL GENERAL REGIONAL 01" → code + desc
+  const adscRaw = str(row[9]);
+  const adscMatch = adscRaw.match(/^(\d{2}[A-Z]{2}\d{6})\s+(.+)$/);
+  const adscripcionCode = adscMatch?.[1] ?? (adscRaw || "Incondicional");
+  const adscripcionDesc =
+    adscMatch?.[2]?.trim() ?? (adscRaw || "Incondicional");
+
+  // Turno: "1 Matutino" → num=1, desc="Matutino" | vacío/Incondicional → num=null
+  const turnoRaw = str(row[10]);
+  const turnoMatch = turnoRaw.match(/^(\d)\s+(.+)$/);
+  const turnoNum = turnoMatch ? Number(turnoMatch[1]) : null;
+  const turnoDesc = turnoMatch
+    ? turnoMatch[2].trim()
+    : turnoRaw || "Incondicional";
+
+  return {
+    delegacionSolicitada,
+    zonaSolicitada,
+    localidadSolicitada,
+    adscripcionCode,
+    adscripcionDesc,
+    turnoNum,
+    turnoDesc,
+  };
+}
+
+/**
  * Parsea el Excel producido por Adobe directamente por columnas.
  * Estructura del Excel SIAP:
  *   Fila 0: título (celda única con \r\n)
@@ -346,6 +389,9 @@ async function parsearDesdeAdobe(
   >();
   let headerData: Partial<HeaderData> = {};
 
+  // Rastrea la última clave válida para agregar preferencias de filas de continuación
+  let ultimaKey: string | null = null;
+
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
@@ -368,91 +414,64 @@ async function parsearDesdeAdobe(
           .map((l) => l.trim())
           .filter(Boolean);
         const parsed = parsearHeader(lines);
-        // Fusionar solo los campos que se hayan extraído
         if (parsed.categoriaCode || parsed.periodoDecierre) {
           headerData = { ...headerData, ...parsed };
         }
         continue;
       }
 
-      // Fila de datos: col[0]=lugar (entero positivo), col[1]="PEI"/"Activo"
-      const col0 = row[0];
+      // Lugar: acepta tanto número como string numérico ("1" → 1)
+      const rawCol0 = row[0];
+      const lugar =
+        typeof rawCol0 === "number"
+          ? rawCol0
+          : typeof rawCol0 === "string" && /^\s*\d+\s*$/.test(rawCol0)
+            ? Number(rawCol0.trim())
+            : NaN;
+
       const col1 = row[1];
-      if (
-        typeof col0 !== "number" ||
-        col0 <= 0 ||
-        typeof col1 !== "string" ||
-        !/^(PEI|Activo)$/i.test(col1)
-      ) {
-        continue;
-      }
+      const esFilaCompleta =
+        isFinite(lugar) &&
+        lugar > 0 &&
+        typeof col1 === "string" &&
+        /^(PEI|Activo)$/i.test(col1);
 
-      const lugar = col0;
-      const estatus: "PEI" | "Activo" = /^PEI$/i.test(col1) ? "PEI" : "Activo";
-      const matricula = String(row[2] ?? "").trim();
-      const nombre = normalizarTexto(String(row[3] ?? ""));
-      // Delegación puede venir como número (ej. 2 → "02")
-      const delegacion = String(row[4] ?? "").padStart(2, "0");
+      if (esFilaCompleta) {
+        // --- Fila completa: nuevo aspirante o nueva preferencia con datos ---
+        const estatus: "PEI" | "Activo" = /^PEI$/i.test(col1)
+          ? "PEI"
+          : "Activo";
+        const matricula = String(row[2] ?? "").trim();
+        const nombre = normalizarTexto(String(row[3] ?? ""));
+        const delegacion = String(row[4] ?? "").padStart(2, "0");
+        const fechaRaw = row[5];
+        const fechaRegistro =
+          typeof fechaRaw === "number"
+            ? excelSerialAFecha(fechaRaw)
+            : String(fechaRaw ?? "").trim();
 
-      // Fecha: serial Excel o string
-      const fechaRaw = row[5];
-      const fechaRegistro =
-        typeof fechaRaw === "number"
-          ? excelSerialAFecha(fechaRaw)
-          : String(fechaRaw ?? "").trim();
+        const preferencia = parsearPreferenciaDesdeColumnas(row);
+        const key = `${lugar}_${matricula}`;
+        ultimaKey = key;
 
-      const delegSol = String(row[6] ?? "Incondicional").trim();
-      const zonaSol = String(row[7] ?? "Incondicional").trim();
-      const locSol = String(row[8] ?? "Incondicional").trim();
-      const adscRaw = String(row[9] ?? "Incondicional").trim();
-      const turnoRaw = String(row[10] ?? "Incondicional").trim();
-
-      // Adscripción: "02HA010000 HOSPITAL GENERAL REGIONAL 01"
-      let adscripcionCode = "Incondicional";
-      let adscripcionDesc = "Incondicional";
-      const adscMatch = adscRaw.match(/^(\d{2}[A-Z]{2}\d{6})\s+(.+)$/);
-      if (adscMatch) {
-        adscripcionCode = adscMatch[1];
-        adscripcionDesc = adscMatch[2].trim();
-      } else if (adscRaw && !/^Incondicional$/i.test(adscRaw)) {
-        adscripcionCode = adscRaw;
-        adscripcionDesc = adscRaw;
-      }
-
-      // Turno: "1 Matutino" o "Incondicional"
-      let turnoNum: number | null = null;
-      let turnoDesc = "Incondicional";
-      const turnoMatch = turnoRaw.match(/^(\d)\s+(.+)$/);
-      if (turnoMatch) {
-        turnoNum = Number(turnoMatch[1]);
-        turnoDesc = turnoMatch[2].trim();
-      } else if (turnoRaw && !/^Incondicional$/i.test(turnoRaw)) {
-        turnoDesc = turnoRaw;
-      }
-
-      const preferencia: EscalafonPreferencia = {
-        delegacionSolicitada: delegSol,
-        zonaSolicitada: zonaSol,
-        localidadSolicitada: locSol,
-        adscripcionCode,
-        adscripcionDesc,
-        turnoNum,
-        turnoDesc,
-      };
-
-      const key = `${lugar}_${matricula}`;
-      if (aspirantesMap.has(key)) {
-        aspirantesMap.get(key)!.preferencias.push(preferencia);
-      } else {
-        aspirantesMap.set(key, {
-          lugar,
-          estatus,
-          matricula,
-          nombre,
-          delegacion,
-          fechaRegistro,
-          preferencias: [preferencia],
-        });
+        if (aspirantesMap.has(key)) {
+          aspirantesMap.get(key)!.preferencias.push(preferencia);
+        } else {
+          aspirantesMap.set(key, {
+            lugar,
+            estatus,
+            matricula,
+            nombre,
+            delegacion,
+            fechaRegistro,
+            preferencias: [preferencia],
+          });
+        }
+      } else if (ultimaKey && row[6] !== null) {
+        // --- Fila de continuación: misma persona, preferencia adicional ---
+        // SIAP puede omitir lugar/estatus (null) o repetir el lugar (no-PEI/Activo en col[1]).
+        const preferencia = parsearPreferenciaDesdeColumnas(row);
+        aspirantesMap.get(ultimaKey)?.preferencias.push(preferencia);
       }
     }
   }
