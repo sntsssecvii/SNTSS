@@ -307,16 +307,31 @@ function esLineaDato(line: string): boolean {
   return ROW_PATTERN.test(line);
 }
 
-// --- Extracción vía Adobe PDF Services → Excel ---
+// --- Parser directo desde Excel de Adobe ---
 
 /**
- * Convierte el PDF a Excel con Adobe y aplana cada fila en una línea de texto.
- * Esto replica el mismo output que pdfplumber/pdfjs (lista de líneas por página),
- * por lo que los parsers de header y filas de datos no necesitan cambios.
+ * Convierte serial de Excel (días desde 1900) a string DD/MM/YYYY.
+ * Adobe exporta fechas como números enteros (ej. 45539 = 01/09/2024).
  */
-async function extraerLineasConAdobe(
+function excelSerialAFecha(serial: number): string {
+  const msDesdeUnix = Math.round((serial - 25569) * 86400 * 1000);
+  const d = new Date(msDesdeUnix);
+  const dd = d.getUTCDate().toString().padStart(2, "0");
+  const mm = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+  return `${dd}/${mm}/${d.getUTCFullYear()}`;
+}
+
+/**
+ * Parsea el Excel producido por Adobe directamente por columnas.
+ * Estructura del Excel SIAP:
+ *   Fila 0: título (celda única con \r\n)
+ *   Fila 1: metadata del listado (celda única con \r\n)
+ *   Fila 2: encabezados de columnas
+ *   Fila 3+: datos — [lugar, estatus, matricula, nombre, deleg, fecha, delegSol, zonaSol, locSol, adscSol, turnoSol]
+ */
+async function parsearDesdeAdobe(
   pdfPath: string,
-): Promise<{ page_number: number; lines: string[] }[]> {
+): Promise<EscalafonParseResult> {
   const buffer = await readFile(pdfPath);
   const excelBuffer = await AdobePdfService.convertPdfToExcel(
     buffer,
@@ -324,49 +339,154 @@ async function extraerLineasConAdobe(
   );
 
   const workbook = XLSX.read(excelBuffer);
-  const results: { page_number: number; lines: string[] }[] = [];
+  const errores: string[] = [];
+  const aspirantesMap = new Map<
+    string,
+    Omit<EscalafonAspirante, "id" | "listadoId">
+  >();
+  let headerData: Partial<HeaderData> = {};
 
-  for (let i = 0; i < workbook.SheetNames.length; i++) {
-    const sheet = workbook.Sheets[workbook.SheetNames[i]];
-    // Cada fila del Excel → array de celdas; unimos con espacio para reconstruir la línea
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
       header: 1,
       defval: null,
     });
 
-    const lines = rows
-      .map((row) =>
-        row
-          .filter((cell) => cell !== null && String(cell).trim() !== "")
-          .map((cell) => String(cell).trim())
-          .join(" ")
-          .trim(),
-      )
-      .filter((l) => l.length > 0);
+    for (const row of rows) {
+      const nonNull = row.filter((c) => c !== null);
+      if (nonNull.length === 0) continue;
 
-    // DEBUG: loguear las primeras 15 líneas para ver el formato real del Excel
-    if (i === 0) {
-      console.log(
-        "[escalafon-adobe-debug] Primeras 15 líneas del Excel:",
-        JSON.stringify(lines.slice(0, 15)),
-      );
-      // También loguear las primeras 5 filas crudas para ver la estructura de celdas
-      const rawRows = XLSX.utils.sheet_to_json<(string | number | null)[]>(
-        sheet,
-        { header: 1, defval: null },
-      );
-      console.log(
-        "[escalafon-adobe-debug] Primeras 5 filas crudas:",
-        JSON.stringify(
-          rawRows.slice(0, 5).map((r) => r.filter((c) => c !== null)),
-        ),
-      );
+      // Celda única con \r\n → bloque de metadata del encabezado
+      if (
+        nonNull.length === 1 &&
+        typeof nonNull[0] === "string" &&
+        nonNull[0].includes("\r\n")
+      ) {
+        const lines = nonNull[0]
+          .split("\r\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        const parsed = parsearHeader(lines);
+        // Fusionar solo los campos que se hayan extraído
+        if (parsed.categoriaCode || parsed.periodoDecierre) {
+          headerData = { ...headerData, ...parsed };
+        }
+        continue;
+      }
+
+      // Fila de datos: col[0]=lugar (entero positivo), col[1]="PEI"/"Activo"
+      const col0 = row[0];
+      const col1 = row[1];
+      if (
+        typeof col0 !== "number" ||
+        col0 <= 0 ||
+        typeof col1 !== "string" ||
+        !/^(PEI|Activo)$/i.test(col1)
+      ) {
+        continue;
+      }
+
+      const lugar = col0;
+      const estatus: "PEI" | "Activo" = /^PEI$/i.test(col1) ? "PEI" : "Activo";
+      const matricula = String(row[2] ?? "").trim();
+      const nombre = normalizarTexto(String(row[3] ?? ""));
+      // Delegación puede venir como número (ej. 2 → "02")
+      const delegacion = String(row[4] ?? "").padStart(2, "0");
+
+      // Fecha: serial Excel o string
+      const fechaRaw = row[5];
+      const fechaRegistro =
+        typeof fechaRaw === "number"
+          ? excelSerialAFecha(fechaRaw)
+          : String(fechaRaw ?? "").trim();
+
+      const delegSol = String(row[6] ?? "Incondicional").trim();
+      const zonaSol = String(row[7] ?? "Incondicional").trim();
+      const locSol = String(row[8] ?? "Incondicional").trim();
+      const adscRaw = String(row[9] ?? "Incondicional").trim();
+      const turnoRaw = String(row[10] ?? "Incondicional").trim();
+
+      // Adscripción: "02HA010000 HOSPITAL GENERAL REGIONAL 01"
+      let adscripcionCode = "Incondicional";
+      let adscripcionDesc = "Incondicional";
+      const adscMatch = adscRaw.match(/^(\d{2}[A-Z]{2}\d{6})\s+(.+)$/);
+      if (adscMatch) {
+        adscripcionCode = adscMatch[1];
+        adscripcionDesc = adscMatch[2].trim();
+      } else if (adscRaw && !/^Incondicional$/i.test(adscRaw)) {
+        adscripcionCode = adscRaw;
+        adscripcionDesc = adscRaw;
+      }
+
+      // Turno: "1 Matutino" o "Incondicional"
+      let turnoNum: number | null = null;
+      let turnoDesc = "Incondicional";
+      const turnoMatch = turnoRaw.match(/^(\d)\s+(.+)$/);
+      if (turnoMatch) {
+        turnoNum = Number(turnoMatch[1]);
+        turnoDesc = turnoMatch[2].trim();
+      } else if (turnoRaw && !/^Incondicional$/i.test(turnoRaw)) {
+        turnoDesc = turnoRaw;
+      }
+
+      const preferencia: EscalafonPreferencia = {
+        delegacionSolicitada: delegSol,
+        zonaSolicitada: zonaSol,
+        localidadSolicitada: locSol,
+        adscripcionCode,
+        adscripcionDesc,
+        turnoNum,
+        turnoDesc,
+      };
+
+      const key = `${lugar}_${matricula}`;
+      if (aspirantesMap.has(key)) {
+        aspirantesMap.get(key)!.preferencias.push(preferencia);
+      } else {
+        aspirantesMap.set(key, {
+          lugar,
+          estatus,
+          matricula,
+          nombre,
+          delegacion,
+          fechaRegistro,
+          preferencias: [preferencia],
+        });
+      }
     }
-
-    results.push({ page_number: i + 1, lines });
   }
 
-  return results;
+  const aspirantes = Array.from(aspirantesMap.values()).sort(
+    (a, b) => a.lugar - b.lugar,
+  );
+
+  if (
+    headerData.totalAspirantes &&
+    aspirantes.length !== headerData.totalAspirantes
+  ) {
+    errores.push(
+      `Advertencia: el PDF declara ${headerData.totalAspirantes} aspirantes pero se extrajeron ${aspirantes.length}.`,
+    );
+  }
+
+  const listado = {
+    delegacion: headerData.delegacion ?? "",
+    numeroListado: headerData.numeroListado ?? "",
+    sector: headerData.sector ?? "",
+    fechaEmision: headerData.fechaEmision ?? "",
+    categoriaCode: headerData.categoriaCode ?? "",
+    categoriaDesc: headerData.categoriaDesc ?? "",
+    areaCode: headerData.areaCode ?? "",
+    areaDesc: headerData.areaDesc ?? "",
+    convocatoria: headerData.convocatoria ?? "",
+    vigenciaInicio: headerData.vigenciaInicio ?? "",
+    vigenciaFin: headerData.vigenciaFin ?? "",
+    periodoDecierre: headerData.periodoDecierre ?? "",
+    totalAspirantes: headerData.totalAspirantes ?? 0,
+  };
+
+  return { listado, aspirantes, errores };
 }
 
 // --- Función principal ---
@@ -374,8 +494,23 @@ async function extraerLineasConAdobe(
 export async function parsearListadoCondicionalidad(
   pdfPath: string,
 ): Promise<EscalafonParseResult> {
+  const adobeClientId = process.env.ADOBE_CLIENT_ID;
+  const adobeClientSecret = process.env.ADOBE_CLIENT_SECRET;
+
+  // 1. Adobe PDF Services — parser directo por columnas (primario en Vercel)
+  if (adobeClientId && adobeClientSecret) {
+    try {
+      return await parsearDesdeAdobe(pdfPath);
+    } catch (adobeErr) {
+      console.error(
+        "[escalafon] Adobe falló, usando fallback de texto:",
+        adobeErr,
+      );
+    }
+  }
+
+  // 2. Fallback: texto (Python local → pdfjs-dist)
   const errores: string[] = [];
-  // Map key: `${lugar}_${matricula}` para agrupar preferencias
   const aspirantesMap = new Map<
     string,
     Omit<EscalafonAspirante, "id" | "listadoId">
@@ -385,36 +520,17 @@ export async function parsearListadoCondicionalidad(
   try {
     let pages: { page_number: number; lines: string[] }[];
 
-    // 1. Adobe PDF Services (primario) — igual que bolsa de trabajo
-    // 2. Python bridge (local dev con venv)
-    // 3. pdfjs-dist (último recurso en Node.js)
-    const adobeClientId = process.env.ADOBE_CLIENT_ID;
-    const adobeClientSecret = process.env.ADOBE_CLIENT_SECRET;
-
-    if (adobeClientId && adobeClientSecret) {
-      try {
-        pages = await extraerLineasConAdobe(pdfPath);
-      } catch (adobeErr) {
-        errores.push(
-          `Adobe falló, usando fallback: ${adobeErr instanceof Error ? adobeErr.message : String(adobeErr)}`,
-        );
-        pages = await extraerLineasConPdfjs(pdfPath);
-      }
-    } else {
-      try {
-        const data = await callPythonExtractor(pdfPath);
-        pages = data.pages.map((p) => ({
-          page_number: p.page_number,
-          lines: p.lines ?? [],
-        }));
-      } catch {
-        // Python no disponible (Vercel u otro entorno sin venv) — usar pdfjs-dist
-        pages = await extraerLineasConPdfjs(pdfPath);
-      }
+    try {
+      const data = await callPythonExtractor(pdfPath);
+      pages = data.pages.map((p) => ({
+        page_number: p.page_number,
+        lines: p.lines ?? [],
+      }));
+    } catch {
+      pages = await extraerLineasConPdfjs(pdfPath);
     }
 
     for (const page of pages) {
-      // Parsear header solo en página 1
       if (page.page_number === 1 && page.lines?.length) {
         headerData = parsearHeader(page.lines);
       }
@@ -464,11 +580,13 @@ export async function parsearListadoCondicionalidad(
   const aspirantes = Array.from(aspirantesMap.values()).sort(
     (a, b) => a.lugar - b.lugar,
   );
-  const parsed = aspirantes.length;
 
-  if (headerData.totalAspirantes && parsed !== headerData.totalAspirantes) {
+  if (
+    headerData.totalAspirantes &&
+    aspirantes.length !== headerData.totalAspirantes
+  ) {
     errores.push(
-      `Advertencia: el PDF declara ${headerData.totalAspirantes} aspirantes pero se extrajeron ${parsed}.`,
+      `Advertencia: el PDF declara ${headerData.totalAspirantes} aspirantes pero se extrajeron ${aspirantes.length}.`,
     );
   }
 
