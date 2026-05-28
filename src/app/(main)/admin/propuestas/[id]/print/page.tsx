@@ -174,10 +174,12 @@ export default function PrintPage({ params }: { params: { id: string } }) {
                 <span className="text-gray-500">Parentesco:</span>{" "}
                 <span>{propuesta.aspirante.parentesco}</span>
               </div>
-              <div>
-                <span className="text-gray-500">Matrícula familiar:</span>{" "}
-                <span>{propuesta.aspirante.matriculaFamiliar}</span>
-              </div>
+              {propuesta.aspirante.matriculaFamiliar && (
+                <div>
+                  <span className="text-gray-500">Matrícula familiar:</span>{" "}
+                  <span>{propuesta.aspirante.matriculaFamiliar}</span>
+                </div>
+              )}
               <div>
                 <span className="text-gray-500">Teléfono:</span>{" "}
                 <span>{propuesta.aspirante.telefono}</span>

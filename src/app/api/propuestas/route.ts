@@ -94,7 +94,7 @@ const CrearSchema = z.object({
     .object({
       nombreCompleto: z.string().min(2).max(120),
       parentesco: z.enum(PARENTESCO_VALUES).nullable(),
-      matriculaFamiliar: z.string().min(1).max(20),
+      matriculaFamiliar: z.string().max(20).optional().default(""),
       telefono: z.string().regex(/^\d{10}$/),
       tipoContratacion: z.string().min(1).max(60),
       correo: z.string().email(),

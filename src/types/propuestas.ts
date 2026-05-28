@@ -12,7 +12,7 @@ export type Parentesco =
 export interface Aspirante {
   nombreCompleto: string;
   parentesco: Parentesco | null;
-  matriculaFamiliar: string;
+  matriculaFamiliar?: string;
   telefono: string;
   tipoContratacion: string;
   correo: string;

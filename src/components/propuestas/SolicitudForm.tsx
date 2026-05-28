@@ -82,7 +82,6 @@ const CAMPOS_PASO_1 = [
   "matriculaSolicitante",
   "parentesco",
   "nombreFamiliar",
-  "matriculaFamiliar",
   "telefonoFamiliar",
   "tipoContratacion",
   "correoFamiliar",
@@ -119,7 +118,6 @@ const FormSchema = z
       required_error: "Selecciona el parentesco",
     }),
     nombreFamiliar: z.string().max(120).optional(),
-    matriculaFamiliar: z.string().max(20).optional(),
     telefonoFamiliar: z.string().max(10).optional(),
     tipoContratacion: z.string().optional(),
     correoFamiliar: z.string().max(120).optional(),
@@ -174,7 +172,6 @@ const FormSchema = z
         message: "Nombre requerido",
         path: ["nombreFamiliar"],
       });
-    req(data.matriculaFamiliar, "matriculaFamiliar", "Matrícula requerida");
     if (!data.telefonoFamiliar || !/^\d{10}$/.test(data.telefonoFamiliar))
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -283,7 +280,6 @@ export default function SolicitudForm() {
           JSON.stringify({
             nombreCompleto: data.nombreFamiliar ?? "",
             parentesco: data.parentesco,
-            matriculaFamiliar: data.matriculaFamiliar ?? "",
             telefono: data.telefonoFamiliar ?? "",
             tipoContratacion: data.tipoContratacion ?? "",
             correo: data.correoFamiliar ?? "",
@@ -421,7 +417,7 @@ export default function SolicitudForm() {
 
 // ─── Indicador de pasos ───────────────────────────────────────────────────────
 
-const PASO_LABELS = ["Familiar IMSS", "Datos personales", "La propuesta"];
+const PASO_LABELS = ["El aspirante", "Tus datos", "La propuesta"];
 
 function StepIndicator({ paso }: { paso: number }) {
   return (
@@ -501,45 +497,55 @@ function Paso1({
   setIneFile: (f: File | null) => void;
 }) {
   return (
-    <FormCard label="Datos de tu familiar IMSS">
-      <Field
-        label="Tu matrícula IMSS"
-        error={form.formState.errors.matriculaSolicitante?.message}
-      >
-        <Input
-          {...form.register("matriculaSolicitante")}
-          placeholder="Ej. 12345678"
-          className="uppercase"
-          onChange={(e) =>
-            form.setValue(
-              "matriculaSolicitante",
-              e.target.value.toUpperCase().trim(),
-              {
-                shouldValidate: true,
-              },
-            )
-          }
-        />
-      </Field>
+    <div className="space-y-4">
+      {/* Card 1: datos del trabajador solicitante */}
+      <FormCard label="Tus datos como trabajador">
+        <p className="text-xs text-slate-500 -mt-1">
+          Ingresa tu matrícula IMSS y el parentesco del aspirante que propones.
+        </p>
 
-      <Field
-        label="Parentesco"
-        error={form.formState.errors.parentesco?.message}
-      >
-        <Select {...form.register("parentesco")} className="w-full">
-          <option value="">Seleccionar parentesco...</option>
-          {PARENTESCO_OPTIONS.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </Select>
-      </Field>
+        <Field
+          label="Tu matrícula IMSS"
+          error={form.formState.errors.matriculaSolicitante?.message}
+        >
+          <Input
+            {...form.register("matriculaSolicitante")}
+            placeholder="Ej. 12345678"
+            className="uppercase"
+            onChange={(e) =>
+              form.setValue(
+                "matriculaSolicitante",
+                e.target.value.toUpperCase().trim(),
+                { shouldValidate: true },
+              )
+            }
+          />
+        </Field>
 
+        <Field
+          label="Parentesco del aspirante contigo"
+          error={form.formState.errors.parentesco?.message}
+        >
+          <Select {...form.register("parentesco")} className="w-full">
+            <option value="">Seleccionar parentesco...</option>
+            {PARENTESCO_OPTIONS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </FormCard>
+
+      {/* Card 2: datos del aspirante (condicional) */}
       {!sinFamiliar && parentesco && (
-        <>
+        <FormCard label="Datos del aspirante">
+          <p className="text-xs text-slate-500 -mt-1">
+            Información de la persona que propones para ingresar al IMSS.
+          </p>
+
           <Field
-            label="Nombre completo de tu familiar IMSS"
+            label="Nombre completo"
             hint="Empieza por APELLIDOS y luego NOMBRE(S)."
             error={form.formState.errors.nombreFamiliar?.message}
           >
@@ -550,27 +556,7 @@ function Paso1({
           </Field>
 
           <Field
-            label="Matrícula de tu familiar IMSS"
-            error={form.formState.errors.matriculaFamiliar?.message}
-          >
-            <Input
-              {...form.register("matriculaFamiliar")}
-              placeholder="Matrícula IMSS del familiar"
-              className="uppercase"
-              onChange={(e) =>
-                form.setValue(
-                  "matriculaFamiliar",
-                  e.target.value.toUpperCase().trim(),
-                  {
-                    shouldValidate: true,
-                  },
-                )
-              }
-            />
-          </Field>
-
-          <Field
-            label="Teléfono celular de tu familiar IMSS"
+            label="Teléfono celular"
             hint="Número a 10 dígitos sin espacios."
             error={form.formState.errors.telefonoFamiliar?.message}
           >
@@ -583,7 +569,7 @@ function Paso1({
           </Field>
 
           <Field
-            label="Tipo de contratación de tu familiar IMSS"
+            label="Tipo de contratación solicitada"
             error={form.formState.errors.tipoContratacion?.message}
           >
             <Select {...form.register("tipoContratacion")} className="w-full">
@@ -597,7 +583,7 @@ function Paso1({
           </Field>
 
           <Field
-            label="Correo de tu familiar IMSS"
+            label="Correo electrónico"
             error={form.formState.errors.correoFamiliar?.message}
           >
             <Input
@@ -608,7 +594,7 @@ function Paso1({
           </Field>
 
           <Field
-            label="Antigüedad laboral de tu familiar IMSS"
+            label="Antigüedad laboral"
             hint="Formato: xx años xx qnas xx dias"
             error={form.formState.errors.antiguedad?.message}
           >
@@ -619,14 +605,14 @@ function Paso1({
           </Field>
 
           <Field
-            label="Fecha de ingreso de tu familiar IMSS"
+            label="Fecha de ingreso al IMSS"
             error={form.formState.errors.fechaIngreso?.message}
           >
             <Input {...form.register("fechaIngreso")} type="date" />
           </Field>
 
           <Field
-            label="Unidad de Adscripción de tu familiar IMSS"
+            label="Unidad de adscripción"
             error={form.formState.errors.unidadAdscripcion?.message}
           >
             <Input
@@ -635,7 +621,7 @@ function Paso1({
             />
           </Field>
 
-          <Field label="INE de tu familiar IMSS (JPG, PNG o PDF — máx 5 MB)">
+          <Field label="INE del aspirante (JPG, PNG o PDF — máx 5 MB)">
             <label className="flex items-center gap-3 cursor-pointer border border-dashed border-slate-300 rounded-xl px-4 py-3 hover:border-red-400 hover:bg-red-50 transition-colors">
               <Upload className="h-4 w-4 text-slate-400 flex-shrink-0" />
               <span className="text-sm text-slate-500">
@@ -649,7 +635,7 @@ function Paso1({
               />
             </label>
           </Field>
-        </>
+        </FormCard>
       )}
 
       {sinFamiliar && parentesco && (
@@ -658,7 +644,7 @@ function Paso1({
           La oficina evaluará la solicitud conforme al reglamento.
         </div>
       )}
-    </FormCard>
+    </div>
   );
 }
 

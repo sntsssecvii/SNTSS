@@ -316,9 +316,11 @@ export default function CasoDetalle({ id }: { id: string }) {
                 <DataRow label="Parentesco">
                   {propuesta.aspirante.parentesco ?? "—"}
                 </DataRow>
-                <DataRow label="Matrícula">
-                  {propuesta.aspirante.matriculaFamiliar}
-                </DataRow>
+                {propuesta.aspirante.matriculaFamiliar && (
+                  <DataRow label="Matrícula">
+                    {propuesta.aspirante.matriculaFamiliar}
+                  </DataRow>
+                )}
                 <DataRow label="Teléfono">
                   {propuesta.aspirante.telefono}
                 </DataRow>
