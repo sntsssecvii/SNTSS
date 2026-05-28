@@ -5,20 +5,22 @@ import type { EscalafonListado, EscalafonAspirante } from "@/types/escalafon";
 const COL_LISTADOS = "escalafon_listados";
 const COL_ASPIRANTES = "escalafon_aspirantes";
 
-// Verifica si ya existe un listado para esa categoría, área y periodo
-export async function listadoExiste(
+// Obtiene el listado vigente para esa categoría y área (sin importar periodo)
+// Un listado nuevo del mismo tipo siempre reemplaza al anterior como fuente de verdad
+export async function obtenerListadoVigente(
   categoriaCode: string,
   areaCode: string,
-  periodoDecierre: string,
-): Promise<boolean> {
+): Promise<EscalafonListado | null> {
   const snap = await adminDb
     .collection(COL_LISTADOS)
     .where("categoriaCode", "==", categoriaCode)
     .where("areaCode", "==", areaCode)
-    .where("periodoDecierre", "==", periodoDecierre)
+    .orderBy("creadoEn", "desc")
     .limit(1)
     .get();
-  return !snap.empty;
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  return { id: doc.id, ...doc.data() } as EscalafonListado;
 }
 
 // Guarda un listado y sus aspirantes en batch
