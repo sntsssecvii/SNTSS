@@ -1,9 +1,28 @@
+import { readFile } from "fs/promises";
 import { callPythonExtractor } from "@/lib/pdf/pythonBridge";
 import type {
   EscalafonParseResult,
   EscalafonAspirante,
   EscalafonPreferencia,
 } from "@/types/escalafon";
+
+// Extrae líneas del PDF usando pdf-parse (fallback Node.js puro sin Python)
+// El require es lazy para no cargar pdfjs-dist en el entorno de tests
+async function extraerLineasConPdfParse(
+  pdfPath: string,
+): Promise<{ page_number: number; lines: string[] }[]> {
+  const buffer = await readFile(pdfPath);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require("pdf-parse") as (
+    buf: Buffer,
+  ) => Promise<{ text: string }>;
+  const result = await pdfParse(buffer);
+  // pdf-parse no pagina, devolvemos todo como página 1
+  const lines = result.text
+    .split("\n")
+    .filter((l: string) => l.trim().length > 0);
+  return [{ page_number: 1, lines }];
+}
 
 // --- Helpers ---
 
@@ -243,15 +262,26 @@ export async function parsearListadoCondicionalidad(
   let headerData: Partial<HeaderData> = {};
 
   try {
-    const data = await callPythonExtractor(pdfPath);
+    let pages: { page_number: number; lines: string[] }[];
 
-    for (const page of data.pages) {
+    try {
+      const data = await callPythonExtractor(pdfPath);
+      pages = data.pages.map((p) => ({
+        page_number: p.page_number,
+        lines: p.lines ?? [],
+      }));
+    } catch {
+      // Python no disponible (Vercel u otro entorno sin venv) — usar pdf-parse
+      pages = await extraerLineasConPdfParse(pdfPath);
+    }
+
+    for (const page of pages) {
       // Parsear header solo en página 1
       if (page.page_number === 1 && page.lines?.length) {
         headerData = parsearHeader(page.lines);
       }
 
-      for (const rawLine of page.lines ?? []) {
+      for (const rawLine of page.lines) {
         const line = rawLine.replace(/\s+/g, " ").trim();
         if (!esLineaDato(line)) continue;
 
