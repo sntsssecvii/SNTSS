@@ -344,6 +344,25 @@ async function extraerLineasConAdobe(
       )
       .filter((l) => l.length > 0);
 
+    // DEBUG: loguear las primeras 15 líneas para ver el formato real del Excel
+    if (i === 0) {
+      console.log(
+        "[escalafon-adobe-debug] Primeras 15 líneas del Excel:",
+        JSON.stringify(lines.slice(0, 15)),
+      );
+      // También loguear las primeras 5 filas crudas para ver la estructura de celdas
+      const rawRows = XLSX.utils.sheet_to_json<(string | number | null)[]>(
+        sheet,
+        { header: 1, defval: null },
+      );
+      console.log(
+        "[escalafon-adobe-debug] Primeras 5 filas crudas:",
+        JSON.stringify(
+          rawRows.slice(0, 5).map((r) => r.filter((c) => c !== null)),
+        ),
+      );
+    }
+
     results.push({ page_number: i + 1, lines });
   }
 
