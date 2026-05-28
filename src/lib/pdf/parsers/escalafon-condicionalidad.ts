@@ -12,7 +12,6 @@ async function extraerLineasConPdfParse(
   pdfPath: string,
 ): Promise<{ page_number: number; lines: string[] }[]> {
   const buffer = await readFile(pdfPath);
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pdfParse = require("pdf-parse") as (
     buf: Buffer,
   ) => Promise<{ text: string }>;
