@@ -26,12 +26,17 @@ export default function PrintPage({ params }: { params: { id: string } }) {
   if (!propuesta)
     return <div className="p-8 text-gray-400 text-sm">Cargando...</div>;
 
-  const fecha = propuesta.creadoEn
-    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      new Date((propuesta.creadoEn as any).seconds * 1000).toLocaleDateString(
-        "es-MX",
-        { day: "2-digit", month: "long", year: "numeric" },
-      )
+  const creadoEn = propuesta.creadoEn as unknown as
+    | { seconds: number }
+    | string;
+  const fecha = creadoEn
+    ? new Date(
+        typeof creadoEn === "object" ? creadoEn.seconds * 1000 : creadoEn,
+      ).toLocaleDateString("es-MX", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
     : "";
 
   return (
