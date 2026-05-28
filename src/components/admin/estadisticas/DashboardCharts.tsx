@@ -1,73 +1,74 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import { BarChart3, PieChart, TrendingUp, Calendar } from 'lucide-react'
-import { EstadoPropuesta } from '@/types/workflow'
-import { Skeleton } from '@/components/ui/skeleton'
+import { motion } from "framer-motion";
+import { BarChart3, PieChart, TrendingUp, Calendar } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ChartData {
-  name: string
-  value: number
-  color: string
+  name: string;
+  value: number;
+  color: string;
 }
 
 interface BarChartItem {
-  month: string
-  cantidad: number
+  month: string;
+  cantidad: number;
 }
 
 export interface DashboardChartsData {
-  propuestasPorMes: Array<{ mes: string; cantidad: number }>
-  distribucionPorEstado: Record<string, number>
+  propuestasPorMes: Array<{ mes: string; cantidad: number }>;
+  distribucionPorEstado: Record<string, number>;
 }
 
-const ESTADO_COLORS: Record<EstadoPropuesta, string> = {
-  [EstadoPropuesta.BORRADOR]: '#6b7280', // gray
-  [EstadoPropuesta.EN_REVISION]: '#3b82f6', // blue
-  [EstadoPropuesta.APROBADA]: '#10b981', // green
-  [EstadoPropuesta.RECHAZADA]: '#ef4444', // red
-  [EstadoPropuesta.ENVIADA_IMSS]: '#8b5cf6', // purple
-  [EstadoPropuesta.COMPLETADA]: '#06b6d4', // cyan
-}
+const ESTADO_COLORS: Record<string, string> = {
+  PENDIENTE: "#f59e0b", // amber
+  APROBADA: "#10b981", // green
+  RECHAZADA: "#ef4444", // red
+};
 
-const ESTADO_LABELS: Record<EstadoPropuesta, string> = {
-  [EstadoPropuesta.BORRADOR]: 'Borrador',
-  [EstadoPropuesta.EN_REVISION]: 'En Revisión',
-  [EstadoPropuesta.APROBADA]: 'Aprobadas',
-  [EstadoPropuesta.RECHAZADA]: 'Rechazadas',
-  [EstadoPropuesta.ENVIADA_IMSS]: 'Enviadas al IMSS',
-  [EstadoPropuesta.COMPLETADA]: 'Completadas',
-}
+const ESTADO_LABELS: Record<string, string> = {
+  PENDIENTE: "Pendientes",
+  APROBADA: "Aprobadas",
+  RECHAZADA: "Rechazadas",
+};
 
 function buildBarData(data?: DashboardChartsData): BarChartItem[] {
-  return data?.propuestasPorMes?.map(item => ({ month: item.mes, cantidad: item.cantidad })) || []
+  return (
+    data?.propuestasPorMes?.map((item) => ({
+      month: item.mes,
+      cantidad: item.cantidad,
+    })) || []
+  );
 }
 
 function buildPieData(data?: DashboardChartsData): ChartData[] {
   if (!data) {
     return [
-      { name: 'Aprobadas', value: 0, color: '#10b981' },
-      { name: 'Pendientes', value: 0, color: '#f59e0b' },
-    ]
+      { name: "Aprobadas", value: 0, color: "#10b981" },
+      { name: "Pendientes", value: 0, color: "#f59e0b" },
+    ];
   }
 
   return Object.entries(data.distribucionPorEstado || {})
     .filter(([_, value]) => value > 0)
     .map(([estado, value]) => ({
-      name: ESTADO_LABELS[estado as EstadoPropuesta],
+      name: ESTADO_LABELS[estado] ?? estado,
       value,
-      color: ESTADO_COLORS[estado as EstadoPropuesta],
-    }))
+      color: ESTADO_COLORS[estado] ?? "#6b7280",
+    }));
 }
 
 interface DashboardChartsProps {
-  data?: DashboardChartsData
-  loading?: boolean
+  data?: DashboardChartsData;
+  loading?: boolean;
 }
 
-export default function DashboardCharts({ data, loading = false }: DashboardChartsProps) {
-  const barData = buildBarData(data)
-  const pieData = buildPieData(data)
+export default function DashboardCharts({
+  data,
+  loading = false,
+}: DashboardChartsProps) {
+  const barData = buildBarData(data);
+  const pieData = buildPieData(data);
 
   if (loading) {
     return (
@@ -81,21 +82,23 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
           <Skeleton className="h-64 w-full" />
         </div>
       </div>
-    )
+    );
   }
 
-  const maxBarValue = Math.max(...(barData.length > 0 ? barData.map((d) => d.cantidad) : [1]))
+  const maxBarValue = Math.max(
+    ...(barData.length > 0 ? barData.map((d) => d.cantidad) : [1]),
+  );
 
   // Calcular porcentajes para el gráfico de pastel
-  const totalPie = pieData.reduce((sum, item) => sum + item.value, 0)
+  const totalPie = pieData.reduce((sum, item) => sum + item.value, 0);
   const piePercentages = pieData.map((item) => ({
     ...item,
     percentage: totalPie > 0 ? (item.value / totalPie) * 100 : 0,
-  }))
+  }));
 
   // Calcular el perímetro de la circunferencia para el gráfico de pastel
-  const radius = 80
-  const circumference = 2 * Math.PI * radius
+  const radius = 80;
+  const circumference = 2 * Math.PI * radius;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
@@ -115,7 +118,9 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 Propuestas por Mes
               </h3>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Últimos 12 meses</p>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                Últimos 12 meses
+              </p>
             </div>
           </div>
         </div>
@@ -126,7 +131,9 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
               <motion.div
                 key={item.month}
                 initial={{ height: 0 }}
-                animate={{ height: `${Math.max(5, (item.cantidad / maxBarValue) * 100)}%` }}
+                animate={{
+                  height: `${Math.max(5, (item.cantidad / maxBarValue) * 100)}%`,
+                }}
                 transition={{ duration: 0.8, delay: index * 0.05 }}
                 className="flex-1 group relative"
               >
@@ -169,7 +176,9 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 Estado de Propuestas
               </h3>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Distribución actual</p>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                Distribución actual
+              </p>
             </div>
           </div>
         </div>
@@ -177,14 +186,18 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 md:gap-8">
           {/* SVG del gráfico de pastel */}
           <div className="relative">
-            <svg width="160" height="160" className="transform -rotate-90 sm:w-[180px] sm:h-[180px] md:w-[200px] md:h-[200px]">
+            <svg
+              width="160"
+              height="160"
+              className="transform -rotate-90 sm:w-[180px] sm:h-[180px] md:w-[200px] md:h-[200px]"
+            >
               {(() => {
-                let currentOffset = 0
+                let currentOffset = 0;
                 return piePercentages.map((item, index) => {
-                  const segmentLength = (item.percentage / 100) * circumference
-                  const startOffset = (currentOffset / 100) * circumference
-                  const finalOffset = circumference - startOffset
-                  currentOffset += item.percentage
+                  const segmentLength = (item.percentage / 100) * circumference;
+                  const startOffset = (currentOffset / 100) * circumference;
+                  const finalOffset = circumference - startOffset;
+                  currentOffset += item.percentage;
 
                   return (
                     <motion.circle
@@ -203,14 +216,18 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
                       transition={{ duration: 1, delay: index * 0.2 }}
                       className="hover:opacity-80 transition-opacity cursor-pointer"
                     />
-                  )
-                })
+                  );
+                });
               })()}
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{totalPie}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Total</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  {totalPie}
+                </p>
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                  Total
+                </p>
               </div>
             </div>
           </div>
@@ -254,7 +271,9 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                   Tendencia Mensual
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Últimos 12 meses</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                  Últimos 12 meses
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
@@ -264,23 +283,34 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
           </div>
 
           <div className="h-48 sm:h-56 md:h-64 relative">
-            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
+            <svg
+              width="100%"
+              height="100%"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              className="overflow-visible"
+            >
               <defs>
-                <linearGradient id="trendGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <linearGradient
+                  id="trendGradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
                   <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
                   <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
                 </linearGradient>
               </defs>
               <motion.polyline
                 points={barData
-                  .map(
-                    (d, i) => {
-                      const x = (i / Math.max(1, barData.length - 1)) * 100
-                      const y = 100 - (d.cantidad / Math.max(1, maxBarValue)) * 100
-                      return `${x},${y}`
-                    }
-                  )
-                  .join(' ')}
+                  .map((d, i) => {
+                    const x = (i / Math.max(1, barData.length - 1)) * 100;
+                    const y =
+                      100 - (d.cantidad / Math.max(1, maxBarValue)) * 100;
+                    return `${x},${y}`;
+                  })
+                  .join(" ")}
                 fill="none"
                 stroke="#3b82f6"
                 strokeWidth="3"
@@ -292,14 +322,13 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
               />
               <motion.polygon
                 points={`0,100 ${barData
-                  .map(
-                    (d, i) => {
-                      const x = (i / Math.max(1, barData.length - 1)) * 100
-                      const y = 100 - (d.cantidad / Math.max(1, maxBarValue)) * 100
-                      return `${x},${y}`
-                    }
-                  )
-                  .join(' ')} 100,100`}
+                  .map((d, i) => {
+                    const x = (i / Math.max(1, barData.length - 1)) * 100;
+                    const y =
+                      100 - (d.cantidad / Math.max(1, maxBarValue)) * 100;
+                    return `${x},${y}`;
+                  })
+                  .join(" ")} 100,100`}
                 fill="url(#trendGradient)"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -310,5 +339,5 @@ export default function DashboardCharts({ data, loading = false }: DashboardChar
         </motion.div>
       )}
     </div>
-  )
+  );
 }

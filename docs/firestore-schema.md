@@ -192,15 +192,15 @@ Campos adicionales varian segun `tipoDocumento` (turno, jornada, residencia, ram
 
 ### `registration_audit_logs/{logId}`
 
-| Campo      | Tipo      | Requerido | Descripcion                                  |
-| ---------- | --------- | --------- | -------------------------------------------- |
-| status     | enum      | si        | SUCCESS, ERROR                               |
-| email      | string    | si        | Correo intentado                             |
-| uid        | string    | no        | UID creado si alcanzó a generarse            |
-| ip         | string    | si        | IP estimada del request                      |
-| userAgent  | string    | si        | User agent reportado                         |
-| metadata   | Record    | no        | Error, warning de correo y datos de contexto |
-| createdAt  | Timestamp | si        | Fecha del intento                            |
+| Campo     | Tipo      | Requerido | Descripcion                                  |
+| --------- | --------- | --------- | -------------------------------------------- |
+| status    | enum      | si        | SUCCESS, ERROR                               |
+| email     | string    | si        | Correo intentado                             |
+| uid       | string    | no        | UID creado si alcanzó a generarse            |
+| ip        | string    | si        | IP estimada del request                      |
+| userAgent | string    | si        | User agent reportado                         |
+| metadata  | Record    | no        | Error, warning de correo y datos de contexto |
+| createdAt | Timestamp | si        | Fecha del intento                            |
 
 **Acceso:** Solo admin.
 **Archivos:** `src/app/api/registro/route.ts`
@@ -221,3 +221,50 @@ Campos adicionales varian segun `tipoDocumento` (turno, jornada, residencia, ram
 - Timestamps siempre con `serverTimestamp()` en escrituras
 - Matriculas se normalizan a mayusculas antes de queries
 - `esFuenteVerdad` es un flag singleton por periodo — solo una sincronizacion puede ser fuente de verdad
+
+---
+
+## Módulo: Propuestas Sindicales (Admisión y Cambios)
+
+### `propuestas/{id}`
+
+Solicitudes de ingreso al sindicato.
+
+- `numeroCaso` string — formato "CASO-YYYY-NNNN", asignado al crear
+- `folio` string|null — formato "YYYY-NNNN", asignado al APROBAR
+- `estado` 'PENDIENTE'|'APROBADA'|'RECHAZADA'
+- `estadoFase2` 'SIN_ASIGNAR'|'ASIGNADA'|'DEVUELTA'|null
+- `motivoRechazo` string|null
+- `matricula` string — matrícula IMSS del trabajador solicitante
+- `sinFamiliar` boolean — true para casos excepcionales sin familiar
+- `aspirante` object|null — { nombreCompleto, curp, parentesco, telefono }
+- `documentos.ineUrl` string|null — URL pública Firebase Storage
+- `warnings` object — 5 booleans, informativos, no bloquean el registro
+- `historial` array — eventos { fecha, tipo, usuarioId, nota }
+
+### `requerimientos/{id}`
+
+Circulares del sindicato nacional con plazas disponibles.
+
+- `numeroOficio` string
+- `fechaCircular` Timestamp
+- `estado` 'ACTIVO'|'CERRADO'
+- `partidas` array — { zona, categoria, cantidadTotal, cantidadDisponible }
+- `creadoPor` string — uid del admin
+
+### `asignaciones/{id}`
+
+Relación entre propuesta aprobada y partida de requerimiento.
+
+- `propuestaId` string
+- `requerimientoId` string
+- `zona` string
+- `categoria` string
+- `estado` 'ACTIVA'|'DEVUELTA'
+- `asignadoPor` string — uid del admin
+
+### `contadores/propuestas` (documento especial)
+
+- `ultimoCaso` number — contador de numeroCaso, incrementa en transacción
+- `ultimoFolio` number — contador de folio oficial, incrementa en transacción
+- `anio` number — año vigente para reseteo de contadores

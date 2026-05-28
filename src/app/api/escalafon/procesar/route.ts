@@ -5,10 +5,9 @@ import { validateFileMagicBytes } from "@/lib/security/file-validation";
 import { writeAdminAuditLog } from "@/lib/firebase/admin-audit";
 import { parsearListadoCondicionalidad } from "@/lib/pdf/parsers/escalafon-condicionalidad";
 import {
-  listadoExiste,
+  obtenerListadoVigente,
   guardarListado,
   eliminarListado,
-  obtenerListado,
 } from "@/lib/firebase/escalafon";
 import {
   obtenerLoteAbierto,
@@ -45,8 +44,6 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const reemplazarId =
-      (formData.get("reemplazarId") as string | null) || null;
     const loteIdParam = (formData.get("loteId") as string | null) || null;
     const nombreLoteParam =
       (formData.get("nombreLote") as string | null) || null;
@@ -96,37 +93,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // --- Detectar listado vigente del mismo tipo (auto-reemplazo) ---
+    const listadoVigente = await obtenerListadoVigente(
+      listado.categoriaCode,
+      listado.areaCode,
+    );
+    const reemplazarId = listadoVigente?.id ?? null;
+
     // --- Determinar loteId ---
     let loteIdFinal: string;
-    let loteIdDeReemplazo: string | null = null;
 
-    if (reemplazarId) {
-      // Modo reemplazo: usar el lote del listado que se reemplaza
-      const listadoAnterior = await obtenerListado(reemplazarId);
-      if (!listadoAnterior) {
-        return NextResponse.json(
-          { error: "Listado a reemplazar no encontrado" },
-          { status: 404 },
-        );
-      }
-      loteIdFinal = listadoAnterior.loteId ?? "";
-      loteIdDeReemplazo = reemplazarId;
+    if (listadoVigente) {
+      // Hereda el lote del listado que se reemplaza
+      loteIdFinal = listadoVigente.loteId ?? "";
     } else {
-      // Verificar duplicado
-      const existe = await listadoExiste(
-        listado.categoriaCode,
-        listado.areaCode,
-        listado.periodoDecierre,
-      );
-      if (existe) {
-        return NextResponse.json(
-          {
-            error: `Ya existe un listado para la categoría ${listado.categoriaCode} / área ${listado.areaCode} en el periodo ${listado.periodoDecierre}.`,
-          },
-          { status: 409 },
-        );
-      }
-
       // Resolver lote: parámetro > abierto > crear nuevo
       if (loteIdParam) {
         loteIdFinal = loteIdParam;
@@ -184,7 +164,7 @@ export async function POST(req: NextRequest) {
         periodo: listado.periodoDecierre,
         aspirantesParsed: aspirantes.length,
         loteId: loteIdFinal || null,
-        reemplazarId: loteIdDeReemplazo,
+        reemplazarId,
       },
     });
 
