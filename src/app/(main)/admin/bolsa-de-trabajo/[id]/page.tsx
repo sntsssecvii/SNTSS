@@ -132,6 +132,7 @@ export default function DetalleBolsaDeTrabajoPage() {
   const [filtroZona, setFiltroZona] = useState<string>("all");
   const [busquedaCategoria, setBusquedaCategoria] = useState("");
   const [busquedaZona, setBusquedaZona] = useState("");
+  const [filtrosVisibles, setFiltrosVisibles] = useState(false);
 
   // Edición de nombre
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -905,9 +906,10 @@ export default function DetalleBolsaDeTrabajoPage() {
           className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#020617] h-full overflow-hidden"
         >
           {/* TOOLBAR PREMIUM */}
-          <div className="px-4 lg:px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
-              <div className="w-full xl:max-w-md relative flex-1">
+          <div className="px-4 lg:px-6 py-3 border-b border-slate-100 dark:border-slate-800/50 bg-white dark:bg-slate-900 shrink-0">
+            {/* Fila principal: buscador + toggle filtros (móvil) / todo inline (xl) */}
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Busca registros en esta sección..."
@@ -917,9 +919,25 @@ export default function DetalleBolsaDeTrabajoPage() {
                 />
               </div>
 
-              <div className="hidden h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 xl:block" />
+              {/* Botón toggle filtros — solo en móvil */}
+              <Button
+                variant={
+                  filtrosVisibles ||
+                  filtroCategoria !== "all" ||
+                  filtroZona !== "all"
+                    ? "secondary"
+                    : "ghost"
+                }
+                size="icon"
+                onClick={() => setFiltrosVisibles((v) => !v)}
+                className="xl:hidden h-10 w-10 rounded-xl shrink-0"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
 
-              <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2 xl:px-0 xl:pb-0">
+              {/* Filtros inline — siempre visibles en xl */}
+              <div className="hidden xl:flex items-center gap-1.5">
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
                 <Button
                   variant={filtroValidacion === "all" ? "secondary" : "ghost"}
                   size="sm"
@@ -928,13 +946,11 @@ export default function DetalleBolsaDeTrabajoPage() {
                 >
                   Todos ({totalRegistrosFiltrados})
                 </Button>
-
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
-
                 <Select
                   value={filtroCategoria}
                   onChange={(e) => setFiltroCategoria(e.target.value)}
-                  className="h-10 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
+                  className="h-10 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase w-[160px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
                 >
                   <option value="all">Categoría: Todas</option>
                   {categoriasUnicas.map((cat) => (
@@ -943,11 +959,10 @@ export default function DetalleBolsaDeTrabajoPage() {
                     </option>
                   ))}
                 </Select>
-
                 <Select
                   value={filtroZona}
                   onChange={(e) => setFiltroZona(e.target.value)}
-                  className="h-10 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase w-full sm:w-[160px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
+                  className="h-10 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase w-[160px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
                 >
                   <option value="all">Zona: Todas</option>
                   {zonasUnicas.map((zona) => (
@@ -956,9 +971,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                     </option>
                   ))}
                 </Select>
-
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
-
                 <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
                   <Button
                     variant="ghost"
@@ -988,8 +1001,69 @@ export default function DetalleBolsaDeTrabajoPage() {
                 </div>
               </div>
             </div>
+
+            {/* Panel de filtros desplegable — solo en móvil/tablet */}
+            {filtrosVisibles && (
+              <div className="xl:hidden mt-2 flex flex-wrap items-center gap-2 px-1">
+                <Button
+                  variant={filtroValidacion === "all" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setFiltroValidacion("all")}
+                  className="h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider"
+                >
+                  Todos ({totalRegistrosFiltrados})
+                </Button>
+                <Select
+                  value={filtroCategoria}
+                  onChange={(e) => setFiltroCategoria(e.target.value)}
+                  className="h-9 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase flex-1 min-w-[140px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
+                >
+                  <option value="all">Categoría: Todas</option>
+                  {categoriasUnicas.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  value={filtroZona}
+                  onChange={(e) => setFiltroZona(e.target.value)}
+                  className="h-9 rounded-xl border-none bg-white dark:bg-slate-800 text-[10px] font-black uppercase flex-1 min-w-[140px] shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
+                >
+                  <option value="all">Zona: Todas</option>
+                  {zonasUnicas.map((zona) => (
+                    <option key={zona} value={zona}>
+                      {zona}
+                    </option>
+                  ))}
+                </Select>
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg"
+                    disabled={paginaActual === 1}
+                    onClick={() => setPaginaActual((p) => p - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="px-2 text-[10px] font-black text-slate-500 uppercase">
+                    {paginaActual} / {totalPaginas || 1}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg"
+                    disabled={paginaActual >= totalPaginas}
+                    onClick={() => setPaginaActual((p) => p + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
             {errorCargaDocumento ? (
-              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-[11px] font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
                 {errorCargaDocumento}
               </div>
             ) : null}
