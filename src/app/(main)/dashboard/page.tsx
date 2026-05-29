@@ -637,19 +637,19 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
 
-        {/* SECCIÓN ESCALAFÓN SIAP */}
+        {/* SECCIÓN ESCALAFÓN */}
         {escalafon.length > 0 && (
           <motion.section
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25 }}
             className="space-y-6"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
               <div>
                 <h2 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white flex items-center gap-3">
-                  Mi Escalafón SIAP
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-violet-600 text-white text-base font-black shadow-lg shadow-violet-600/20">
+                  Mi Escalafón
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-primary text-white text-base font-black shadow-lg shadow-primary/20">
                     {escalafon.length}
                   </span>
                 </h2>
@@ -671,10 +671,9 @@ export default function DashboardPage() {
                   item.estatus === "Activo"
                     ? item.posicionesActivoPorZona
                     : item.posicionesPeiPorZona;
-                const zonas = Object.entries(zonasRank).sort(
+                const mejorZona = Object.entries(zonasRank).sort(
                   (a, b) => a[1] - b[1],
-                );
-                const mejorZona = zonas[0];
+                )[0];
 
                 return (
                   <motion.div
@@ -685,14 +684,13 @@ export default function DashboardPage() {
                     whileHover={{ y: -5 }}
                     className="group relative"
                   >
-                    <Card className="border-violet-200/40 dark:border-violet-900/40 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm group-hover:shadow-2xl group-hover:shadow-violet-500/10 transition-all duration-500 border relative overflow-visible h-full flex flex-col">
+                    <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm group-hover:shadow-2xl group-hover:shadow-primary/5 transition-all duration-500 border relative overflow-visible h-full flex flex-col">
                       <div className="p-6 lg:p-7 space-y-6 flex-1 flex flex-col">
                         {/* Header */}
                         <div className="flex items-start justify-between gap-4">
                           <div className="space-y-2 min-w-0 flex-1">
-                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-violet-50 dark:bg-violet-900/30 text-[9px] font-black text-violet-500 uppercase tracking-widest">
-                              <GraduationCap className="h-3 w-3" />
-                              ESCALAFÓN SIAP
+                            <div className="inline-block px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">
+                              Escalafón
                             </div>
                             <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
                               {item.categoriaDesc}
@@ -700,8 +698,8 @@ export default function DashboardPage() {
                           </div>
 
                           <div className="flex flex-col gap-2 shrink-0">
-                            <div className="rounded-3xl bg-gradient-to-br from-violet-500/10 to-violet-500/5 border border-violet-500/20 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-violet-600 group-hover:to-violet-500 transition-all duration-500">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-violet-500 group-hover:text-white/80 transition-colors mb-1">
+                            <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
                                 LUG. ESC.
                               </p>
                               <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
@@ -713,36 +711,24 @@ export default function DashboardPage() {
 
                         {/* Info Row */}
                         <div className="flex flex-col gap-3 py-4 border-y border-slate-50 dark:border-slate-800/50 mt-auto">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
-                                <Briefcase className="h-3.5 w-3.5 text-violet-500 shrink-0" />
-                              </div>
-                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
-                                {item.areaDesc}
-                              </span>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                              <Briefcase className="h-3.5 w-3.5 text-primary/70 shrink-0" />
                             </div>
-                            <span
-                              className={cn(
-                                "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shrink-0",
-                                item.estatus === "Activo"
-                                  ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
-                                  : "bg-amber-500/10 text-amber-700 border-amber-500/20",
-                              )}
-                            >
-                              {item.estatus}
+                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                              {item.areaDesc}
                             </span>
                           </div>
-                          {mejorZona && (
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
-                                <Award className="h-3.5 w-3.5 text-violet-500 shrink-0" />
-                              </div>
-                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
-                                #{mejorZona[1]} en {mejorZona[0]}
-                              </span>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                              <MapPin className="h-3.5 w-3.5 text-primary/70 shrink-0" />
                             </div>
-                          )}
+                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                              {mejorZona
+                                ? `#${mejorZona[1]} ${mejorZona[0]}`
+                                : item.estatus}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Footer */}
@@ -752,7 +738,7 @@ export default function DashboardPage() {
                               setEscalafonDetalle(item);
                               setIsEscalafonModalOpen(true);
                             }}
-                            className="w-full rounded-2xl h-12 px-6 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-violet-600 hover:text-white dark:hover:bg-violet-600 dark:hover:text-white transition-all group/btn shadow-md hover:shadow-violet-500/20 text-xs uppercase tracking-widest border-none"
+                            className="w-full rounded-2xl h-12 px-6 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-all group/btn shadow-md hover:shadow-primary/20 text-xs uppercase tracking-widest border-none"
                           >
                             VER DETALLES
                             <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
@@ -777,13 +763,13 @@ export default function DashboardPage() {
         >
           <DialogContent className="max-w-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2.5rem] p-0 overflow-hidden shadow-2xl transition-all duration-500">
             <div className="relative">
-              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-violet-500/10 via-transparent to-transparent opacity-50" />
+              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
               <div className="relative p-8 lg:p-10">
                 <DialogHeader className="flex flex-row items-center justify-between mb-8">
                   <div className="space-y-1 text-left">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-violet-500/10 border border-violet-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-violet-600 mb-2">
-                      <GraduationCap className="h-3.5 w-3.5" />
-                      Escalafón SIAP
+                    <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary mb-2">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Escalafón
                     </div>
                     {escalafonDetalle && (
                       <DialogTitle className="text-2xl lg:text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
@@ -805,15 +791,15 @@ export default function DashboardPage() {
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="space-y-6"
+                    className="space-y-8"
                   >
-                    {/* Lugar nacional */}
-                    <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 p-10 text-center shadow-xl">
-                      <div className="absolute top-0 right-0 p-8 opacity-5">
+                    {/* Lugar */}
+                    <div className="relative overflow-hidden group rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 p-10 text-center shadow-xl shadow-slate-200/50 dark:shadow-black/20">
+                      <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                         <TrendingUp className="w-32 h-32" />
                       </div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                        Lugar en el Escalafón Nacional
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
+                        Tu Lugar en el Escalafón
                       </p>
                       <span className="text-8xl font-black text-white tracking-tighter leading-none">
                         {escalafonDetalle.lugar}
@@ -854,10 +840,10 @@ export default function DashboardPage() {
                             {zonas.map(([zona, rank]) => (
                               <div
                                 key={zona}
-                                className="p-4 rounded-3xl bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30 flex items-center gap-3"
+                                className="p-4 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center gap-3"
                               >
-                                <div className="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center shrink-0">
-                                  <span className="text-base font-black text-violet-600">
+                                <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                                  <span className="text-base font-black text-primary">
                                     #{rank}
                                   </span>
                                 </div>
@@ -871,25 +857,25 @@ export default function DashboardPage() {
                       );
                     })()}
 
-                    {/* Info: categoría y área */}
+                    {/* Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                      <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
                           Área
                         </p>
                         <div className="flex items-start gap-3">
-                          <Briefcase className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
-                          <span className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
+                          <Briefcase className="h-4 w-4 text-primary mt-1 shrink-0" />
+                          <span className="text-base font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
                             {escalafonDetalle.areaDesc}
                           </span>
                         </div>
                       </div>
-                      <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                      <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
                           Vigencia
                         </p>
                         <div className="flex items-start gap-3">
-                          <CalendarDays className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+                          <CalendarDays className="h-4 w-4 text-primary mt-1 shrink-0" />
                           <span className="text-sm font-black text-slate-700 dark:text-slate-200 leading-tight">
                             {escalafonDetalle.vigenciaInicio} –{" "}
                             {escalafonDetalle.vigenciaFin}
@@ -898,27 +884,29 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Footer verificación */}
+                    {/* Verificación */}
                     <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-500/5 border border-emerald-500/10">
-                      <ShieldCheck className="h-5 w-5 text-emerald-600 mt-1 shrink-0" />
-                      <div>
+                      <ShieldCheck className="h-5 w-5 text-emerald-600 mt-1" />
+                      <div className="text-left">
                         <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-tight mb-1">
                           Información Verificada
                         </p>
                         <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
-                          Datos extraídos del listado oficial SIAP. Cualquier
-                          duda contacta a tu representante sindical de la
-                          Sección VII.
+                          Datos del listado oficial de escalafón. Cualquier duda
+                          contacta a tu representante sindical de la Sección
+                          VII.
                         </p>
                       </div>
                     </div>
 
-                    <Button
-                      onClick={() => setIsEscalafonModalOpen(false)}
-                      className="w-full rounded-2xl h-14 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-xl"
-                    >
-                      CERRAR VENTANA
-                    </Button>
+                    <div className="pt-4">
+                      <Button
+                        onClick={() => setIsEscalafonModalOpen(false)}
+                        className="w-full rounded-2xl h-14 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-xl"
+                      >
+                        CERRAR VENTANA
+                      </Button>
+                    </div>
                   </motion.div>
                 )}
               </div>
