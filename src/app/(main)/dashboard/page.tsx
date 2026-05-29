@@ -716,7 +716,7 @@ export default function DashboardPage() {
                               <Briefcase className="h-3.5 w-3.5 text-primary/70 shrink-0" />
                             </div>
                             <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
-                              {item.areaDesc}
+                              {item.areaDesc || item.areaCode || item.estatus}
                             </span>
                           </div>
                           <div className="flex items-center gap-3 min-w-0">
@@ -725,7 +725,7 @@ export default function DashboardPage() {
                             </div>
                             <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
                               {mejorZona
-                                ? `#${mejorZona[1]} ${mejorZona[0]}`
+                                ? `Pos. ${mejorZona[1]} · ${mejorZona[0].replace(/^\d+\s+/, "")}`
                                 : item.estatus}
                             </span>
                           </div>
