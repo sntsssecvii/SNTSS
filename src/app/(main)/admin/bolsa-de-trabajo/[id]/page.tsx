@@ -721,6 +721,22 @@ export default function DetalleBolsaDeTrabajoPage() {
             className="flex flex-col h-full w-full"
           >
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 shrink-0">
+              <div className="flex items-center gap-2 mb-3 lg:hidden">
+                <span className="flex-1 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  Filtros
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-lg"
+                  onClick={() => {
+                    setAsideVisible(false);
+                    setFiltrosVisibles(false);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
               <TabsList className="grid w-full grid-cols-2 bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-xl h-9">
                 <TabsTrigger
                   value="categorias"
@@ -1247,8 +1263,9 @@ export default function DetalleBolsaDeTrabajoPage() {
                     visibleRows.map((reg, i) => (
                       <TableRow
                         key={reg.id}
+                        onClick={() => abrirModalDetalle(reg)}
                         className={cn(
-                          "group border-b border-slate-100 dark:border-slate-800",
+                          "group border-b border-slate-100 dark:border-slate-800 cursor-pointer",
                           i % 2 === 0
                             ? "bg-white dark:bg-[#020617]"
                             : "bg-slate-50/30 dark:bg-slate-950/20",
