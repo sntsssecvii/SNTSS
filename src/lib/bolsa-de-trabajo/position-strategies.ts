@@ -18,7 +18,7 @@ function normalizeLabel(value?: string): string {
 }
 
 function isZonaIncondicional(value?: string): boolean {
-  return normalizeLabel(value) === 'INCONDICIONAL'
+  return normalizeLabel(value).includes('INCONDICIONAL')
 }
 
 export const nuevoIngresoStrategy: PositionStrategy = {
