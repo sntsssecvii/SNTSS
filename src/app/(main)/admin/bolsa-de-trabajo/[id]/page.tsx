@@ -133,6 +133,7 @@ export default function DetalleBolsaDeTrabajoPage() {
   const [busquedaCategoria, setBusquedaCategoria] = useState("");
   const [busquedaZona, setBusquedaZona] = useState("");
   const [filtrosVisibles, setFiltrosVisibles] = useState(false);
+  const [asideVisible, setAsideVisible] = useState(false);
 
   // Edición de nombre
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -709,7 +710,11 @@ export default function DetalleBolsaDeTrabajoPage() {
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="w-full border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r flex flex-col max-h-[42vh] lg:max-h-none lg:h-full overflow-hidden"
+          className={cn(
+            "border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r flex flex-col max-h-[42vh] lg:max-h-none lg:h-full overflow-hidden transition-all duration-300",
+            "lg:flex",
+            asideVisible ? "w-full flex" : "hidden lg:flex",
+          )}
         >
           <Tabs
             defaultValue="categorias"
@@ -919,18 +924,22 @@ export default function DetalleBolsaDeTrabajoPage() {
                 />
               </div>
 
-              {/* Botón toggle filtros — solo en móvil */}
+              {/* Botón toggle aside/filtros — solo en móvil */}
               <Button
                 variant={
-                  filtrosVisibles ||
+                  asideVisible ||
                   filtroCategoria !== "all" ||
                   filtroZona !== "all"
                     ? "secondary"
                     : "ghost"
                 }
                 size="icon"
-                onClick={() => setFiltrosVisibles((v) => !v)}
-                className="xl:hidden h-10 w-10 rounded-xl shrink-0"
+                onClick={() => {
+                  const next = !asideVisible;
+                  setAsideVisible(next);
+                  setFiltrosVisibles(next);
+                }}
+                className="lg:hidden h-10 w-10 rounded-xl shrink-0"
               >
                 <Filter className="h-4 w-4" />
               </Button>
@@ -1003,8 +1012,8 @@ export default function DetalleBolsaDeTrabajoPage() {
             </div>
 
             {/* Panel de filtros desplegable — solo en móvil/tablet */}
-            {filtrosVisibles && (
-              <div className="xl:hidden mt-2 flex flex-wrap items-center gap-2 px-1">
+            {asideVisible && (
+              <div className="lg:hidden mt-2 flex flex-wrap items-center gap-2 px-1">
                 <Button
                   variant={filtroValidacion === "all" ? "secondary" : "ghost"}
                   size="sm"
