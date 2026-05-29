@@ -671,9 +671,10 @@ export default function DashboardPage() {
                   item.estatus === "Activo"
                     ? item.posicionesActivoPorZona
                     : item.posicionesPeiPorZona;
-                const mejorZona = Object.entries(zonasRank).sort(
+                const zonasOrdenadas = Object.entries(zonasRank).sort(
                   (a, b) => a[1] - b[1],
-                )[0];
+                );
+                const mejorZona = zonasOrdenadas[0];
 
                 return (
                   <motion.div
@@ -699,12 +700,17 @@ export default function DashboardPage() {
 
                           <div className="flex flex-col gap-2 shrink-0">
                             <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-1">
-                                LUG. ESC.
+                              <p className="text-[9px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-0.5 truncate max-w-[80px] mx-auto">
+                                {mejorZona
+                                  ? mejorZona[0].replace(/^\d+\s+/, "")
+                                  : "ZONA"}
                               </p>
                               <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
-                                {item.lugar}
+                                {mejorZona ? mejorZona[1] : item.lugar}
                               </span>
+                              <p className="text-[9px] font-bold text-primary/50 group-hover:text-white/40 transition-colors mt-1 uppercase tracking-widest">
+                                nac. #{item.lugar}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -719,16 +725,21 @@ export default function DashboardPage() {
                               {item.areaDesc || item.areaCode || item.estatus}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
-                              <MapPin className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
-                              {mejorZona
-                                ? `Pos. ${mejorZona[1]} · ${mejorZona[0].replace(/^\d+\s+/, "")}`
-                                : item.estatus}
-                            </span>
-                          </div>
+                          {zonasOrdenadas.length > 0
+                            ? zonasOrdenadas.map(([zona, rank]) => (
+                                <div
+                                  key={zona}
+                                  className="flex items-center gap-3 min-w-0"
+                                >
+                                  <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                    <MapPin className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                                  </div>
+                                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                                    Pos. {rank} · {zona.replace(/^\d+\s+/, "")}
+                                  </span>
+                                </div>
+                              ))
+                            : null}
                         </div>
 
                         {/* Footer */}
@@ -793,33 +804,51 @@ export default function DashboardPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-8"
                   >
-                    {/* Lugar */}
-                    <div className="relative overflow-hidden group rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 p-10 text-center shadow-xl shadow-slate-200/50 dark:shadow-black/20">
-                      <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <TrendingUp className="w-32 h-32" />
-                      </div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
-                        Tu Lugar en el Escalafón
-                      </p>
-                      <span className="text-8xl font-black text-white tracking-tighter leading-none">
-                        {escalafonDetalle.lugar}
-                      </span>
-                      <div className="mt-4 flex items-center justify-center gap-3">
-                        <span
-                          className={cn(
-                            "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                            escalafonDetalle.estatus === "Activo"
-                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                              : "bg-amber-500/20 text-amber-400 border-amber-500/30",
-                          )}
-                        >
-                          {escalafonDetalle.estatus}
-                        </span>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                          {escalafonDetalle.periodoDecierre}
-                        </span>
-                      </div>
-                    </div>
+                    {/* Hero posición por zona */}
+                    {(() => {
+                      const mzRank =
+                        escalafonDetalle.estatus === "Activo"
+                          ? escalafonDetalle.posicionesActivoPorZona
+                          : escalafonDetalle.posicionesPeiPorZona;
+                      const mzOrdenadas = Object.entries(mzRank).sort(
+                        (a, b) => a[1] - b[1],
+                      );
+                      const mz = mzOrdenadas[0];
+                      return (
+                        <div className="relative overflow-hidden group rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 p-10 text-center shadow-xl shadow-slate-200/50 dark:shadow-black/20">
+                          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <TrendingUp className="w-32 h-32" />
+                          </div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                            Tu posición en
+                          </p>
+                          <p className="text-lg font-black uppercase tracking-widest text-white/80 mb-4">
+                            {mz ? mz[0].replace(/^\d+\s+/, "") : "Escalafón"}
+                          </p>
+                          <span className="text-8xl font-black text-white tracking-tighter leading-none">
+                            {mz ? mz[1] : escalafonDetalle.lugar}
+                          </span>
+                          <p className="text-[10px] font-bold text-slate-500 mt-3 uppercase tracking-widest">
+                            Lugar nacional #{escalafonDetalle.lugar}
+                          </p>
+                          <div className="mt-4 flex items-center justify-center gap-3">
+                            <span
+                              className={cn(
+                                "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                                escalafonDetalle.estatus === "Activo"
+                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                  : "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                              )}
+                            >
+                              {escalafonDetalle.estatus}
+                            </span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                              {escalafonDetalle.periodoDecierre}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Posición por zona */}
                     {(() => {
@@ -866,7 +895,9 @@ export default function DashboardPage() {
                         <div className="flex items-start gap-3">
                           <Briefcase className="h-4 w-4 text-primary mt-1 shrink-0" />
                           <span className="text-base font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
-                            {escalafonDetalle.areaDesc}
+                            {escalafonDetalle.areaDesc ||
+                              escalafonDetalle.areaCode ||
+                              "—"}
                           </span>
                         </div>
                       </div>
