@@ -879,35 +879,6 @@ export default function DashboardPage() {
                         );
                       })()}
 
-                      {/* Info compacta */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                            Área
-                          </p>
-                          <div className="flex items-start gap-2">
-                            <Briefcase className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                            <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
-                              {escalafonDetalle.areaDesc ||
-                                escalafonDetalle.areaCode ||
-                                "—"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                            Vigencia
-                          </p>
-                          <div className="flex items-start gap-2">
-                            <CalendarDays className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                            <span className="text-xs font-black text-slate-700 dark:text-slate-200 leading-tight">
-                              {escalafonDetalle.vigenciaInicio} –{" "}
-                              {escalafonDetalle.vigenciaFin}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
                       <Button
                         onClick={() => setIsEscalafonModalOpen(false)}
                         className="w-full rounded-2xl h-11 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-lg"
