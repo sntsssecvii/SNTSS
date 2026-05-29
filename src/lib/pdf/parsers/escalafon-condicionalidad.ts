@@ -480,15 +480,6 @@ async function parsearDesdeAdobe(
     (a, b) => a.lugar - b.lugar,
   );
 
-  if (
-    headerData.totalAspirantes &&
-    aspirantes.length !== headerData.totalAspirantes
-  ) {
-    errores.push(
-      `Advertencia: el PDF declara ${headerData.totalAspirantes} aspirantes pero se extrajeron ${aspirantes.length}.`,
-    );
-  }
-
   const listado = {
     delegacion: headerData.delegacion ?? "",
     numeroListado: headerData.numeroListado ?? "",
@@ -599,15 +590,6 @@ export async function parsearListadoCondicionalidad(
   const aspirantes = Array.from(aspirantesMap.values()).sort(
     (a, b) => a.lugar - b.lugar,
   );
-
-  if (
-    headerData.totalAspirantes &&
-    aspirantes.length !== headerData.totalAspirantes
-  ) {
-    errores.push(
-      `Advertencia: el PDF declara ${headerData.totalAspirantes} aspirantes pero se extrajeron ${aspirantes.length}.`,
-    );
-  }
 
   const listado = {
     delegacion: headerData.delegacion ?? "",
