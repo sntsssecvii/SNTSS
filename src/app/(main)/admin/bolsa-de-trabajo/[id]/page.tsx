@@ -1493,9 +1493,9 @@ export default function DetalleBolsaDeTrabajoPage() {
 
       {/* MODAL DETALLES PREMIUM */}
       <Dialog open={modalAbierto} onOpenChange={setModalAbierto}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border-slate-200 dark:border-slate-800 shadow-2xl p-0">
+        <DialogContent className="w-[calc(100%-1rem)] sm:w-auto sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border-slate-200 dark:border-slate-800 shadow-2xl p-0">
           <div className="animate-in fade-in zoom-in duration-300">
-            <div className="p-5 pb-6 space-y-4 bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-900/50 dark:to-[#020617]">
+            <div className="p-3 sm:p-5 pb-4 sm:pb-6 space-y-4 bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-900/50 dark:to-[#020617]">
               <DialogHeader>
                 <div className="flex items-center gap-3 mb-2">
                   <div className="p-2.5 rounded-xl bg-primary/10 text-primary shadow-inner">
@@ -1548,7 +1548,7 @@ export default function DetalleBolsaDeTrabajoPage() {
                         <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-3">
                           Información del Trabajador
                         </p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                           <DetailItem
                             label="No. Progresivo"
                             value={registroSeleccionado.numeroProg}
@@ -1733,8 +1733,8 @@ export default function DetalleBolsaDeTrabajoPage() {
                             del grupo comparable.
                           </div>
                         ) : (
-                          <div className="max-h-[320px] overflow-auto">
-                            <Table>
+                          <div className="max-h-[320px] overflow-y-auto overflow-x-auto">
+                            <Table className="min-w-[480px]">
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>Posición</TableHead>
