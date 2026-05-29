@@ -591,7 +591,7 @@ export default function AdminValidacion({
         </p>
       </div>
 
-      <div className="border rounded-md">
+      <div className="border rounded-md overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -689,7 +689,8 @@ export default function AdminValidacion({
                           size="sm"
                           onClick={() => setSelectedRequest(req)}
                         >
-                          <Eye className="w-4 h-4 mr-2" /> Revisar
+                          <Eye className="w-4 h-4 sm:mr-2" />{" "}
+                          <span className="hidden sm:inline">Revisar</span>
                         </Button>
                       ) : (
                         <Button
@@ -697,7 +698,8 @@ export default function AdminValidacion({
                           variant="ghost"
                           onClick={() => setSelectedRequest(req)}
                         >
-                          <Eye className="w-4 h-4 mr-2" /> Ver
+                          <Eye className="w-4 h-4 sm:mr-2" />{" "}
+                          <span className="hidden sm:inline">Ver</span>
                         </Button>
                       )}
                     </div>
