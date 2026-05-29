@@ -292,50 +292,62 @@ export default function ValidacionesPage() {
         <TabsList
           className={`grid w-full mb-8 ${isAdmin ? "grid-cols-4" : "grid-cols-3"}`}
         >
-          <TabsTrigger value="pending" className="flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            <span>Pendientes</span>
+          <TabsTrigger
+            value="pending"
+            className="flex items-center gap-1 sm:gap-2"
+          >
+            <Clock className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Pendientes</span>
             {counts.pending > 0 && (
               <Badge
                 variant="secondary"
-                className="ml-1 h-5 px-1.5 min-w-[20px] justify-center"
+                className="ml-0.5 sm:ml-1 h-5 px-1.5 min-w-[20px] justify-center"
               >
                 {counts.pending}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="active" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            <span>Activos</span>
+          <TabsTrigger
+            value="active"
+            className="flex items-center gap-1 sm:gap-2"
+          >
+            <Users className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Activos</span>
             {counts.active > 0 && (
               <Badge
                 variant="outline"
-                className="ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-green-50 text-green-700 border-green-200"
+                className="ml-0.5 sm:ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-green-50 text-green-700 border-green-200"
               >
                 {counts.active}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex items-center gap-2">
-            <UserX className="w-4 h-4" />
-            <span>Rechazados</span>
+          <TabsTrigger
+            value="rejected"
+            className="flex items-center gap-1 sm:gap-2"
+          >
+            <UserX className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Rechazados</span>
             {counts.rejected > 0 && (
               <Badge
                 variant="outline"
-                className="ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-red-50 text-red-700 border-red-200"
+                className="ml-0.5 sm:ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-red-50 text-red-700 border-red-200"
               >
                 {counts.rejected}
               </Badge>
             )}
           </TabsTrigger>
           {isAdmin && (
-            <TabsTrigger value="staff" className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Personal</span>
+            <TabsTrigger
+              value="staff"
+              className="flex items-center gap-1 sm:gap-2"
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Personal</span>
               {staffUsers.length > 0 && (
                 <Badge
                   variant="outline"
-                  className="ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-blue-50 text-blue-700 border-blue-200"
+                  className="ml-0.5 sm:ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-blue-50 text-blue-700 border-blue-200"
                 >
                   {staffUsers.length}
                 </Badge>
