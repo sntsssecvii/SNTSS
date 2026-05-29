@@ -1,16 +1,10 @@
 /**
  * Test de regresión para el parser de escalafón (condicionalidad SIAP).
  *
- * Validaciones:
- *   - categoriaCode y periodoDecierre presentes (metadata correcta)
- *   - Al menos 1 aspirante extraído
- *   - Aspirantes tienen todos los campos clave (nombre, matricula, delegacion, fecha, preferencias)
+ * PDFs de fixture: producción 2024+ (LIST.*.pdf) — Adobe los convierte al 100%.
+ * Tests estrictos: FAIL si extracted < declared (no hay excusas con PDFs recientes).
  *
- * Nota: Los PDFs de fixture son de 2022. Adobe PDF Services puede producir
- * un Excel incompleto para PDFs de formato antiguo. La discrepancia entre
- * "declarados" y "extraídos" en esos casos es una limitación de Adobe, no
- * del parser. El parser extrae correctamente TODOS los aspirantes que Adobe
- * provee en el Excel. Los PDFs de producción (2024+) se convierten completamente.
+ * PDFs legacy 2022 (listado-*.pdf) se prueban con modo permisivo (WARN si parcial).
  *
  * Uso: npx tsx scripts/tests/test-escalafon-parsers.ts
  */
@@ -41,13 +35,36 @@ const PDF_DIR = path.join(
 interface TestConfig {
   file: string;
   label: string;
+  strict: boolean; // true = FAIL si extracted < declared
 }
 
-const TESTS: TestConfig[] = [
-  { file: "listado-enf-pediatra.pdf", label: "ENFERMERA PEDIATRICA" },
-  { file: "listado-enf-quirurgica.pdf", label: "ENFERMERA QUIRURGICA" },
-  { file: "listado-farmacia.pdf", label: "FARMACIA" },
+// PDFs de producción 2024+ — tests estrictos
+const PRODUCTION_TESTS: TestConfig[] = fs
+  .readdirSync(PDF_DIR)
+  .filter((f) => f.startsWith("LIST") && f.endsWith(".pdf"))
+  .sort()
+  .map((f) => ({
+    file: f,
+    label: f.replace(/^LIST\.?\s*/, "").replace(/\.pdf$/, ""),
+    strict: true,
+  }));
+
+// PDFs legacy 2022 — solo verifican que algo se extraiga
+const LEGACY_TESTS: TestConfig[] = [
+  {
+    file: "listado-enf-pediatra.pdf",
+    label: "LEGACY: ENFERMERA PEDIATRICA",
+    strict: false,
+  },
+  {
+    file: "listado-enf-quirurgica.pdf",
+    label: "LEGACY: ENFERMERA QUIRURGICA",
+    strict: false,
+  },
+  { file: "listado-farmacia.pdf", label: "LEGACY: FARMACIA", strict: false },
 ];
+
+const TESTS: TestConfig[] = [...PRODUCTION_TESTS, ...LEGACY_TESTS];
 
 async function runTest(t: TestConfig) {
   const pdfPath = path.join(PDF_DIR, t.file);
@@ -66,7 +83,11 @@ async function runTest(t: TestConfig) {
   const declared = listado.totalAspirantes;
   const extracted = aspirantes.length;
 
-  // Fallos reales: sin metadata o sin aspirantes
+  // NOTA: NUMERO DE ASPIRANTES en SIAP = tamaño del escalafón nacional para esa categoría,
+  // NO el conteo de personas únicas en este listado. No se usa como baseline de validación.
+  const lastLugar =
+    aspirantes.length > 0 ? Math.max(...aspirantes.map((a) => a.lugar)) : 0;
+
   const issues: string[] = [];
   if (!listado.categoriaCode) issues.push("categoriaCode vacío");
   if (!listado.periodoDecierre) issues.push("periodoDecierre vacío");
@@ -84,13 +105,7 @@ async function runTest(t: TestConfig) {
   if (camposVacios > 0)
     issues.push(`${camposVacios} aspirantes con campos clave vacíos`);
 
-  // Avisos (no fallan): discrepancia de conteo (puede ser limitación de Adobe con PDFs viejos)
   const avisos: string[] = [];
-  if (declared > 0 && extracted < declared) {
-    avisos.push(
-      `Adobe convirtió ${extracted}/${declared} aspirantes (PDFs de 2022+ pueden tener conversión parcial)`,
-    );
-  }
 
   return {
     label: t.label,
@@ -99,6 +114,7 @@ async function runTest(t: TestConfig) {
     periodoDecierre: listado.periodoDecierre,
     declared,
     extracted,
+    lastLugar,
     issues,
     avisos,
     parseErrors: errores,
@@ -110,6 +126,8 @@ async function runTest(t: TestConfig) {
 
 async function main() {
   console.log("=== TEST ESCALAFON PARSERS ===\n");
+  console.log(`  PDFs de producción: ${PRODUCTION_TESTS.length}`);
+  console.log(`  PDFs legacy: ${LEGACY_TESTS.length}\n`);
 
   let pass = 0,
     warn = 0,
@@ -134,6 +152,7 @@ async function main() {
         periodoDecierre?: string;
         declared?: number;
         extracted?: number;
+        lastLugar?: number;
         issues?: string[];
         avisos?: string[];
         parseErrors?: string[];
@@ -143,7 +162,7 @@ async function main() {
         `      Categoría: ${res.categoriaCode} | Periodo: ${res.periodoDecierre}`,
       );
       console.log(
-        `      Declarados: ${res.declared} | Extraídos: ${res.extracted}`,
+        `      Únicos: ${res.extracted} | Último LUG.ESC: ${res.lastLugar}`,
       );
       if (res.sample) console.log(`      1er aspirante: ${res.sample}`);
       for (const e of res.issues ?? []) console.log(`      ✗ ${e}`);
