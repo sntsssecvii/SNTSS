@@ -708,9 +708,6 @@ export default function DashboardPage() {
                               <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
                                 {mejorZona ? mejorZona[1] : item.lugar}
                               </span>
-                              <p className="text-[9px] font-bold text-primary/50 group-hover:text-white/40 transition-colors mt-1 uppercase tracking-widest">
-                                nac. #{item.lugar}
-                              </p>
                             </div>
                           </div>
                         </div>
@@ -772,174 +769,154 @@ export default function DashboardPage() {
             if (!open) setEscalafonDetalle(null);
           }}
         >
-          <DialogContent className="max-w-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2.5rem] p-0 overflow-hidden shadow-2xl transition-all duration-500">
-            <div className="relative">
-              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
-              <div className="relative p-8 lg:p-10">
-                <DialogHeader className="flex flex-row items-center justify-between mb-8">
-                  <div className="space-y-1 text-left">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary mb-2">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Escalafón
+          <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[88vh] bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2rem] p-0 overflow-hidden shadow-2xl">
+            <div className="overflow-y-auto max-h-[88vh]">
+              <div className="relative p-5 sm:p-7">
+                <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50 pointer-events-none" />
+                <div className="relative">
+                  <DialogHeader className="flex flex-row items-center justify-between mb-4">
+                    <div className="space-y-0.5 text-left min-w-0 flex-1 mr-3">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary mb-1">
+                        <ShieldCheck className="h-3 w-3" />
+                        Escalafón
+                      </div>
+                      {escalafonDetalle && (
+                        <DialogTitle className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+                          {escalafonDetalle.categoriaDesc}
+                        </DialogTitle>
+                      )}
                     </div>
-                    {escalafonDetalle && (
-                      <DialogTitle className="text-2xl lg:text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-                        {escalafonDetalle.categoriaDesc}
-                      </DialogTitle>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsEscalafonModalOpen(false)}
-                    className="rounded-full h-10 w-10 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                </DialogHeader>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsEscalafonModalOpen(false)}
+                      className="rounded-full h-9 w-9 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </DialogHeader>
 
-                {escalafonDetalle && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-8"
-                  >
-                    {/* Hero posición por zona */}
-                    {(() => {
-                      const mzRank =
-                        escalafonDetalle.estatus === "Activo"
-                          ? escalafonDetalle.posicionesActivoPorZona
-                          : escalafonDetalle.posicionesPeiPorZona;
-                      const mzOrdenadas = Object.entries(mzRank).sort(
-                        (a, b) => a[1] - b[1],
-                      );
-                      const mz = mzOrdenadas[0];
-                      return (
-                        <div className="relative overflow-hidden group rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 p-10 text-center shadow-xl shadow-slate-200/50 dark:shadow-black/20">
-                          <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <TrendingUp className="w-32 h-32" />
-                          </div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                            Tu posición en
-                          </p>
-                          <p className="text-lg font-black uppercase tracking-widest text-white/80 mb-4">
-                            {mz ? mz[0].replace(/^\d+\s+/, "") : "Escalafón"}
-                          </p>
-                          <span className="text-8xl font-black text-white tracking-tighter leading-none">
-                            {mz ? mz[1] : escalafonDetalle.lugar}
-                          </span>
-                          <p className="text-[10px] font-bold text-slate-500 mt-3 uppercase tracking-widest">
-                            Lugar nacional #{escalafonDetalle.lugar}
-                          </p>
-                          <div className="mt-4 flex items-center justify-center gap-3">
-                            <span
-                              className={cn(
-                                "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                                escalafonDetalle.estatus === "Activo"
-                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                                  : "bg-amber-500/20 text-amber-400 border-amber-500/30",
-                              )}
-                            >
-                              {escalafonDetalle.estatus}
+                  {escalafonDetalle && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-3"
+                    >
+                      {/* Hero */}
+                      {(() => {
+                        const mzRank =
+                          escalafonDetalle.estatus === "Activo"
+                            ? escalafonDetalle.posicionesActivoPorZona
+                            : escalafonDetalle.posicionesPeiPorZona;
+                        const mzOrdenadas = Object.entries(mzRank).sort(
+                          (a, b) => a[1] - b[1],
+                        );
+                        const mz = mzOrdenadas[0];
+                        return (
+                          <div className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 py-6 px-5 text-center shadow-lg">
+                            <div className="absolute top-0 right-0 p-5 opacity-5">
+                              <TrendingUp className="w-20 h-20" />
+                            </div>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+                              Tu posición en
+                            </p>
+                            <p className="text-sm font-black uppercase tracking-widest text-white/80 mb-2">
+                              {mz ? mz[0].replace(/^\d+\s+/, "") : "Escalafón"}
+                            </p>
+                            <span className="text-6xl sm:text-7xl font-black text-white tracking-tighter leading-none">
+                              {mz ? mz[1] : escalafonDetalle.lugar}
                             </span>
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                              {escalafonDetalle.periodoDecierre}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Posición por zona */}
-                    {(() => {
-                      const zonasRank =
-                        escalafonDetalle.estatus === "Activo"
-                          ? escalafonDetalle.posicionesActivoPorZona
-                          : escalafonDetalle.posicionesPeiPorZona;
-                      const zonas = Object.entries(zonasRank).sort(
-                        (a, b) => a[1] - b[1],
-                      );
-                      if (zonas.length === 0) return null;
-                      return (
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">
-                            Posición por zona ({escalafonDetalle.estatus}s)
-                          </p>
-                          <div className="grid grid-cols-2 gap-3">
-                            {zonas.map(([zona, rank]) => (
-                              <div
-                                key={zona}
-                                className="p-4 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center gap-3"
+                            <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+                              <span
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                                  escalafonDetalle.estatus === "Activo"
+                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                    : "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                                )}
                               >
-                                <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                                  <span className="text-base font-black text-primary">
+                                {escalafonDetalle.estatus}
+                              </span>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                                {escalafonDetalle.periodoDecierre}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Zonas — chips compactos */}
+                      {(() => {
+                        const zonasRank =
+                          escalafonDetalle.estatus === "Activo"
+                            ? escalafonDetalle.posicionesActivoPorZona
+                            : escalafonDetalle.posicionesPeiPorZona;
+                        const zonas = Object.entries(zonasRank).sort(
+                          (a, b) => a[1] - b[1],
+                        );
+                        if (zonas.length === 0) return null;
+                        return (
+                          <div className="space-y-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-0.5">
+                              Posición por zona
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {zonas.map(([zona, rank]) => (
+                                <div
+                                  key={zona}
+                                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"
+                                >
+                                  <span className="text-sm font-black text-primary">
                                     #{rank}
                                   </span>
+                                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                    {zona.replace(/^\d+\s+/, "")}
+                                  </span>
                                 </div>
-                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase leading-tight">
-                                  {zona}
-                                </span>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Info compacta */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                            Área
+                          </p>
+                          <div className="flex items-start gap-2">
+                            <Briefcase className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                            <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
+                              {escalafonDetalle.areaDesc ||
+                                escalafonDetalle.areaCode ||
+                                "—"}
+                            </span>
                           </div>
                         </div>
-                      );
-                    })()}
-
-                    {/* Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                          Área
-                        </p>
-                        <div className="flex items-start gap-3">
-                          <Briefcase className="h-4 w-4 text-primary mt-1 shrink-0" />
-                          <span className="text-base font-black text-slate-700 dark:text-slate-200 uppercase leading-tight">
-                            {escalafonDetalle.areaDesc ||
-                              escalafonDetalle.areaCode ||
-                              "—"}
-                          </span>
+                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                            Vigencia
+                          </p>
+                          <div className="flex items-start gap-2">
+                            <CalendarDays className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                            <span className="text-xs font-black text-slate-700 dark:text-slate-200 leading-tight">
+                              {escalafonDetalle.vigenciaInicio} –{" "}
+                              {escalafonDetalle.vigenciaFin}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex flex-col gap-1">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                          Vigencia
-                        </p>
-                        <div className="flex items-start gap-3">
-                          <CalendarDays className="h-4 w-4 text-primary mt-1 shrink-0" />
-                          <span className="text-sm font-black text-slate-700 dark:text-slate-200 leading-tight">
-                            {escalafonDetalle.vigenciaInicio} –{" "}
-                            {escalafonDetalle.vigenciaFin}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Verificación */}
-                    <div className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-500/5 border border-emerald-500/10">
-                      <ShieldCheck className="h-5 w-5 text-emerald-600 mt-1" />
-                      <div className="text-left">
-                        <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-tight mb-1">
-                          Información Verificada
-                        </p>
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
-                          Datos del listado oficial de escalafón. Cualquier duda
-                          contacta a tu representante sindical de la Sección
-                          VII.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-4">
                       <Button
                         onClick={() => setIsEscalafonModalOpen(false)}
-                        className="w-full rounded-2xl h-14 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-xl"
+                        className="w-full rounded-2xl h-11 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-lg"
                       >
-                        CERRAR VENTANA
+                        CERRAR
                       </Button>
-                    </div>
-                  </motion.div>
-                )}
+                    </motion.div>
+                  )}
+                </div>
               </div>
             </div>
           </DialogContent>
