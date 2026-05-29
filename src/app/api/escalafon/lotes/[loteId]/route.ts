@@ -78,6 +78,10 @@ export async function PATCH(
       estado?: "CERRADO";
     };
 
+    // Si ya está cerrado y se pide cerrarlo, responder ok (idempotente)
+    if (lote.estado === "CERRADO" && body.estado === "CERRADO") {
+      return NextResponse.json({ ok: true });
+    }
     // No se puede reabrir un lote cerrado
     if (lote.estado === "CERRADO" && body.estado) {
       return NextResponse.json(
