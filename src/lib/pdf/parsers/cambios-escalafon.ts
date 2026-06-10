@@ -377,58 +377,219 @@ function parsearFilaConMapa(
   };
 }
 
-// Fallback posicional (si no se detecta encabezado)
-function parsearFilaExcel(
+// ---------------------------------------------------------------------------
+// Parser por patrones de valor — Adobe Excel produce columnas sparse/variables
+// ---------------------------------------------------------------------------
+
+const ZONAS_RE =
+  /^\d-(ENSENADA|MEXICALLI|SAN[\s_]+LUIS|TECATE|TIJUANA|INCONDICIONAL)$/i;
+const FACILITY_RE =
+  /\b(HOSPITAL|UNIDAD|CLINICA|CENTRO|C\/MF|HGZ|HGR|UMF|COORDINACION|JEFATURA|OFICINA|MODULO)\b/i;
+
+function parsearFilaExcelPorPatron(
   row: (string | number | null)[],
 ): Omit<CambiosRegistro, "id" | "listadoId"> | null {
-  const str = (v: unknown): string => (v == null ? "" : String(v).trim());
-  const fechaRaw = row[0];
-
-  if (
-    !fechaRaw ||
-    (typeof fechaRaw === "string" && !/\d{2}\/\d{2}\/\d{4}/.test(fechaRaw))
-  )
-    return null;
-
-  const fechaRegistro =
-    typeof fechaRaw === "number" ? excelSerialAFecha(fechaRaw) : str(fechaRaw);
-  if (!fechaRegistro.match(/^\d{2}\/\d{2}\/\d{4}$/)) return null;
-
-  // Hora puede ser serial decimal
-  let horaRegistro = "";
-  const horaRaw = row[1];
-  if (typeof horaRaw === "number" && horaRaw > 0 && horaRaw < 1) {
-    horaRegistro = excelTimeSerialAHora(horaRaw);
-  } else {
-    horaRegistro = str(horaRaw);
+  const cells: { idx: number; val: string | number }[] = [];
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] != null) cells.push({ idx: i, val: row[i] as string | number });
   }
 
-  // Matricula y nombre: intentar juntos en col 3 o separados en cols 3/4
-  const col3 = str(row[3]);
-  const mnMatch = col3.match(/^(\d{7,10})\s+(.+)$/);
-  const matricula = mnMatch ? mnMatch[1] : col3;
-  const nombre = mnMatch
-    ? mnMatch[2].trim().toUpperCase()
-    : str(row[4]).toUpperCase();
-  const shift = mnMatch ? 0 : 1; // si están separados, todo se corre +1
+  const s = (v: string | number) => String(v).trim();
+
+  // 1. Fecha
+  let fechaRegistro = "";
+  let fechaIdx = -1;
+  for (const { idx, val } of cells) {
+    if (typeof val === "number" && val > 40000 && val < 55000) {
+      fechaRegistro = excelSerialAFecha(val);
+      fechaIdx = idx;
+      break;
+    }
+    if (typeof val === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+      fechaRegistro = val;
+      fechaIdx = idx;
+      break;
+    }
+  }
+  if (!fechaRegistro) return null;
+
+  // 2. Hora (serial decimal o string decimal o HH:MM:SS)
+  let horaRegistro = "";
+  for (const { idx, val } of cells) {
+    if (idx <= fechaIdx) continue;
+    if (typeof val === "number" && val > 0 && val < 1) {
+      horaRegistro = excelTimeSerialAHora(val);
+      break;
+    }
+    if (typeof val === "string") {
+      const t = val.trim();
+      if (/^\d{2}:\d{2}:\d{2}$/.test(t)) {
+        horaRegistro = t;
+        break;
+      }
+      const n = parseFloat(t);
+      if (!isNaN(n) && n > 0 && n < 1) {
+        horaRegistro = excelTimeSerialAHora(n);
+        break;
+      }
+    }
+  }
+
+  // 3. noSolicitud ([A-Z]\d{5,})
+  let noSolicitud = "";
+  let noSolicitudIdx = -1;
+  for (const { idx, val } of cells) {
+    const t = s(val);
+    if (/^[A-Z]\d{5,}$/.test(t)) {
+      noSolicitud = t;
+      noSolicitudIdx = idx;
+      break;
+    }
+  }
+
+  // 4. Matrícula (número 7-11 dígitos, ≥ 1M)
+  let matricula = "";
+  let matriculaIdx = -1;
+  for (const { idx, val } of cells) {
+    if (typeof val === "number") {
+      const n = Math.round(val);
+      const ns = String(n);
+      if (n >= 1_000_000 && ns.length <= 11) {
+        matricula = ns;
+        matriculaIdx = idx;
+        break;
+      }
+    } else {
+      const t = val.trim();
+      if (/^\d{7,11}$/.test(t) && parseInt(t) >= 1_000_000) {
+        matricula = t;
+        matriculaIdx = idx;
+        break;
+      }
+    }
+  }
+
+  // 5. Nombre (patrón APELLIDO/APELLIDO/NOMBRE)
+  let nombre = "";
+  let nombreIdx = -1;
+  for (const { idx, val } of cells) {
+    const t = s(val);
+    if (/[A-ZÁÉÍÓÚÑ]+\/[A-ZÁÉÍÓÚÑ]+\/[A-ZÁÉÍÓÚÑ]/.test(t)) {
+      nombre = t.toUpperCase();
+      nombreIdx = idx;
+      break;
+    }
+  }
+
+  // 6. Zona
+  let zona = "";
+  let zonaIdx = -1;
+  for (const { idx, val } of cells) {
+    const t = s(val);
+    if (ZONAS_RE.test(t)) {
+      zona = t;
+      zonaIdx = idx;
+      break;
+    }
+  }
+
+  // 7. Adscripciones (antes de zona = origen, después = solicitada)
+  // Si no hay zona: primera = origen, segunda = solicitada (orden posicional)
+  const facilidades: { idx: number; name: string }[] = [];
+  for (const { idx, val } of cells) {
+    const t = s(val);
+    if (FACILITY_RE.test(t) && t.length > 5) {
+      facilidades.push({ idx, name: t });
+    }
+  }
+  let adscripcionOrigen = "";
+  let adscripcionSolicitada = "";
+  if (zonaIdx >= 0) {
+    adscripcionOrigen = facilidades.find((f) => f.idx < zonaIdx)?.name ?? "";
+    adscripcionSolicitada =
+      facilidades.find((f) => f.idx > zonaIdx)?.name ?? "";
+  } else {
+    adscripcionOrigen = facilidades[0]?.name ?? "";
+    adscripcionSolicitada = facilidades[1]?.name ?? "";
+  }
+
+  // 8. EspecialidadArea (2-4 dígitos, después del nombre)
+  let especialidadArea = 0;
+  const afterNombreIdx = Math.max(
+    nombreIdx,
+    matriculaIdx,
+    noSolicitudIdx,
+    fechaIdx,
+  );
+  for (const { idx, val } of cells) {
+    if (idx <= afterNombreIdx) continue;
+    const n = typeof val === "number" ? Math.round(val) : parseInt(s(val), 10);
+    if (!isNaN(n) && n >= 1 && n <= 9999 && String(n) !== matricula) {
+      especialidadArea = n;
+      break;
+    }
+  }
+
+  // 9. Tipo (TURNO/ADSCRIPCION)
+  let tipo = "";
+  for (const { val } of cells) {
+    const t = s(val).toUpperCase();
+    if (/^(TURNO|ADSCRIPCI[OÓ]N)$/.test(t)) {
+      tipo = t.replace("ADSCRIPCION", "ADSCRIPCIÓN");
+      break;
+    }
+  }
+
+  // 10. TurnoSolicitado
+  let turnoSolicitado = "";
+  for (const { val } of cells) {
+    const t = s(val).toUpperCase();
+    if (
+      /^(MATUTINO|VESPERTINO|NOCTURNO|INCONDICIONAL|J\.?ACUM\.?|JORNADA\s+ACUMULADA)$/.test(
+        t,
+      )
+    ) {
+      turnoSolicitado = t;
+      break;
+    }
+  }
+
+  // 11. PercibeConcepto (antes de zona) y ConConceptos (después de zona)
+  let percibeConcepto = "";
+  let conConceptos = "";
+  for (const { idx, val } of cells) {
+    const t = s(val).toUpperCase();
+    if (t === "SI" || t === "NO") {
+      if (zonaIdx >= 0 && idx < zonaIdx) {
+        if (!percibeConcepto) percibeConcepto = t;
+      } else {
+        if (!conConceptos) conConceptos = t;
+      }
+    }
+  }
 
   return {
     fechaRegistro,
     horaRegistro,
-    noSolicitud: str(row[2]),
+    noSolicitud,
     matricula,
     nombre,
-    adscripcionOrigen: str(row[4 + shift]),
-    percibeConcepto: str(row[5 + shift]).toUpperCase(),
-    zona: str(row[6 + shift]),
-    adscripcionSolicitada: str(row[7 + shift]),
-    especialidadArea: Number(str(row[8 + shift])) || 0,
-    tipo: str(row[9 + shift])
-      .toUpperCase()
-      .replace("ADSCRIPCION", "ADSCRIPCIÓN"),
-    turnoSolicitado: str(row[10 + shift]).toUpperCase(),
-    conConceptos: str(row[11 + shift]).toUpperCase(),
+    adscripcionOrigen,
+    percibeConcepto,
+    zona,
+    adscripcionSolicitada,
+    especialidadArea,
+    tipo,
+    turnoSolicitado,
+    conConceptos,
   };
+}
+
+// Fallback posicional (conservado por compatibilidad — no se usa en Adobe path)
+function parsearFilaExcel(
+  row: (string | number | null)[],
+): Omit<CambiosRegistro, "id" | "listadoId"> | null {
+  return parsearFilaExcelPorPatron(row);
 }
 
 async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
@@ -450,7 +611,7 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
       defval: null,
     });
 
-    // Detectar encabezado de columnas dinámicamente
+    // Intentar detectar encabezado (útil si Adobe preserva headers)
     const colMap = detectarEncabezado(rows);
 
     for (const row of rows) {
@@ -490,7 +651,7 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
         continue;
       }
 
-      // Saltar la fila de encabezado de columnas
+      // Saltar la fila de encabezado de columnas (si se detectó)
       if (
         colMap &&
         nonNull.length >= 5 &&
@@ -505,9 +666,10 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
         continue;
       }
 
+      // Parsear fila: con mapa de encabezado si existe, sino por patrones de valor
       const registro = colMap
         ? parsearFilaConMapa(row, colMap)
-        : parsearFilaExcel(row);
+        : parsearFilaExcelPorPatron(row);
       if (registro) registros.push(registro);
     }
 
