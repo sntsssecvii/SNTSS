@@ -232,21 +232,6 @@ function parsearFilaTexto(
 // Adobe PDF Services — parser por columnas del Excel
 // ---------------------------------------------------------------------------
 
-/**
- * Estructura esperada del Excel de Adobe para cambios SIAP:
- *   Col 0:  FECHA REGISTRO   (serial numérico o DD/MM/YYYY)
- *   Col 1:  HORA REGISTRO
- *   Col 2:  NO. SOLICITUD
- *   Col 3:  MATRICULA - NOMBRE  (pueden venir juntas: "97020210 APELLIDO/APELLIDO/NOMBRE")
- *   Col 4:  ADSCRIPCION ORIGEN
- *   Col 5:  PERCIBE CONCEPTO
- *   Col 6:  ZONA
- *   Col 7:  ADSCRIPCION SOLICITADA
- *   Col 8:  ESPECIALIDAD AREA
- *   Col 9:  TIPO
- *   Col 10: TURNO SOLICITADO
- *   Col 11: CON CONCEPTOS
- */
 function excelSerialAFecha(serial: number): string {
   const msDesdeUnix = Math.round((serial - 25569) * 86400 * 1000);
   const d = new Date(msDesdeUnix);
@@ -255,47 +240,194 @@ function excelSerialAFecha(serial: number): string {
   return `${dd}/${mm}/${d.getUTCFullYear()}`;
 }
 
+function excelTimeSerialAHora(n: number): string {
+  const totalSecs = Math.round(n * 24 * 3600);
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
+// ---------------------------------------------------------------------------
+// Detección dinámica de columnas desde la fila de encabezado del Excel
+// ---------------------------------------------------------------------------
+
+interface ColMap {
+  fecha: number;
+  hora: number;
+  noSolicitud: number;
+  matricula: number;
+  nombre: number;
+  adscripcionOrigen: number;
+  percibeConcepto: number;
+  zona: number;
+  adscripcionSolicitada: number;
+  especialidadArea: number;
+  tipo: number;
+  turnoSolicitado: number;
+  conConceptos: number;
+}
+
+function detectarEncabezado(rows: (string | number | null)[][]): ColMap | null {
+  for (const row of rows.slice(0, 8)) {
+    const nonNull = row.filter((c) => c !== null && c !== "");
+    if (nonNull.length < 5) continue;
+    const allStr = nonNull.every((c) => typeof c === "string");
+    if (!allStr) continue;
+
+    const upper = row.map((c) =>
+      c == null ? "" : String(c).toUpperCase().trim(),
+    );
+
+    const hasFecha = upper.some(
+      (s) => s.includes("FECHA") && !s.includes("EMISION"),
+    );
+    const hasSolicitud = upper.some((s) => s.includes("SOLICITUD"));
+    if (!hasFecha || !hasSolicitud) continue;
+
+    // Es fila de encabezado — mapear columnas
+    const col = (pred: (s: string) => boolean) => upper.findIndex(pred);
+
+    const mapa: Partial<ColMap> = {
+      fecha: col((s) => s.includes("FECHA") && !s.includes("EMISION")),
+      hora: col((s) => s.includes("HORA")),
+      noSolicitud: col((s) => s.includes("SOLICITUD")),
+      matricula: col((s) => s.includes("MATRICULA") || s.includes("MATR")),
+      nombre: col(
+        (s) =>
+          s === "NOMBRE" ||
+          (s.includes("NOMBRE") && !s.includes("ADSCRIPCION")),
+      ),
+      adscripcionOrigen: col(
+        (s) => s.includes("ADSCRIPCION") && s.includes("ORIGEN"),
+      ),
+      percibeConcepto: col((s) => s.includes("PERCIBE")),
+      zona: col(
+        (s) =>
+          s === "ZONA" || (s.includes("ZONA") && !s.includes("ADSCRIPCION")),
+      ),
+      adscripcionSolicitada: col(
+        (s) =>
+          s.includes("ADSCRIPCION") &&
+          (s.includes("SOLIC") || s.includes("SOLICI")),
+      ),
+      especialidadArea: col((s) => s.includes("ESPECIALIDAD")),
+      tipo: col((s) => s === "TIPO"),
+      turnoSolicitado: col((s) => s.includes("TURNO")),
+      conConceptos: col(
+        (s) => s.includes("CONCEPTOS") && !s.includes("PERCIBE"),
+      ),
+    };
+
+    // Solo requerir campos mínimos
+    if (mapa.fecha !== -1 && mapa.noSolicitud !== -1 && mapa.matricula !== -1) {
+      console.log(
+        "[cambios-parser] Encabezado detectado:",
+        JSON.stringify(mapa),
+      );
+      return mapa as ColMap;
+    }
+  }
+  return null;
+}
+
+function parsearFilaConMapa(
+  row: (string | number | null)[],
+  map: ColMap,
+): Omit<CambiosRegistro, "id" | "listadoId"> | null {
+  const get = (idx: number): string => {
+    if (idx < 0 || idx >= row.length || row[idx] == null) return "";
+    return String(row[idx]).trim();
+  };
+
+  // Fecha
+  const fechaRaw = map.fecha >= 0 ? row[map.fecha] : null;
+  if (!fechaRaw) return null;
+  const fechaRegistro =
+    typeof fechaRaw === "number"
+      ? excelSerialAFecha(fechaRaw)
+      : String(fechaRaw).trim();
+  if (!fechaRegistro.match(/^\d{2}\/\d{2}\/\d{4}$/)) return null;
+
+  // Hora (puede ser serial decimal)
+  let horaRegistro = "";
+  if (map.hora >= 0 && row[map.hora] != null) {
+    const horaRaw = row[map.hora];
+    if (typeof horaRaw === "number" && horaRaw > 0 && horaRaw < 1) {
+      horaRegistro = excelTimeSerialAHora(horaRaw);
+    } else {
+      horaRegistro = String(horaRaw).trim();
+    }
+  }
+
+  return {
+    fechaRegistro,
+    horaRegistro,
+    noSolicitud: get(map.noSolicitud),
+    matricula: get(map.matricula),
+    nombre: get(map.nombre).toUpperCase(),
+    adscripcionOrigen: get(map.adscripcionOrigen),
+    percibeConcepto: get(map.percibeConcepto).toUpperCase(),
+    zona: get(map.zona),
+    adscripcionSolicitada: get(map.adscripcionSolicitada),
+    especialidadArea: Number(get(map.especialidadArea)) || 0,
+    tipo: get(map.tipo).toUpperCase().replace("ADSCRIPCION", "ADSCRIPCIÓN"),
+    turnoSolicitado: get(map.turnoSolicitado).toUpperCase(),
+    conConceptos: get(map.conConceptos).toUpperCase(),
+  };
+}
+
+// Fallback posicional (si no se detecta encabezado)
 function parsearFilaExcel(
   row: (string | number | null)[],
 ): Omit<CambiosRegistro, "id" | "listadoId"> | null {
   const str = (v: unknown): string => (v == null ? "" : String(v).trim());
   const fechaRaw = row[0];
 
-  // Saltar filas vacías o de encabezado
   if (
     !fechaRaw ||
-    (typeof fechaRaw === "string" &&
-      !/\d{2}\/\d{2}\/\d{4}/.test(fechaRaw) &&
-      typeof fechaRaw !== "number")
-  ) {
+    (typeof fechaRaw === "string" && !/\d{2}\/\d{2}\/\d{4}/.test(fechaRaw))
+  )
     return null;
-  }
 
   const fechaRegistro =
     typeof fechaRaw === "number" ? excelSerialAFecha(fechaRaw) : str(fechaRaw);
-
   if (!fechaRegistro.match(/^\d{2}\/\d{2}\/\d{4}$/)) return null;
 
-  // La columna MATRICULA-NOMBRE puede ser una sola celda "97020210 APELLIDO/APELLIDO/NOMBRE"
-  const matriculaNombre = str(row[3]);
-  const mnMatch = matriculaNombre.match(/^(\d{7,10})\s+(.+)$/);
-  const matricula = mnMatch ? mnMatch[1] : str(row[3]);
-  const nombre = mnMatch ? mnMatch[2].trim().toUpperCase() : "";
+  // Hora puede ser serial decimal
+  let horaRegistro = "";
+  const horaRaw = row[1];
+  if (typeof horaRaw === "number" && horaRaw > 0 && horaRaw < 1) {
+    horaRegistro = excelTimeSerialAHora(horaRaw);
+  } else {
+    horaRegistro = str(horaRaw);
+  }
+
+  // Matricula y nombre: intentar juntos en col 3 o separados en cols 3/4
+  const col3 = str(row[3]);
+  const mnMatch = col3.match(/^(\d{7,10})\s+(.+)$/);
+  const matricula = mnMatch ? mnMatch[1] : col3;
+  const nombre = mnMatch
+    ? mnMatch[2].trim().toUpperCase()
+    : str(row[4]).toUpperCase();
+  const shift = mnMatch ? 0 : 1; // si están separados, todo se corre +1
 
   return {
     fechaRegistro,
-    horaRegistro: str(row[1]),
+    horaRegistro,
     noSolicitud: str(row[2]),
     matricula,
     nombre,
-    adscripcionOrigen: str(row[4]),
-    percibeConcepto: str(row[5]).toUpperCase(),
-    zona: str(row[6]),
-    adscripcionSolicitada: str(row[7]),
-    especialidadArea: Number(str(row[8])) || 0,
-    tipo: str(row[9]).toUpperCase().replace("ADSCRIPCION", "ADSCRIPCIÓN"),
-    turnoSolicitado: str(row[10]).toUpperCase(),
-    conConceptos: str(row[11]).toUpperCase(),
+    adscripcionOrigen: str(row[4 + shift]),
+    percibeConcepto: str(row[5 + shift]).toUpperCase(),
+    zona: str(row[6 + shift]),
+    adscripcionSolicitada: str(row[7 + shift]),
+    especialidadArea: Number(str(row[8 + shift])) || 0,
+    tipo: str(row[9 + shift])
+      .toUpperCase()
+      .replace("ADSCRIPCION", "ADSCRIPCIÓN"),
+    turnoSolicitado: str(row[10 + shift]).toUpperCase(),
+    conConceptos: str(row[11 + shift]).toUpperCase(),
   };
 }
 
@@ -318,17 +450,8 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
       defval: null,
     });
 
-    // Debug: log first 15 rows to diagnose Adobe Excel structure
-    console.log(`[cambios-parser] Sheet "${sheetName}" — primeras 15 filas:`);
-    rows.slice(0, 15).forEach((row, i) => {
-      const nonNull = row.filter((c) => c !== null);
-      if (nonNull.length > 0) {
-        console.log(
-          `  [${i}] (${nonNull.length} celdas):`,
-          JSON.stringify(nonNull).slice(0, 200),
-        );
-      }
-    });
+    // Detectar encabezado de columnas dinámicamente
+    const colMap = detectarEncabezado(rows);
 
     for (const row of rows) {
       const nonNull = row.filter((c) => c !== null);
@@ -367,7 +490,24 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
         continue;
       }
 
-      const registro = parsearFilaExcel(row);
+      // Saltar la fila de encabezado de columnas
+      if (
+        colMap &&
+        nonNull.length >= 5 &&
+        nonNull.every((c) => typeof c === "string") &&
+        nonNull.some(
+          (c) =>
+            typeof c === "string" &&
+            (String(c).toUpperCase().includes("FECHA") ||
+              String(c).toUpperCase().includes("SOLICITUD")),
+        )
+      ) {
+        continue;
+      }
+
+      const registro = colMap
+        ? parsearFilaConMapa(row, colMap)
+        : parsearFilaExcel(row);
       if (registro) registros.push(registro);
     }
 
@@ -383,10 +523,6 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
       if (parsed.categoriaCode) {
         headerData = { ...headerData, ...parsed };
       }
-      console.log(
-        "[cambios-parser] textoGlobal header (primeras 20 filas):",
-        textoGlobal.slice(0, 400),
-      );
     }
   }
 
