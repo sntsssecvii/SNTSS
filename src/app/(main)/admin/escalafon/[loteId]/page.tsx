@@ -41,6 +41,7 @@ export default function DetalleLotePage() {
   const [cerrando, setCerrando] = useState(false);
   const [lote, setLote] = useState<EscalafonLote | null>(null);
   const [listados, setListados] = useState<EscalafonListado[]>([]);
+  const [listadosEnOtrosLotes, setListadosEnOtrosLotes] = useState(0);
   const [busqueda, setBusqueda] = useState("");
 
   const cargarDatos = useCallback(async () => {
@@ -58,6 +59,7 @@ export default function DetalleLotePage() {
       const data = (await res.json()) as {
         lote?: EscalafonLote;
         listados?: EscalafonListado[];
+        listadosEnOtrosLotes?: number;
         error?: string;
       };
 
@@ -74,6 +76,7 @@ export default function DetalleLotePage() {
 
       setLote(data.lote);
       setListados(data.listados ?? []);
+      setListadosEnOtrosLotes(data.listadosEnOtrosLotes ?? 0);
     } catch (error) {
       console.error(error);
       toast({
@@ -105,10 +108,14 @@ export default function DetalleLotePage() {
         body: JSON.stringify({ estado: "CERRADO" }),
       });
       if (!res.ok) throw new Error("Error al cerrar el lote");
+      const data = (await res.json()) as { consolidados?: number };
       await cargarDatos();
       toast({
         title: "Lote cerrado",
-        description: "Ya no acepta nuevos uploads.",
+        description:
+          data.consolidados && data.consolidados > 0
+            ? `${data.consolidados} listados de lotes anteriores incorporados.`
+            : "Snapshot completo guardado.",
       });
     } catch {
       toast({
@@ -205,7 +212,11 @@ export default function DetalleLotePage() {
                 disabled={cerrando}
                 className="h-12 rounded-2xl px-5 font-black border-slate-300 text-slate-700 hover:bg-slate-100 transition-all"
               >
-                {cerrando ? "Cerrando..." : "Cerrar lote"}
+                {cerrando
+                  ? "Consolidando..."
+                  : listadosEnOtrosLotes > 0
+                    ? `Cerrar y consolidar ${listadosEnOtrosLotes} listados`
+                    : "Cerrar lote"}
               </Button>
             )}
             <Button

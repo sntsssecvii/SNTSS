@@ -101,25 +101,22 @@ export async function POST(req: NextRequest) {
     const reemplazarId = listadoVigente?.id ?? null;
 
     // --- Determinar loteId ---
+    // Siempre usar el lote activo (parámetro > abierto > crear nuevo)
+    // para que todos los PDFs subidos en la misma sesión queden agrupados,
+    // independientemente de si reemplazan un listado anterior o son nuevos.
     let loteIdFinal: string;
 
-    if (listadoVigente) {
-      // Hereda el lote del listado que se reemplaza
-      loteIdFinal = listadoVigente.loteId ?? "";
+    if (loteIdParam) {
+      loteIdFinal = loteIdParam;
     } else {
-      // Resolver lote: parámetro > abierto > crear nuevo
-      if (loteIdParam) {
-        loteIdFinal = loteIdParam;
+      const loteAbierto = await obtenerLoteAbierto();
+      if (loteAbierto?.id) {
+        loteIdFinal = loteAbierto.id;
       } else {
-        const loteAbierto = await obtenerLoteAbierto();
-        if (loteAbierto?.id) {
-          loteIdFinal = loteAbierto.id;
-        } else {
-          loteIdFinal = await crearLote(
-            nombreLoteParam ?? generarNombreLote(),
-            ctx!.uid,
-          );
-        }
+        loteIdFinal = await crearLote(
+          nombreLoteParam ?? generarNombreLote(),
+          ctx!.uid,
+        );
       }
     }
 
@@ -145,8 +142,10 @@ export async function POST(req: NextRequest) {
     // Eliminar listado anterior DESPUÉS de guardar el nuevo (evita pérdida de datos si falla)
     if (reemplazarId) {
       await eliminarListado(reemplazarId);
-      if (loteIdFinal) {
-        await decrementarTotalListados(loteIdFinal);
+      // Decrementar el lote anterior (no el nuevo) para mantener conteos correctos
+      const loteIdAnterior = listadoVigente?.loteId;
+      if (loteIdAnterior) {
+        await decrementarTotalListados(loteIdAnterior);
       }
     }
 
