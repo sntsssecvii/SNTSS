@@ -12,11 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  LoteSelector,
-  generarNombreLote,
-  type LotePeriodo,
-} from "@/components/escalafon/LoteSelector";
+import { LoteSelector } from "@/components/escalafon/LoteSelector";
 import type { EscalafonLote, EscalafonListado } from "@/types/escalafon";
 
 interface FileItem {
@@ -33,15 +29,6 @@ async function getIdToken(): Promise<string | null> {
   return user.getIdToken();
 }
 
-function ahora(): LotePeriodo {
-  const d = new Date();
-  return {
-    anio: d.getFullYear(),
-    mes: d.getMonth() + 1,
-    quincena: d.getDate() <= 15 ? 1 : 2,
-  };
-}
-
 function CargarEscalafonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,9 +36,7 @@ function CargarEscalafonContent() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Periodo seleccionado (solo en modo normal)
-  const [periodo, setPeriodo] = useState<LotePeriodo>(ahora);
-  const [todosLotes, setTodosLotes] = useState<EscalafonLote[]>([]);
+  const [loteAbierto, setLoteAbierto] = useState<EscalafonLote | null>(null);
   const [cargandoMeta, setCargandoMeta] = useState(true);
 
   // Modo reemplazo
@@ -90,7 +75,9 @@ function CargarEscalafonContent() {
             cache: "no-store",
           });
           const data = (await res.json()) as { lotes?: EscalafonLote[] };
-          setTodosLotes(data.lotes ?? []);
+          const abierto =
+            (data.lotes ?? []).find((l) => l.estado === "ABIERTO") ?? null;
+          setLoteAbierto(abierto);
         }
       } catch {
         // No crítico
@@ -100,14 +87,6 @@ function CargarEscalafonContent() {
     };
     cargar();
   }, [reemplazarId]);
-
-  // Lote que corresponde al periodo seleccionado
-  const nombreBuscado = generarNombreLote(periodo);
-  const loteDelPeriodo =
-    todosLotes.find((l) => l.nombre === nombreBuscado) ?? null;
-
-  // Lote abierto actual (puede ser del periodo u otro)
-  const loteAbierto = todosLotes.find((l) => l.estado === "ABIERTO") ?? null;
 
   function addFiles(newFiles: File[]) {
     const pdfs = newFiles.filter(
@@ -148,18 +127,8 @@ function CargarEscalafonContent() {
       return;
     }
 
-    // Determinar loteId de partida:
-    // - Si el periodo ya tiene lote ABIERTO → usarlo
-    // - Si el lote del periodo está CERRADO → no pasar loteId (procesar creará uno nuevo)
-    // - Si no hay lote → no pasar loteId (procesar creará uno con el nombre del periodo)
-    let loteIdFinal: string | null =
-      loteDelPeriodo?.estado === "ABIERTO" ? (loteDelPeriodo.id ?? null) : null;
-
-    // Si no hay lote abierto para el periodo pero sí hay otro lote abierto global,
-    // el admin eligió un periodo diferente al activo — le pasamos el nombre para que
-    // procesar lo cree con ese nombre.
-    const nombreParaCrear =
-      loteIdFinal === null ? generarNombreLote(periodo) : null;
+    // Usar lote abierto si existe; si no, el API creará uno nuevo con la fecha de hoy
+    let loteIdFinal: string | null = loteAbierto?.id ?? null;
 
     for (const item of items) {
       setItems((prev) =>
@@ -174,8 +143,6 @@ function CargarEscalafonContent() {
         formData.append("file", item.file);
         if (reemplazarId) formData.append("reemplazarId", reemplazarId);
         if (loteIdFinal) formData.append("loteId", loteIdFinal);
-        if (nombreParaCrear && !loteIdFinal)
-          formData.append("nombreLote", nombreParaCrear);
 
         const res = await fetch("/api/escalafon/procesar", {
           method: "POST",
@@ -305,14 +272,9 @@ function CargarEscalafonContent() {
           </div>
         )}
 
-        {/* ── Paso 1: Selector de quincena/lote (solo modo normal) ── */}
+        {/* ── Paso 1: Info del lote activo (solo modo normal) ── */}
         {!reemplazarId && !allDone && (
-          <LoteSelector
-            periodo={periodo}
-            onChange={setPeriodo}
-            loteExistente={loteDelPeriodo}
-            cargando={cargandoMeta}
-          />
+          <LoteSelector loteAbierto={loteAbierto} cargando={cargandoMeta} />
         )}
 
         {/* ── Paso 2: Archivos ── */}
@@ -446,19 +408,6 @@ function CargarEscalafonContent() {
             </form>
           </div>
         )}
-
-        {/* Aviso si hay otro lote abierto para un periodo diferente */}
-        {!reemplazarId &&
-          !allDone &&
-          loteAbierto &&
-          loteAbierto.nombre !== nombreBuscado && (
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
-              Hay un lote abierto de otro periodo:{" "}
-              <span className="font-black">{loteAbierto.nombre}</span>. Al
-              procesar, se creará un nuevo lote para{" "}
-              <span className="font-black">{nombreBuscado}</span>.
-            </div>
-          )}
 
         {/* ── Resultado ── */}
         {allDone && (

@@ -5,26 +5,26 @@ import type { EscalafonLote, EscalafonListado } from "@/types/escalafon";
 const COL_LOTES = "escalafon_lotes";
 const COL_LISTADOS = "escalafon_listados";
 
-const NOMBRES_MESES = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
+const MESES_CORTOS = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
 ];
 
 export function generarNombreLote(fecha: Date = new Date()): string {
-  const mes = NOMBRES_MESES[fecha.getMonth()];
+  const dia = fecha.getDate();
+  const mes = MESES_CORTOS[fecha.getMonth()];
   const anio = fecha.getFullYear();
-  const quincena = fecha.getDate() <= 15 ? "Q1" : "Q2";
-  return `${mes} ${anio} · ${quincena}`;
+  return `${dia} ${mes} ${anio}`;
 }
 
 export async function crearLote(
@@ -118,4 +118,40 @@ export async function decrementarTotalListados(loteId: string): Promise<void> {
       totalListados: FieldValue.increment(-1),
       actualizadoEn: Timestamp.now(),
     });
+}
+
+// Mueve todos los listados de otros lotes al lote dado.
+// Se llama al cerrar un lote para que quede como snapshot completo del escalafón.
+export async function consolidarListadosEnLote(
+  loteId: string,
+): Promise<number> {
+  const snap = await adminDb.collection(COL_LISTADOS).get();
+  const foraneos = snap.docs.filter((doc) => doc.data().loteId !== loteId);
+  if (foraneos.length === 0) return 0;
+
+  const loteIdsAfectados = new Set<string>();
+  const batch = adminDb.batch();
+
+  foraneos.forEach((doc) => {
+    const oldLoteId = doc.data().loteId as string | undefined;
+    if (oldLoteId) loteIdsAfectados.add(oldLoteId);
+    batch.update(doc.ref, { loteId });
+  });
+
+  // El lote nuevo queda con todos los listados
+  batch.update(adminDb.collection(COL_LOTES).doc(loteId), {
+    totalListados: snap.size,
+    actualizadoEn: Timestamp.now(),
+  });
+
+  // Los lotes anteriores quedan en cero
+  loteIdsAfectados.forEach((oldId) => {
+    batch.update(adminDb.collection(COL_LOTES).doc(oldId), {
+      totalListados: 0,
+      actualizadoEn: Timestamp.now(),
+    });
+  });
+
+  await batch.commit();
+  return foraneos.length;
 }

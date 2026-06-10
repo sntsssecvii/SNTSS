@@ -5,7 +5,9 @@ import {
   obtenerLote,
   listarListadosDelLote,
   actualizarLote,
+  consolidarListadosEnLote,
 } from "@/lib/firebase/escalafon-lotes";
+import { adminDb } from "@/lib/firebase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,9 @@ export async function GET(
     }
 
     const listados = await listarListadosDelLote(params.loteId);
-    return NextResponse.json({ lote, listados });
+    const todosSnap = await adminDb.collection("escalafon_listados").get();
+    const listadosEnOtrosLotes = todosSnap.size - listados.length;
+    return NextResponse.json({ lote, listados, listadosEnOtrosLotes });
   } catch (error) {
     if (error instanceof RateLimitError) {
       return NextResponse.json(
@@ -98,8 +102,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Sin cambios" }, { status: 400 });
     }
 
+    let consolidados = 0;
+    if (update.estado === "CERRADO") {
+      consolidados = await consolidarListadosEnLote(params.loteId);
+    }
     await actualizarLote(params.loteId, update);
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, consolidados });
   } catch (error) {
     if (error instanceof RateLimitError) {
       return NextResponse.json(
