@@ -318,18 +318,30 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
       defval: null,
     });
 
+    // Debug: log first 15 rows to diagnose Adobe Excel structure
+    console.log(`[cambios-parser] Sheet "${sheetName}" — primeras 15 filas:`);
+    rows.slice(0, 15).forEach((row, i) => {
+      const nonNull = row.filter((c) => c !== null);
+      if (nonNull.length > 0) {
+        console.log(
+          `  [${i}] (${nonNull.length} celdas):`,
+          JSON.stringify(nonNull).slice(0, 200),
+        );
+      }
+    });
+
     for (const row of rows) {
       const nonNull = row.filter((c) => c !== null);
       if (nonNull.length === 0) continue;
 
-      // Bloque de metadata (celda única con \r\n)
+      // Bloque de metadata: celda única con salto de línea (\r\n o \n)
       if (
         nonNull.length === 1 &&
         typeof nonNull[0] === "string" &&
-        nonNull[0].includes("\r\n")
+        (nonNull[0].includes("\r\n") || nonNull[0].includes("\n"))
       ) {
         const lines = nonNull[0]
-          .split("\r\n")
+          .split(/\r?\n/)
           .map((l) => l.trim())
           .filter(Boolean);
         const parsed = parsearHeaderCambios(lines);
@@ -339,8 +351,42 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
         continue;
       }
 
+      // Metadata distribuida en múltiples celdas — intentar parsear como texto plano
+      if (
+        !headerData.categoriaCode &&
+        nonNull.some(
+          (c) =>
+            typeof c === "string" && /CATEGORIA|DELEGACI[OÓ]N|SECTOR/i.test(c),
+        )
+      ) {
+        const textoFila = nonNull.map(String).join(" ");
+        const parsed = parsearHeaderCambios([textoFila]);
+        if (parsed.categoriaCode) {
+          headerData = { ...headerData, ...parsed };
+        }
+        continue;
+      }
+
       const registro = parsearFilaExcel(row);
       if (registro) registros.push(registro);
+    }
+
+    // Si aún falta categoriaCode, intentar parsear las primeras 20 filas como bloque de texto
+    if (!headerData.categoriaCode) {
+      const textoGlobal = rows
+        .slice(0, 20)
+        .flatMap((row: (string | number | null)[]) =>
+          row.filter((c) => c !== null).map(String),
+        )
+        .join(" ");
+      const parsed = parsearHeaderCambios([textoGlobal]);
+      if (parsed.categoriaCode) {
+        headerData = { ...headerData, ...parsed };
+      }
+      console.log(
+        "[cambios-parser] textoGlobal header (primeras 20 filas):",
+        textoGlobal.slice(0, 400),
+      );
     }
   }
 
