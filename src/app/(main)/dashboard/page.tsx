@@ -114,6 +114,9 @@ function isNuevoIngresoEventual(item: TramiteData) {
   );
 }
 
+// Escalafón deshabilitado hasta validar con la persona responsable
+const ESCALAFON_HABILITADO = false;
+
 export default function DashboardPage() {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
@@ -241,15 +244,17 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user || userData?.role?.toUpperCase() !== "USER") return;
     if (!userData?.matricula?.trim()) return;
-    const fetchEscalafon = async () => {
-      try {
-        const result = await getMiEscalafonCliente();
-        setEscalafon(result.data || []);
-      } catch {
-        // silencioso — escalafón puede no estar disponible para todos
-      }
-    };
-    fetchEscalafon();
+    if (ESCALAFON_HABILITADO) {
+      const fetchEscalafon = async () => {
+        try {
+          const result = await getMiEscalafonCliente();
+          setEscalafon(result.data || []);
+        } catch {
+          // silencioso — escalafón puede no estar disponible para todos
+        }
+      };
+      fetchEscalafon();
+    }
   }, [user, userData]);
 
   const handleOpenDetail = useCallback(async (item: TramiteData) => {
@@ -638,7 +643,7 @@ export default function DashboardPage() {
         </AnimatePresence>
 
         {/* SECCIÓN ESCALAFÓN */}
-        {escalafon.length > 0 && (
+        {ESCALAFON_HABILITADO && escalafon.length > 0 && (
           <motion.section
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -762,136 +767,140 @@ export default function DashboardPage() {
         )}
 
         {/* MODAL ESCALAFÓN */}
-        <Dialog
-          open={isEscalafonModalOpen}
-          onOpenChange={(open) => {
-            setIsEscalafonModalOpen(open);
-            if (!open) setEscalafonDetalle(null);
-          }}
-        >
-          <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[88vh] bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2rem] p-0 overflow-hidden shadow-2xl">
-            <div className="overflow-y-auto max-h-[88vh]">
-              <div className="relative p-5 sm:p-7">
-                <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50 pointer-events-none" />
-                <div className="relative">
-                  <DialogHeader className="flex flex-row items-center justify-between mb-4">
-                    <div className="space-y-0.5 text-left min-w-0 flex-1 mr-3">
-                      <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary mb-1">
-                        <ShieldCheck className="h-3 w-3" />
-                        Escalafón
+        {ESCALAFON_HABILITADO && (
+          <Dialog
+            open={isEscalafonModalOpen}
+            onOpenChange={(open) => {
+              setIsEscalafonModalOpen(open);
+              if (!open) setEscalafonDetalle(null);
+            }}
+          >
+            <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[88vh] bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2rem] p-0 overflow-hidden shadow-2xl">
+              <div className="overflow-y-auto max-h-[88vh]">
+                <div className="relative p-5 sm:p-7">
+                  <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50 pointer-events-none" />
+                  <div className="relative">
+                    <DialogHeader className="flex flex-row items-center justify-between mb-4">
+                      <div className="space-y-0.5 text-left min-w-0 flex-1 mr-3">
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary mb-1">
+                          <ShieldCheck className="h-3 w-3" />
+                          Escalafón
+                        </div>
+                        {escalafonDetalle && (
+                          <DialogTitle className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+                            {escalafonDetalle.categoriaDesc}
+                          </DialogTitle>
+                        )}
                       </div>
-                      {escalafonDetalle && (
-                        <DialogTitle className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
-                          {escalafonDetalle.categoriaDesc}
-                        </DialogTitle>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsEscalafonModalOpen(false)}
-                      className="rounded-full h-9 w-9 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </DialogHeader>
-
-                  {escalafonDetalle && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-3"
-                    >
-                      {/* Hero */}
-                      {(() => {
-                        const mzRank =
-                          escalafonDetalle.estatus === "Activo"
-                            ? escalafonDetalle.posicionesActivoPorZona
-                            : escalafonDetalle.posicionesPeiPorZona;
-                        const mzOrdenadas = Object.entries(mzRank).sort(
-                          (a, b) => a[1] - b[1],
-                        );
-                        const mz = mzOrdenadas[0];
-                        return (
-                          <div className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 py-6 px-5 text-center shadow-lg">
-                            <div className="absolute top-0 right-0 p-5 opacity-5">
-                              <TrendingUp className="w-20 h-20" />
-                            </div>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
-                              Tu posición en
-                            </p>
-                            <p className="text-sm font-black uppercase tracking-widest text-white/80 mb-2">
-                              {mz ? mz[0].replace(/^\d+\s+/, "") : "Escalafón"}
-                            </p>
-                            <span className="text-6xl sm:text-7xl font-black text-white tracking-tighter leading-none">
-                              {mz ? mz[1] : escalafonDetalle.lugar}
-                            </span>
-                            <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
-                              <span
-                                className={cn(
-                                  "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
-                                  escalafonDetalle.estatus === "Activo"
-                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                                    : "bg-amber-500/20 text-amber-400 border-amber-500/30",
-                                )}
-                              >
-                                {escalafonDetalle.estatus}
-                              </span>
-                              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                                {escalafonDetalle.periodoDecierre}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Zonas — chips compactos */}
-                      {(() => {
-                        const zonasRank =
-                          escalafonDetalle.estatus === "Activo"
-                            ? escalafonDetalle.posicionesActivoPorZona
-                            : escalafonDetalle.posicionesPeiPorZona;
-                        const zonas = Object.entries(zonasRank).sort(
-                          (a, b) => a[1] - b[1],
-                        );
-                        if (zonas.length === 0) return null;
-                        return (
-                          <div className="space-y-2">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-0.5">
-                              Posición por zona
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {zonas.map(([zona, rank]) => (
-                                <div
-                                  key={zona}
-                                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"
-                                >
-                                  <span className="text-sm font-black text-primary">
-                                    #{rank}
-                                  </span>
-                                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
-                                    {zona.replace(/^\d+\s+/, "")}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
                       <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setIsEscalafonModalOpen(false)}
-                        className="w-full rounded-2xl h-11 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-lg"
+                        className="rounded-full h-9 w-9 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
                       >
-                        CERRAR
+                        <X className="h-4 w-4" />
                       </Button>
-                    </motion.div>
-                  )}
+                    </DialogHeader>
+
+                    {escalafonDetalle && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-3"
+                      >
+                        {/* Hero */}
+                        {(() => {
+                          const mzRank =
+                            escalafonDetalle.estatus === "Activo"
+                              ? escalafonDetalle.posicionesActivoPorZona
+                              : escalafonDetalle.posicionesPeiPorZona;
+                          const mzOrdenadas = Object.entries(mzRank).sort(
+                            (a, b) => a[1] - b[1],
+                          );
+                          const mz = mzOrdenadas[0];
+                          return (
+                            <div className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-950 py-6 px-5 text-center shadow-lg">
+                              <div className="absolute top-0 right-0 p-5 opacity-5">
+                                <TrendingUp className="w-20 h-20" />
+                              </div>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+                                Tu posición en
+                              </p>
+                              <p className="text-sm font-black uppercase tracking-widest text-white/80 mb-2">
+                                {mz
+                                  ? mz[0].replace(/^\d+\s+/, "")
+                                  : "Escalafón"}
+                              </p>
+                              <span className="text-6xl sm:text-7xl font-black text-white tracking-tighter leading-none">
+                                {mz ? mz[1] : escalafonDetalle.lugar}
+                              </span>
+                              <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+                                <span
+                                  className={cn(
+                                    "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                                    escalafonDetalle.estatus === "Activo"
+                                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                      : "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                                  )}
+                                >
+                                  {escalafonDetalle.estatus}
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                                  {escalafonDetalle.periodoDecierre}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Zonas — chips compactos */}
+                        {(() => {
+                          const zonasRank =
+                            escalafonDetalle.estatus === "Activo"
+                              ? escalafonDetalle.posicionesActivoPorZona
+                              : escalafonDetalle.posicionesPeiPorZona;
+                          const zonas = Object.entries(zonasRank).sort(
+                            (a, b) => a[1] - b[1],
+                          );
+                          if (zonas.length === 0) return null;
+                          return (
+                            <div className="space-y-2">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-0.5">
+                                Posición por zona
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {zonas.map(([zona, rank]) => (
+                                  <div
+                                    key={zona}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800"
+                                  >
+                                    <span className="text-sm font-black text-primary">
+                                      #{rank}
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                      {zona.replace(/^\d+\s+/, "")}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        <Button
+                          onClick={() => setIsEscalafonModalOpen(false)}
+                          className="w-full rounded-2xl h-11 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-lg"
+                        >
+                          CERRAR
+                        </Button>
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* PREMIUM DETAIL MODAL */}
         <Dialog
