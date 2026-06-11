@@ -56,7 +56,24 @@ export async function GET(request: NextRequest) {
     const syncActiva = {
       id: syncDoc.id,
       ...syncDoc.data(),
-    } as { id: string; anio: number; mes: number; quincena: number };
+    } as {
+      id: string;
+      anio: number;
+      mes: number;
+      quincena: number;
+      oculto?: boolean;
+    };
+
+    if (syncActiva.oculto) {
+      return NextResponse.json(
+        {
+          error:
+            "El listado está en proceso de actualización. Intenta de nuevo en breve.",
+          code: "SYNC_HIDDEN",
+        },
+        { status: 503 },
+      );
+    }
 
     const posicionesMaterializadas = (
       await getBolsaPosicionesMaterializadasPorMatricula(
