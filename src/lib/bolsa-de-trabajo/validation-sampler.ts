@@ -55,7 +55,8 @@ export function sampleRepresentativeCases(
   // 2. Primer lugar
   if (sorted[0]) addCase(sorted[0], "PRIMERO");
 
-  // 3. Eventual (antes de medio para garantizar su inclusión)
+  // 3. EVENTUAL antes que MEDIO: si hay pocos trabajadores, MEDIO puede agarrar
+  //    al eventual antes de que llegue el paso de EVENTUAL, impidiendo su inclusión.
   const eventual = docPositions.find((p) => p.tipoContratacion === "8");
   if (eventual) addCase(eventual, "EVENTUAL");
 
