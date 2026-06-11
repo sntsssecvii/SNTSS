@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase/firebase-client";
 import {
@@ -106,8 +100,8 @@ export default function DetalleQuincenaPage() {
         throw new Error("No se pudo validar la sesión del administrador.");
       }
 
-      const idToken = await currentUser.getIdToken();
-      setIdToken(idToken);
+      const freshToken = await currentUser.getIdToken();
+      setIdToken(freshToken);
       const response = await fetch(`/api/admin/bolsa/quincenas/${syncId}`, {
         headers: { Authorization: `Bearer ${idToken}` },
         cache: "no-store",
