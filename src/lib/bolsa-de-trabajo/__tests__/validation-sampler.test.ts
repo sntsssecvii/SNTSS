@@ -10,7 +10,6 @@ const makePos = (
 ): BolsaPosicionMaterializada => ({
   id: overrides.matricula,
   syncId: "sync-new",
-  matricula: overrides.matricula,
   tipoDocumento: "CAMBIOS_RAMA",
   documentoId: "doc-1",
   periodo: { anio: 2026, mes: 6, quincena: 1 },
@@ -19,7 +18,6 @@ const makePos = (
   nombre: `Trabajador ${overrides.matricula}`,
   categoria: "ENFERMERA GENERAL",
   zona: "1-Tijuana",
-  posicionBase: overrides.posicionBase,
   totalEnCategoria: 10,
   ...overrides,
 });
