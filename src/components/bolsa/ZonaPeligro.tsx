@@ -86,8 +86,8 @@ export function ZonaPeligro({
                 <p className="text-xs text-slate-500">
                   El portal está{" "}
                   <strong className="text-red-500">oculto</strong>. Los
-                  trabajadores ven "El listado está en proceso de
-                  actualización".
+                  trabajadores ven &ldquo;El listado está en proceso de
+                  actualización&rdquo;.
                 </p>
                 <Button
                   variant="outline"
