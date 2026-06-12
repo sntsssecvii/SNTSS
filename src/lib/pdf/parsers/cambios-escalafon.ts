@@ -469,15 +469,37 @@ function parsearFilaExcelPorPatron(
     }
   }
 
-  // 5. Nombre (patrón APELLIDO/APELLIDO/NOMBRE)
+  // 5. Nombre (APELLIDO/APELLIDO/NOMBRE o solo letras/espacios, ≠ facilidad, ≠ zona, ≠ tipo)
   let nombre = "";
   let nombreIdx = -1;
+  // Primero intentar patrón con slash
   for (const { idx, val } of cells) {
     const t = s(val);
-    if (/[A-ZÁÉÍÓÚÑ]+\/[A-ZÁÉÍÓÚÑ]+\/[A-ZÁÉÍÓÚÑ]/.test(t)) {
+    if (/[A-ZÁÉÍÓÚÑ]+\/[A-ZÁÉÍÓÚÑ]+/.test(t)) {
       nombre = t.toUpperCase();
       nombreIdx = idx;
       break;
+    }
+  }
+  // Si no hay slash, buscar celda de solo letras/espacios que no sea zona ni facilidad ni tipo
+  if (!nombre) {
+    for (const { idx, val } of cells) {
+      if (typeof val !== "string") continue;
+      const t = val.trim();
+      if (t.length < 4) continue;
+      if (ZONAS_RE.test(t)) continue;
+      if (FACILITY_RE.test(t)) continue;
+      if (
+        /^(TURNO|ADSCRIPCI[OÓ]N|MATUTINO|VESPERTINO|NOCTURNO|INCONDICIONAL|JORNADA(\s+ACUMULADA)?|J\.?ACUM\.?|SI|NO)$/i.test(
+          t,
+        )
+      )
+        continue;
+      if (/^[A-ZÁÉÍÓÚÑ\s]+$/.test(t) && t.split(" ").length >= 2) {
+        nombre = t.toUpperCase();
+        nombreIdx = idx;
+        break;
+      }
     }
   }
 
@@ -611,9 +633,6 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
       defval: null,
     });
 
-    // Intentar detectar encabezado (útil si Adobe preserva headers)
-    const colMap = detectarEncabezado(rows);
-
     for (const row of rows) {
       const nonNull = row.filter((c) => c !== null);
       if (nonNull.length === 0) continue;
@@ -651,25 +670,8 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
         continue;
       }
 
-      // Saltar la fila de encabezado de columnas (si se detectó)
-      if (
-        colMap &&
-        nonNull.length >= 5 &&
-        nonNull.every((c) => typeof c === "string") &&
-        nonNull.some(
-          (c) =>
-            typeof c === "string" &&
-            (String(c).toUpperCase().includes("FECHA") ||
-              String(c).toUpperCase().includes("SOLICITUD")),
-        )
-      ) {
-        continue;
-      }
-
-      // Parsear fila: con mapa de encabezado si existe, sino por patrones de valor
-      const registro = colMap
-        ? parsearFilaConMapa(row, colMap)
-        : parsearFilaExcelPorPatron(row);
+      // Parsear fila por patrones de valor (robusto ante Excel sparse de Adobe)
+      const registro = parsearFilaExcelPorPatron(row);
       if (registro) registros.push(registro);
     }
 
