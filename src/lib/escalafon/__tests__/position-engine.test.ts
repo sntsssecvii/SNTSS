@@ -179,6 +179,34 @@ describe("calcularPosicionesPorZona", () => {
     expect(a1.posicionesPorZona["2 MEXICALI"]).toBe(1);
   });
 
+  it("reconoce zona incondicional truncada/multilínea del PDF ('0\\r\\nINCONDICIONA')", () => {
+    // Caso real (listado OF SOPORTE TEC INFORMAT): el PDF guarda la zona
+    // incondicional como "0\r\nINCONDICIONA" (con salto de línea y sin la "L").
+    // No debe contarse como zona propia y debe calificar para todas las zonas.
+    const aspirantes = [
+      aspirante(14, ["0\r\nINCONDICIONA"], "Activo"), // incondicional truncado
+      aspirante(15, ["0\r\nINCONDICIONA"], "Activo"), // incondicional truncado
+      aspirante(16, ["1 ENSENADA"], "Activo"), // Claudia
+    ];
+    const { zonas, aspirantesConPosicion } =
+      calcularPosicionesPorZona(aspirantes);
+
+    // La zona truncada NO debe aparecer como zona real
+    expect(zonas).not.toContain("0\r\nINCONDICIONA");
+    expect(zonas).toContain("1 ENSENADA");
+
+    const map = Object.fromEntries(
+      aspirantesConPosicion.map((a) => [
+        a.lugar,
+        a.posicionesActivoPorZona["1 ENSENADA"],
+      ]),
+    );
+    // Los dos incondicionales (lugar 14, 15) están arriba; Claudia (16) es la #3
+    expect(map[14]).toBe(1);
+    expect(map[15]).toBe(2);
+    expect(map[16]).toBe(3);
+  });
+
   it("retorna arreglo vacío y zonas vacías si no hay aspirantes", () => {
     const { aspirantesConPosicion, zonas } = calcularPosicionesPorZona([]);
     expect(aspirantesConPosicion).toHaveLength(0);

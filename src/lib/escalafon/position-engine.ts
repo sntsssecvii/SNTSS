@@ -16,9 +16,15 @@ type AspiranteConPosicion = AspiranteInput & {
 
 // "INCONDICIONAL" exacto O "0 Incondicional", "1 Incondicional", etc.
 // SIAP usa zona 0 para representar zona incondicional.
+//
+// El replace(/\s/g) elimina TODO whitespace, incluidos los \r\n que el PDF
+// (pdfplumber / Adobe) inserta dentro de la celda: "0\r\nINCONDICIONA" → "0INCONDICIONA".
+// Se matchea por la raíz "INCONDICION" porque el parser a veces trunca la "L"
+// final ("INCONDICIONA"). Ninguna zona real empieza con dígitos + "INCONDICION",
+// así que no hay falsos positivos.
 function esIncondicional(zona: string): boolean {
   const norm = zona.replace(/\s/g, "").toUpperCase();
-  return norm === "INCONDICIONAL" || /^\d{1,2}INCONDICIONAL$/.test(norm);
+  return /^\d{0,2}INCONDICION/.test(norm);
 }
 
 export function calcularPosicionesPorZona(aspirantes: AspiranteInput[]): {

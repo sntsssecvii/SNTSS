@@ -322,6 +322,42 @@ function excelSerialAFecha(serial: number): string {
 }
 
 /**
+ * Normaliza la celda de "zona solicitada" del Excel de Adobe.
+ *
+ * El PDF parte celdas en varias líneas y a veces trunca palabras, produciendo
+ * valores como "0\r\nINCONDICIONA" (incondicional sin la "L" final). Esta función:
+ *  - colapsa todo whitespace interno (incluye \r\n) a un solo espacio
+ *  - reconoce cualquier variante de incondicional (raíz "INCONDICION") y la
+ *    normaliza a "<n> Incondicional", conservando el código numérico SIAP (0)
+ *  - devuelve "Incondicional" si la celda queda vacía
+ */
+export function normalizarZona(raw: string): string {
+  const z = raw.replace(/\s+/g, " ").trim();
+  if (!z) return "Incondicional";
+  const norm = z.replace(/\s/g, "").toUpperCase();
+  if (/^\d{0,2}INCONDICION/.test(norm)) {
+    const numMatch = z.match(/^\d{1,2}/);
+    return numMatch ? `${numMatch[0]} Incondicional` : "Incondicional";
+  }
+  return z;
+}
+
+/**
+ * Detecta la fila de encabezado de columnas del Excel, que el PDF repite en
+ * cada página/sección (col 7 = "ZONA SOLICITADA"). Si no se filtra, se cuela
+ * como una preferencia espuria del último aspirante.
+ */
+export function esFilaEncabezadoColumnas(
+  row: (string | number | null)[],
+): boolean {
+  const zona = String(row[7] ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+  return zona === "ZONA SOLICITADA";
+}
+
+/**
  * Parsea cols 6-10 de una fila Excel de Adobe para extraer la preferencia del aspirante.
  *   Col 6: delegación solicitada  (ej. "02 BAJA CALIFORNIA")
  *   Col 7: zona solicitada        (ej. "7 TIJUANA")
@@ -335,7 +371,7 @@ function parsearPreferenciaDesdeColumnas(
   const str = (v: unknown): string => (v == null ? "" : String(v).trim());
 
   const delegacionSolicitada = str(row[6]) || "Incondicional";
-  const zonaSolicitada = str(row[7]) || "Incondicional";
+  const zonaSolicitada = normalizarZona(str(row[7]));
   const localidadSolicitada = str(row[8]) || "Incondicional";
 
   // Adscripción: "02HA010000 HOSPITAL GENERAL REGIONAL 01" → code + desc
@@ -419,6 +455,10 @@ async function parsearDesdeAdobe(
         }
         continue;
       }
+
+      // Fila de encabezado de columnas repetida por página/sección
+      // ("...ZONA SOLICITADA...") → ignorar para que no entre como preferencia.
+      if (esFilaEncabezadoColumnas(row)) continue;
 
       // Lugar: acepta tanto número como string numérico ("1" → 1)
       const rawCol0 = row[0];
