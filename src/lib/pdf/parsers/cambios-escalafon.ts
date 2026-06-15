@@ -315,22 +315,24 @@ async function extraerFilasConCoordenadas(
   }
 
   const req = createRequire(import.meta.url);
-  // Specifiers en variable para que TS no intente resolver tipos del subpath.
-  const legacyMod = "pdfjs-dist/legacy/build/pdf.mjs";
-  const legacyWorker = "pdfjs-dist/legacy/build/pdf.worker.mjs";
-  const stdMod = "pdfjs-dist";
-  const stdWorker = "pdfjs-dist/build/pdf.worker.mjs";
 
+  // pdfjs recomienda el build LEGACY para entornos Node.js (Next server, dev y
+  // serverless). Specifier LITERAL: el bundler de Next lo resuelve estáticamente
+  // (un specifier en variable rompía la resolución y caía al fallback Adobe).
+  // El build estándar queda de respaldo.
   let pdfjsLib: typeof import("pdfjs-dist");
   try {
-    pdfjsLib = (await import(legacyMod)) as typeof import("pdfjs-dist");
+    pdfjsLib = (await import(
+      // @ts-ignore — subpath legacy sin tipos; misma API que "pdfjs-dist"
+      "pdfjs-dist/legacy/build/pdf.mjs"
+    )) as typeof import("pdfjs-dist");
     pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
-      req.resolve(legacyWorker),
+      req.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs"),
     ).toString();
   } catch {
-    pdfjsLib = (await import(stdMod)) as typeof import("pdfjs-dist");
+    pdfjsLib = await import("pdfjs-dist");
     pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
-      req.resolve(stdWorker),
+      req.resolve("pdfjs-dist/build/pdf.worker.mjs"),
     ).toString();
   }
 
@@ -1036,13 +1038,19 @@ export async function parsearListadoCambios(
   try {
     const result = await parsearDesdeCoordenadas(pdfPath);
     if (result.registros.length > 0) {
+      console.log(
+        `[cambios] parser por COORDENADAS OK: ${result.registros.length} registros, cat=${result.listado.categoriaCode} sector=${result.listado.sectorCode}`,
+      );
       return result;
     }
     console.warn(
       "[cambios] coordenadas no extrajo registros, probando Adobe/texto",
     );
   } catch (coordErr) {
-    console.error("[cambios] coordenadas falló, probando Adobe/texto:", coordErr);
+    console.error(
+      "[cambios] coordenadas falló, probando Adobe/texto:",
+      coordErr,
+    );
   }
 
   // 2. Adobe PDF Services (fallback para PDFs sin capa de texto)
