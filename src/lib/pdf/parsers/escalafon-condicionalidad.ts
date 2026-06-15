@@ -536,7 +536,26 @@ async function parsearDesdeAdobe(
     totalAspirantes: headerData.totalAspirantes ?? 0,
   };
 
+  agregarAdvertenciaConteo(errores, listado.totalAspirantes, aspirantes.length);
+
   return { listado, aspirantes, errores };
+}
+
+/**
+ * Agrega una advertencia (no crítica) cuando el total declarado en el header
+ * difiere del número de aspirantes extraídos. Es habitual en los PDFs SIAP:
+ * el total declarado incluye aspirantes dados de baja cuyos lugares se omiten.
+ */
+function agregarAdvertenciaConteo(
+  errores: string[],
+  declarado: number,
+  extraidos: number,
+): void {
+  if (declarado > 0 && extraidos !== declarado) {
+    errores.push(
+      `Advertencia: el listado declara ${declarado} aspirantes pero se extrajeron ${extraidos}.`,
+    );
+  }
 }
 
 // --- Función principal ---
@@ -646,6 +665,8 @@ export async function parsearListadoCondicionalidad(
     periodoDecierre: headerData.periodoDecierre ?? "",
     totalAspirantes: headerData.totalAspirantes ?? 0,
   };
+
+  agregarAdvertenciaConteo(errores, listado.totalAspirantes, aspirantes.length);
 
   return { listado, aspirantes, errores };
 }

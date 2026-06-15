@@ -1,5 +1,34 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import path from "path";
+import fs from "fs";
+
+/**
+ * Mock de Adobe PDF Services con fixtures Excel capturados (.adobe.xlsx).
+ *
+ * El test usaba el servicio Adobe en vivo (o el fallback Python/pdfjs cuando
+ * faltaban credenciales), lo que lo hacía no determinista: distintos
+ * extractores devolvían conteos distintos para el mismo PDF. Al congelar la
+ * salida de Adobe como fixture binario y mockear convertPdfToExcel, el test
+ * ejercita la ruta real de producción (parseo por columnas) de forma estable,
+ * sin red ni servicios externos.
+ *
+ * Para regenerar los fixtures (si cambian los PDFs o el contrato de Adobe):
+ *   tsx scripts/tests/capturar-fixtures-adobe-escalafon.ts   (requiere credenciales en .env.local)
+ */
+const FIXTURES_XLSX = path.join(__dirname, "fixtures");
+
+vi.mock("@/lib/excel/services/adobePdfService", () => ({
+  AdobePdfService: {
+    convertPdfToExcel: vi.fn(async (_buffer: Buffer, fileName: string) => {
+      const fixturePath = path.join(
+        FIXTURES_XLSX,
+        fileName.replace(/\.pdf$/i, ".adobe.xlsx"),
+      );
+      return fs.readFileSync(fixturePath);
+    }),
+  },
+}));
+
 import {
   parsearListadoCondicionalidad,
   normalizarZona,
@@ -7,6 +36,16 @@ import {
 } from "../escalafon-condicionalidad";
 
 const FIXTURES = path.join(process.cwd(), "src/assets/PDFs/escalafon");
+
+// Forzar la ruta Adobe (mockeada) — el parser solo la toma si hay credenciales.
+beforeAll(() => {
+  vi.stubEnv("ADOBE_CLIENT_ID", "test-client-id");
+  vi.stubEnv("ADOBE_CLIENT_SECRET", "test-client-secret");
+});
+
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
 /**
  * Los PDFs de SIAP declaran un totalAspirantes que incluye aspirantes
