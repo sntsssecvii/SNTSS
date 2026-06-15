@@ -77,6 +77,322 @@ async function extraerLineasConPdfjs(
 }
 
 // ---------------------------------------------------------------------------
+// Extracción por COORDENADAS (x/y) — método primario robusto.
+// Asigna cada item de texto a su columna por posición x (anclas derivadas del
+// encabezado) y fusiona celdas multilínea. Elimina el adivinador por patrones
+// de valor que confundía área con número de hospital, perdía adscripciones
+// "0-INCONDICIONAL" y pegaba el nombre con la adscripción de origen.
+// ---------------------------------------------------------------------------
+
+export interface CeldaCoord {
+  x: number;
+  y: number;
+  text: string;
+}
+export interface FilaCoord {
+  y: number;
+  items: CeldaCoord[];
+}
+export interface PaginaCoord {
+  page_number: number;
+  rows: FilaCoord[];
+}
+
+type ColKey =
+  | "fecha"
+  | "hora"
+  | "noSolicitud"
+  | "matriculaNombre"
+  | "adscripcionOrigen"
+  | "percibeConcepto"
+  | "zona"
+  | "adscripcionSolicitada"
+  | "especialidadArea"
+  | "tipo"
+  | "turnoSolicitado"
+  | "conConceptos";
+
+const ORDEN_COLUMNAS: ColKey[] = [
+  "fecha",
+  "hora",
+  "noSolicitud",
+  "matriculaNombre",
+  "adscripcionOrigen",
+  "percibeConcepto",
+  "zona",
+  "adscripcionSolicitada",
+  "especialidadArea",
+  "tipo",
+  "turnoSolicitado",
+  "conConceptos",
+];
+
+// Filas que NO son de tabla (encabezados de página, metadata, footer SIAP).
+// Tokens anclados a propósito: las adscripciones contienen palabras como
+// "SUBDELEGACION", "HOSPITAL DE ESPECIALIDADES" o "DELEGACION REGIONAL" que NO
+// deben confundirse con metadata. Solo coinciden líneas de cabecera/footer reales:
+// el bloque de título, las líneas "ETIQUETA:" y los encabezados de columna
+// (identificados por tokens únicos: "MATRICULA - NOMBRE", "SOLCITADA", etc.).
+const META_RE =
+  /INSTITUTO|COMISI[OÓ]N\s+MIXTA|SUBCOMISI[OÓ]N|LISTADO\s+GENERAL|(?:DELEGACI[OÓ]N|SECTOR|CATEGORIA|CONCEPTO)\s*:|IMSS\s*[-–]\s*SIAP|MATR[IÍ]CULA\s*-\s*NOMBRE|SOLCITADA|SOLICITADO|\bCONCEPTOS\b/i;
+
+export function detectarAnclaDeItem(textRaw: string): ColKey | null {
+  const t = textRaw.toUpperCase().trim();
+  if (/^FECHA$/.test(t)) return "fecha";
+  if (/^HORA$/.test(t)) return "hora";
+  if (/SOLICITUD/.test(t)) return "noSolicitud";
+  if (/MATR[IÍ]CULA/.test(t)) return "matriculaNombre";
+  if (/^ORIGEN$/.test(t)) return "adscripcionOrigen";
+  if (/PERCIBE/.test(t)) return "percibeConcepto";
+  if (/^ZONA$/.test(t)) return "zona";
+  if (/SOL[IÍ]?CITADA/.test(t)) return "adscripcionSolicitada";
+  if (/ESPECIALIDAD/.test(t) || /^[ÁA]REA$/.test(t)) return "especialidadArea";
+  if (/^TIPO$/.test(t)) return "tipo";
+  if (/^TURNO$/.test(t)) return "turnoSolicitado";
+  if (/^CONCEPTOS$/.test(t)) return "conConceptos";
+  return null;
+}
+
+// Deriva la posición x de cada columna leyendo las filas de encabezado.
+export function detectarAnclasColumnas(
+  pages: PaginaCoord[],
+): { key: ColKey; x: number }[] | null {
+  const anclas: Partial<Record<ColKey, number>> = {};
+  for (const page of pages) {
+    for (const row of page.rows) {
+      const texto = row.items.map((i) => i.text).join(" ");
+      if (!META_RE.test(texto)) continue; // solo filas de encabezado/metadata
+      for (const it of row.items) {
+        const key = detectarAnclaDeItem(it.text);
+        if (key && anclas[key] === undefined) anclas[key] = it.x;
+      }
+    }
+  }
+  // Mínimos imprescindibles para confiar en el mapeo
+  if (
+    anclas.fecha === undefined ||
+    anclas.matriculaNombre === undefined ||
+    anclas.zona === undefined
+  ) {
+    return null;
+  }
+  return ORDEN_COLUMNAS.filter((k) => anclas[k] !== undefined)
+    .map((k) => ({ key: k, x: anclas[k] as number }))
+    .sort((a, b) => a.x - b.x);
+}
+
+// Asigna una x a su columna según las fronteras (puntos medios entre anclas).
+export function columnaDe(
+  x: number,
+  anclas: { key: ColKey; x: number }[],
+): ColKey {
+  for (let i = 0; i < anclas.length; i++) {
+    const left = i === 0 ? -Infinity : (anclas[i - 1].x + anclas[i].x) / 2;
+    const right =
+      i === anclas.length - 1 ? Infinity : (anclas[i].x + anclas[i + 1].x) / 2;
+    if (x >= left && x < right) return anclas[i].key;
+  }
+  return anclas[anclas.length - 1].key;
+}
+
+const FECHA_RE = /^\d{2}\/\d{2}\/\d{4}$/;
+
+function materializarRegistro(
+  cols: Record<ColKey, CeldaCoord[]>,
+): Omit<CambiosRegistro, "id" | "listadoId"> {
+  // Une las celdas de una columna en orden de lectura (arriba→abajo, izq→der).
+  const join = (k: ColKey): string =>
+    cols[k]
+      .slice()
+      .sort((a, b) => b.y - a.y || a.x - b.x)
+      .map((c) => c.text)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  // Separar matrícula (número) del nombre dentro de la banda "MATRICULA-NOMBRE".
+  const matNom = cols.matriculaNombre
+    .slice()
+    .sort((a, b) => b.y - a.y || a.x - b.x);
+  let matricula = "";
+  const nombreParts: string[] = [];
+  for (const c of matNom) {
+    if (!matricula && /^\d{7,11}$/.test(c.text)) matricula = c.text;
+    else nombreParts.push(c.text);
+  }
+
+  const areaMatch = join("especialidadArea").match(/\d+/);
+
+  return {
+    fechaRegistro: join("fecha"),
+    horaRegistro: join("hora"),
+    noSolicitud: join("noSolicitud"),
+    matricula,
+    nombre: nombreParts.join(" ").replace(/\s+/g, " ").trim().toUpperCase(),
+    adscripcionOrigen: join("adscripcionOrigen"),
+    percibeConcepto: join("percibeConcepto").toUpperCase(),
+    zona: join("zona"),
+    adscripcionSolicitada: join("adscripcionSolicitada"),
+    especialidadArea: areaMatch ? Number(areaMatch[0]) : 0,
+    tipo: join("tipo").toUpperCase().replace("ADSCRIPCION", "ADSCRIPCIÓN"),
+    turnoSolicitado: join("turnoSolicitado").toUpperCase(),
+    conConceptos: join("conConceptos").toUpperCase(),
+  };
+}
+
+const COLS_VACIAS = (): Record<ColKey, CeldaCoord[]> =>
+  ORDEN_COLUMNAS.reduce(
+    (acc, k) => {
+      acc[k] = [];
+      return acc;
+    },
+    {} as Record<ColKey, CeldaCoord[]>,
+  );
+
+// Construye los registros a partir de las filas con coordenadas.
+export function construirRegistrosPorCoordenadas(
+  pages: PaginaCoord[],
+): Omit<CambiosRegistro, "id" | "listadoId">[] {
+  const anclas = detectarAnclasColumnas(pages);
+  if (!anclas) return [];
+
+  const registros: Omit<CambiosRegistro, "id" | "listadoId">[] = [];
+  let actual: Record<ColKey, CeldaCoord[]> | null = null;
+
+  const cerrar = () => {
+    if (actual) {
+      registros.push(materializarRegistro(actual));
+      actual = null;
+    }
+  };
+
+  for (const page of pages) {
+    for (const row of page.rows) {
+      const texto = row.items.map((i) => i.text).join(" ");
+      // Encabezado/footer de página → cierra el registro en curso y se ignora.
+      if (META_RE.test(texto)) {
+        cerrar();
+        continue;
+      }
+
+      const buckets: Partial<Record<ColKey, CeldaCoord[]>> = {};
+      for (const it of row.items) {
+        const key = columnaDe(it.x, anclas);
+        (buckets[key] ||= []).push(it);
+      }
+
+      const tieneFecha = (buckets.fecha ?? []).some((c) =>
+        FECHA_RE.test(c.text),
+      );
+      if (tieneFecha) {
+        cerrar(); // nueva fila base
+        actual = COLS_VACIAS();
+      }
+      if (!actual) continue; // continuación sin base previa → ignorar
+
+      for (const k of Object.keys(buckets) as ColKey[]) {
+        actual[k].push(...(buckets[k] as CeldaCoord[]));
+      }
+    }
+    cerrar(); // fin de página
+  }
+  cerrar();
+
+  return registros;
+}
+
+// I/O: extrae filas con coordenadas usando pdfjs (build legacy para Node).
+async function extraerFilasConCoordenadas(
+  pdfPath: string,
+): Promise<PaginaCoord[]> {
+  const buffer = await readFile(pdfPath);
+
+  if (typeof global !== "undefined") {
+    const g = global as Record<string, unknown>;
+    if (!g.DOMMatrix) g.DOMMatrix = class DOMMatrix {};
+    if (!g.Path2D) g.Path2D = class Path2D {};
+    if (!g.ImageData) g.ImageData = class ImageData {};
+  }
+
+  const req = createRequire(import.meta.url);
+  // Specifiers en variable para que TS no intente resolver tipos del subpath.
+  const legacyMod = "pdfjs-dist/legacy/build/pdf.mjs";
+  const legacyWorker = "pdfjs-dist/legacy/build/pdf.worker.mjs";
+  const stdMod = "pdfjs-dist";
+  const stdWorker = "pdfjs-dist/build/pdf.worker.mjs";
+
+  let pdfjsLib: typeof import("pdfjs-dist");
+  try {
+    pdfjsLib = (await import(legacyMod)) as typeof import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
+      req.resolve(legacyWorker),
+    ).toString();
+  } catch {
+    pdfjsLib = (await import(stdMod)) as typeof import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
+      req.resolve(stdWorker),
+    ).toString();
+  }
+
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+    .promise;
+  const Y_TOLERANCE = 4;
+  const pages: PaginaCoord[] = [];
+
+  for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+    const page = await doc.getPage(pageNum);
+    const content = await page.getTextContent();
+    const rows: FilaCoord[] = [];
+
+    for (const item of content.items) {
+      if (!("str" in item) || !item.str.trim()) continue;
+      const typed = item as { transform: number[]; str: string };
+      const x = typed.transform[4];
+      const y = typed.transform[5];
+      const row = rows.find((r) => Math.abs(r.y - y) <= Y_TOLERANCE);
+      if (row) row.items.push({ x, y, text: typed.str.trim() });
+      else rows.push({ y, items: [{ x, y, text: typed.str.trim() }] });
+    }
+
+    rows.sort((a, b) => b.y - a.y);
+    for (const r of rows) r.items.sort((a, b) => a.x - b.x);
+    pages.push({ page_number: pageNum, rows });
+  }
+
+  return pages;
+}
+
+async function parsearDesdeCoordenadas(
+  pdfPath: string,
+): Promise<CambiosParseResult> {
+  const pages = await extraerFilasConCoordenadas(pdfPath);
+
+  const headerLines: string[] = [];
+  for (const page of pages) {
+    for (const row of page.rows) {
+      headerLines.push(row.items.map((i) => i.text).join(" "));
+    }
+  }
+  const headerData = parsearHeaderCambios(headerLines);
+  const registros = construirRegistrosPorCoordenadas(pages);
+
+  return {
+    listado: {
+      delegacion: headerData.delegacion ?? "",
+      sectorCode: headerData.sectorCode ?? "",
+      sectorDesc: headerData.sectorDesc ?? "",
+      categoriaCode: headerData.categoriaCode ?? "",
+      categoriaDesc: headerData.categoriaDesc ?? "",
+      concepto: headerData.concepto ?? "",
+      fechaEmision: headerData.fechaEmision ?? "",
+      totalRegistros: registros.length,
+    },
+    registros,
+    errores: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
 
@@ -716,7 +1032,20 @@ export async function parsearListadoCambios(
   const adobeClientId = process.env.ADOBE_CLIENT_ID;
   const adobeClientSecret = process.env.ADOBE_CLIENT_SECRET;
 
-  // 1. Adobe PDF Services (primario en Vercel)
+  // 1. Coordenadas pdfjs (primario): mapeo por columnas, robusto para SIAP.
+  try {
+    const result = await parsearDesdeCoordenadas(pdfPath);
+    if (result.registros.length > 0) {
+      return result;
+    }
+    console.warn(
+      "[cambios] coordenadas no extrajo registros, probando Adobe/texto",
+    );
+  } catch (coordErr) {
+    console.error("[cambios] coordenadas falló, probando Adobe/texto:", coordErr);
+  }
+
+  // 2. Adobe PDF Services (fallback para PDFs sin capa de texto)
   if (adobeClientId && adobeClientSecret) {
     try {
       return await parsearDesdeAdobe(pdfPath);
@@ -728,7 +1057,7 @@ export async function parsearListadoCambios(
     }
   }
 
-  // 2. Fallback: texto (Python → pdfjs-dist)
+  // 3. Fallback: texto (Python → pdfjs-dist)
   const errores: string[] = [];
   const registros: Omit<CambiosRegistro, "id" | "listadoId">[] = [];
   let headerData: Partial<CambiosHeader> = {};
