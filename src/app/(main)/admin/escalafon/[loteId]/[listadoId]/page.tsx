@@ -866,7 +866,24 @@ export default function DetalleListadoPage() {
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
                         Quiénes están arriba
                       </p>
-                      <div className="space-y-4">
+                      <Tabs
+                        defaultValue={zonasDel[0]}
+                        className="w-full"
+                      >
+                        <TabsList className="flex flex-wrap h-auto w-full justify-start gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1 mb-3">
+                          {zonasDel.map((zona) => (
+                            <TabsTrigger
+                              key={zona}
+                              value={zona}
+                              className="rounded-lg text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                            >
+                              {zona}
+                              <span className="ml-1.5 font-mono text-[9px] text-emerald-600 dark:text-emerald-400">
+                                #{(posMap ?? {})[zona]}
+                              </span>
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
                         {zonasDel.map((zona) => {
                           const miPos = (posMap ?? {})[zona];
                           const arriba = aspirantes
@@ -879,7 +896,7 @@ export default function DetalleListadoPage() {
                             .sort((a, b) => a.lugar - b.lugar);
 
                           return (
-                            <div key={zona}>
+                            <TabsContent key={zona} value={zona} className="mt-0">
                               <div className="flex items-center gap-2 mb-2">
                                 <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                                   {zona}
@@ -964,10 +981,10 @@ export default function DetalleListadoPage() {
                                   </div>
                                 </div>
                               )}
-                            </div>
+                            </TabsContent>
                           );
                         })}
-                      </div>
+                      </Tabs>
                     </div>
                   );
                 })()}
