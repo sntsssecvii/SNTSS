@@ -26,6 +26,11 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import {
+  calcularPosicionesCambios,
+  claveRegistro,
+  type CambiosPosicion,
+} from "@/lib/cambios-escalafon/position-engine";
 import type {
   CambiosListado,
   CambiosLote,
@@ -35,6 +40,14 @@ import type {
 const PAGE_SIZE = 50;
 
 type PageState = "loading" | "success" | "error";
+
+// El GET adjunta el lugar calculado al vuelo (cada listado es independiente).
+type RegistroConLugar = CambiosRegistro & {
+  lugar?: number | null;
+  totalEnGrupo?: number | null;
+  grupoUnidad?: string | null;
+  grupoTurno?: string | null;
+};
 
 async function fetchConAuth<T>(url: string): Promise<T> {
   const user = auth.currentUser;
@@ -77,7 +90,7 @@ export default function DetalleListadoCambiosPage() {
   const router = useRouter();
 
   const [listado, setListado] = useState<CambiosListado | null>(null);
-  const [registros, setRegistros] = useState<CambiosRegistro[]>([]);
+  const [registros, setRegistros] = useState<RegistroConLugar[]>([]);
   const [lote, setLote] = useState<CambiosLote | null>(null);
   const [pageState, setPageState] = useState<PageState>("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -85,7 +98,7 @@ export default function DetalleListadoCambiosPage() {
   const [busqueda, setBusqueda] = useState("");
   const [busquedaDebounced, setBusquedaDebounced] = useState("");
   const [paginaActual, setPaginaActual] = useState(1);
-  const [registroModal, setRegistroModal] = useState<CambiosRegistro | null>(
+  const [registroModal, setRegistroModal] = useState<RegistroConLugar | null>(
     null,
   );
 
@@ -103,7 +116,7 @@ export default function DetalleListadoCambiosPage() {
     setPageState("loading");
 
     Promise.all([
-      fetchConAuth<{ listado: CambiosListado; registros: CambiosRegistro[] }>(
+      fetchConAuth<{ listado: CambiosListado; registros: RegistroConLugar[] }>(
         `/api/cambios-escalafon/${listadoId}`,
       ),
       fetchConAuth<{ lote: CambiosLote }>(
@@ -141,6 +154,36 @@ export default function DetalleListadoCambiosPage() {
     (paginaActual - 1) * PAGE_SIZE,
     paginaActual * PAGE_SIZE,
   );
+
+  // Posiciones (mismo motor) para la sección "quiénes están arriba" del modal.
+  const claveGrupo = (p: CambiosPosicion) =>
+    `${p.zona}:::${p.unidad}:::${p.turno}`;
+
+  const posicionesPorGrupo = useMemo(() => {
+    const posiciones = calcularPosicionesCambios(registros);
+    const mapa = new Map<string, CambiosPosicion[]>();
+    for (const p of posiciones) {
+      const k = claveGrupo(p);
+      if (!mapa.has(k)) mapa.set(k, []);
+      mapa.get(k)!.push(p);
+    }
+    for (const lista of mapa.values()) lista.sort((a, b) => a.lugar - b.lugar);
+    return mapa;
+  }, [registros]);
+
+  // Grupos en los que compite el registro abierto en el modal (1 normal, varios si incondicional).
+  const gruposDelModal = useMemo(() => {
+    if (!registroModal) return [];
+    const clave = claveRegistro(registroModal);
+    const grupos: CambiosPosicion[] = [];
+    for (const lista of posicionesPorGrupo.values()) {
+      const propia = lista.find((p) => claveRegistro(p.registro) === clave);
+      if (propia) grupos.push(propia);
+    }
+    return grupos.sort(
+      (a, b) => a.unidad.localeCompare(b.unidad) || a.turno.localeCompare(b.turno),
+    );
+  }, [registroModal, posicionesPorGrupo]);
 
   const exportarCSV = () => {
     if (!listado) return;
@@ -350,6 +393,7 @@ export default function DetalleListadoCambiosPage() {
               <TableHeader className="sticky top-0 z-20 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                 <TableRow className="hover:bg-transparent">
                   {[
+                    "Lugar",
                     "Fecha",
                     "No. Solicitud",
                     "Matrícula",
@@ -376,7 +420,7 @@ export default function DetalleListadoCambiosPage() {
               <TableBody>
                 {filasPagina.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="py-32 text-center">
+                    <TableCell colSpan={13} className="py-32 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 shadow-inner dark:bg-slate-800">
                           <Search className="h-8 w-8 text-slate-300 dark:text-slate-600" />
@@ -403,6 +447,22 @@ export default function DetalleListadoCambiosPage() {
                           : "bg-slate-50/30 dark:bg-slate-950/20",
                       )}
                     >
+                      <TableCell className="py-4 px-4 whitespace-nowrap">
+                        {r.lugar != null ? (
+                          <div className="flex flex-col items-center">
+                            <span className="font-mono text-base font-black text-primary leading-none">
+                              #{r.lugar}
+                            </span>
+                            {r.totalEnGrupo != null && (
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">
+                                de {r.totalEnGrupo}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="py-4 px-4 whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -522,6 +582,13 @@ export default function DetalleListadoCambiosPage() {
                 <div className="grid grid-cols-2 gap-4">
                   {[
                     {
+                      label: "Lugar (en su grupo)",
+                      value:
+                        registroModal.lugar != null
+                          ? `#${registroModal.lugar} de ${registroModal.totalEnGrupo} · ${registroModal.grupoUnidad ?? ""} / ${registroModal.grupoTurno ?? ""}`
+                          : "—",
+                    },
+                    {
                       label: "Adscripción Origen",
                       value: registroModal.adscripcionOrigen,
                     },
@@ -560,6 +627,97 @@ export default function DetalleListadoCambiosPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Quiénes están arriba — prelación dentro del grupo */}
+                {gruposDelModal.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      Quiénes están arriba
+                    </p>
+                    <div className="space-y-4">
+                      {gruposDelModal.map((g) => {
+                        const todos =
+                          posicionesPorGrupo.get(claveGrupo(g)) ?? [];
+                        const arriba = todos.filter((p) => p.lugar < g.lugar);
+                        return (
+                          <div key={claveGrupo(g)}>
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
+                                {g.unidad} · {g.turno}
+                              </span>
+                              <span className="text-[9px] font-bold text-slate-400">
+                                — {arriba.length} antes · tú eres #{g.lugar} de{" "}
+                                {g.totalEnGrupo}
+                              </span>
+                            </div>
+                            {arriba.length === 0 ? (
+                              <p className="text-xs text-slate-400 font-bold italic">
+                                Nadie antes en este grupo
+                              </p>
+                            ) : (
+                              <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                <div className="max-h-52 overflow-y-auto">
+                                  <table className="w-full text-xs">
+                                    <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 z-10">
+                                      <tr>
+                                        {[
+                                          "Pos.",
+                                          "Matrícula",
+                                          "Nombre",
+                                          "Tipo",
+                                          "Registro",
+                                        ].map((h) => (
+                                          <th
+                                            key={h}
+                                            className="py-2 px-3 text-left font-black text-[9px] uppercase tracking-widest text-slate-400"
+                                          >
+                                            {h}
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {arriba.map((p, idx) => (
+                                        <tr
+                                          key={claveRegistro(p.registro)}
+                                          className={cn(
+                                            "border-t border-slate-100 dark:border-slate-800",
+                                            idx % 2 === 0
+                                              ? "bg-white dark:bg-slate-900"
+                                              : "bg-slate-50/50 dark:bg-slate-800/30",
+                                          )}
+                                        >
+                                          <td className="py-2 px-3 font-mono font-black text-slate-600 dark:text-slate-300">
+                                            #{p.lugar}
+                                          </td>
+                                          <td className="py-2 px-3 font-mono font-bold text-slate-500 dark:text-slate-400">
+                                            {p.registro.matricula}
+                                          </td>
+                                          <td className="py-2 px-3 font-bold text-slate-700 dark:text-slate-200">
+                                            {p.registro.nombre}
+                                          </td>
+                                          <td className="py-2 px-3 font-bold text-slate-500">
+                                            {p.registro.tipo}
+                                          </td>
+                                          <td className="py-2 px-3 text-slate-500 font-medium whitespace-nowrap">
+                                            {p.registro.fechaRegistro}{" "}
+                                            <span className="text-slate-400">
+                                              {p.registro.horaRegistro}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
