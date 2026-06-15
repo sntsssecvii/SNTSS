@@ -343,6 +343,21 @@ export function normalizarZona(raw: string): string {
 }
 
 /**
+ * Detecta la fila de encabezado de columnas del Excel, que el PDF repite en
+ * cada página/sección (col 7 = "ZONA SOLICITADA"). Si no se filtra, se cuela
+ * como una preferencia espuria del último aspirante.
+ */
+export function esFilaEncabezadoColumnas(
+  row: (string | number | null)[],
+): boolean {
+  const zona = String(row[7] ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+  return zona === "ZONA SOLICITADA";
+}
+
+/**
  * Parsea cols 6-10 de una fila Excel de Adobe para extraer la preferencia del aspirante.
  *   Col 6: delegación solicitada  (ej. "02 BAJA CALIFORNIA")
  *   Col 7: zona solicitada        (ej. "7 TIJUANA")
@@ -440,6 +455,10 @@ async function parsearDesdeAdobe(
         }
         continue;
       }
+
+      // Fila de encabezado de columnas repetida por página/sección
+      // ("...ZONA SOLICITADA...") → ignorar para que no entre como preferencia.
+      if (esFilaEncabezadoColumnas(row)) continue;
 
       // Lugar: acepta tanto número como string numérico ("1" → 1)
       const rawCol0 = row[0];
