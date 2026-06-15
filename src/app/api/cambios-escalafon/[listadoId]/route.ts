@@ -5,6 +5,10 @@ import {
   obtenerListadoCambios,
   obtenerRegistros,
 } from "@/lib/firebase/cambios-escalafon";
+import {
+  calcularLugaresPorRegistro,
+  claveRegistro,
+} from "@/lib/cambios-escalafon/position-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +38,21 @@ export async function GET(
     }
 
     const registros = await obtenerRegistros(params.listadoId);
-    return NextResponse.json({ listado, registros });
+
+    // Posiciones calculadas al vuelo (cada listado es independiente).
+    const lugares = calcularLugaresPorRegistro(registros);
+    const registrosConLugar = registros.map((r) => {
+      const l = lugares.get(claveRegistro(r));
+      return {
+        ...r,
+        lugar: l?.lugar ?? null,
+        totalEnGrupo: l?.totalEnGrupo ?? null,
+        grupoUnidad: l?.unidad ?? null,
+        grupoTurno: l?.turno ?? null,
+      };
+    });
+
+    return NextResponse.json({ listado, registros: registrosConLugar });
   } catch (error) {
     if (error instanceof RateLimitError) {
       return NextResponse.json(
