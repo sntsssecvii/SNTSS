@@ -1,6 +1,4 @@
 import { readFile } from "fs/promises";
-import { createRequire } from "module";
-import { pathToFileURL } from "url";
 import path from "path";
 import * as XLSX from "xlsx";
 import { callPythonExtractor } from "@/lib/pdf/pythonBridge";
@@ -11,27 +9,48 @@ import type {
 } from "@/types/cambios-escalafon";
 
 // ---------------------------------------------------------------------------
-// pdfjs — extracción espacial de texto (mismo patrón que escalafon-condicionalidad)
+// pdfjs — carga centralizada
+// ---------------------------------------------------------------------------
+// pdfjs-dist v4 es ESM-only. En Node (Next server) se usa el build LEGACY y NO
+// se setea workerSrc: pdfjs corre con su fake worker en el hilo principal, así
+// que no hace falta resolver el archivo .mjs del worker (cuyo require.resolve
+// rompía el build al externalizar el paquete). pdfjs-dist está en
+// experimental.serverComponentsExternalPackages para cargarse con require.
+let pdfjsCache: typeof import("pdfjs-dist") | null = null;
+
+async function cargarPdfjs(): Promise<typeof import("pdfjs-dist")> {
+  if (pdfjsCache) return pdfjsCache;
+
+  if (typeof global !== "undefined") {
+    const g = global as Record<string, unknown>;
+    if (!g.DOMMatrix) g.DOMMatrix = class DOMMatrix {};
+    if (!g.Path2D) g.Path2D = class Path2D {};
+    if (!g.ImageData) g.ImageData = class ImageData {};
+  }
+
+  let lib: typeof import("pdfjs-dist");
+  try {
+    lib = (await import(
+      // @ts-ignore — subpath legacy sin tipos; misma API que "pdfjs-dist"
+      "pdfjs-dist/legacy/build/pdf.mjs"
+    )) as typeof import("pdfjs-dist");
+  } catch {
+    lib = await import("pdfjs-dist");
+  }
+
+  pdfjsCache = lib;
+  return lib;
+}
+
+// ---------------------------------------------------------------------------
+// pdfjs — extracción espacial de texto (fallback de líneas)
 // ---------------------------------------------------------------------------
 
 async function extraerLineasConPdfjs(
   pdfPath: string,
 ): Promise<{ page_number: number; lines: string[] }[]> {
   const buffer = await readFile(pdfPath);
-
-  if (typeof global !== "undefined") {
-    if (!(global as Record<string, unknown>).DOMMatrix)
-      (global as Record<string, unknown>).DOMMatrix = class DOMMatrix {};
-    if (!(global as Record<string, unknown>).Path2D)
-      (global as Record<string, unknown>).Path2D = class Path2D {};
-    if (!(global as Record<string, unknown>).ImageData)
-      (global as Record<string, unknown>).ImageData = class ImageData {};
-  }
-
-  const pdfjsLib = await import("pdfjs-dist");
-  const req = createRequire(import.meta.url);
-  const workerPath = req.resolve("pdfjs-dist/build/pdf.worker.mjs");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString();
+  const pdfjsLib = await cargarPdfjs();
 
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
     .promise;
@@ -140,7 +159,8 @@ export function detectarAnclaDeItem(textRaw: string): ColKey | null {
   const t = textRaw.toUpperCase().trim();
   if (/^FECHA$/.test(t)) return "fecha";
   if (/^HORA$/.test(t)) return "hora";
-  if (/SOLICITUD/.test(t)) return "noSolicitud";
+  // \b para no matchear "SOLICITUDES" del título "LISTADO GENERAL DE SOLICITUDES"
+  if (/\bSOLICITUD\b/.test(t)) return "noSolicitud";
   if (/MATR[IÍ]CULA/.test(t)) return "matriculaNombre";
   if (/^ORIGEN$/.test(t)) return "adscripcionOrigen";
   if (/PERCIBE/.test(t)) return "percibeConcepto";
@@ -306,35 +326,7 @@ async function extraerFilasConCoordenadas(
   pdfPath: string,
 ): Promise<PaginaCoord[]> {
   const buffer = await readFile(pdfPath);
-
-  if (typeof global !== "undefined") {
-    const g = global as Record<string, unknown>;
-    if (!g.DOMMatrix) g.DOMMatrix = class DOMMatrix {};
-    if (!g.Path2D) g.Path2D = class Path2D {};
-    if (!g.ImageData) g.ImageData = class ImageData {};
-  }
-
-  const req = createRequire(import.meta.url);
-
-  // pdfjs recomienda el build LEGACY para entornos Node.js (Next server, dev y
-  // serverless). Specifier LITERAL: el bundler de Next lo resuelve estáticamente
-  // (un specifier en variable rompía la resolución y caía al fallback Adobe).
-  // El build estándar queda de respaldo.
-  let pdfjsLib: typeof import("pdfjs-dist");
-  try {
-    pdfjsLib = (await import(
-      // @ts-ignore — subpath legacy sin tipos; misma API que "pdfjs-dist"
-      "pdfjs-dist/legacy/build/pdf.mjs"
-    )) as typeof import("pdfjs-dist");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
-      req.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs"),
-    ).toString();
-  } catch {
-    pdfjsLib = await import("pdfjs-dist");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
-      req.resolve("pdfjs-dist/build/pdf.worker.mjs"),
-    ).toString();
-  }
+  const pdfjsLib = await cargarPdfjs();
 
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
     .promise;

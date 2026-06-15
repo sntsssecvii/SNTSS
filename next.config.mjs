@@ -31,10 +31,13 @@ const nextConfig = {
     }
     return config;
   },
-  // pdfjs-dist debe estar fuera del bundle para que su worker (.mjs) sea
-  // accesible en runtime via require.resolve() en Vercel.
-  serverExternalPackages: ["pdfjs-dist"],
   experimental: {
+    // pdfjs-dist debe estar FUERA del bundle para que se cargue con require en
+    // runtime (su worker .mjs y su init dependen de ello). En Next 14 la clave
+    // correcta es experimental.serverComponentsExternalPackages; la de nivel
+    // superior `serverExternalPackages` es de Next 15 y aquí se ignoraba en
+    // silencio → pdfjs terminaba empaquetado y el parser por coordenadas fallaba.
+    serverComponentsExternalPackages: ["pdfjs-dist"],
     serverActions: {
       bodySizeLimit: "10mb",
     },

@@ -69,6 +69,58 @@ describe("detectarAnclaDeItem", () => {
   it("no confunde 'CONCEPTO' (percibe) con 'CONCEPTOS' (con conceptos)", () => {
     expect(detectarAnclaDeItem("CONCEPTO")).not.toBe("conConceptos");
   });
+
+  it("no toma 'SOLICITUDES' del título como ancla de noSolicitud", () => {
+    // Título del PDF: "LISTADO GENERAL DE SOLICITUDES DE CAMBIO"
+    expect(detectarAnclaDeItem("SOLICITUDES")).not.toBe("noSolicitud");
+    expect(detectarAnclaDeItem("SOLICITUD")).toBe("noSolicitud");
+  });
+});
+
+describe("construirRegistrosPorCoordenadas con título contaminante", () => {
+  it("extrae noSolicitud en su columna pese al 'SOLICITUDES' del título", () => {
+    const tituloYHeader: PaginaCoord["rows"] = [
+      // El título tiene "SOLICITUDES" a una x intermedia (~261) que antes
+      // secuestraba el ancla de noSolicitud y desplazaba las columnas.
+      {
+        y: 529,
+        items: [cell(262, 529, "LISTADO GENERAL DE SOLICITUDES DE CAMBIO")],
+      },
+      ...headerRows,
+    ];
+    const pages: PaginaCoord[] = [
+      {
+        page_number: 1,
+        rows: [
+          ...tituloYHeader,
+          {
+            y: 424,
+            items: [
+              cell(9, 424, "04/08/2025"),
+              cell(64, 424, "13:41:05"),
+              cell(103, 424, "E250200578"),
+              cell(146, 424, "10518444"),
+              cell(181, 424, "CONTRERAS/GONZALEZ/RAQUEL"),
+              cell(301, 424, "SUBDELEGACION AFILIACION"),
+              cell(439, 424, "1-ENSENADA"),
+              cell(511, 424, "SUBDELEGACION AFILIACION"),
+              cell(617, 424, "901"),
+              cell(641, 424, "ADSCRIPCIÓN"),
+              cell(706, 424, "MATUTINO"),
+              cell(761, 424, "NO"),
+            ],
+          },
+        ],
+      },
+    ];
+
+    const regs = construirRegistrosPorCoordenadas(pages);
+    expect(regs).toHaveLength(1);
+    expect(regs[0].horaRegistro).toBe("13:41:05");
+    expect(regs[0].noSolicitud).toBe("E250200578");
+    expect(regs[0].matricula).toBe("10518444");
+    expect(regs[0].especialidadArea).toBe(901);
+  });
 });
 
 describe("columnaDe", () => {
