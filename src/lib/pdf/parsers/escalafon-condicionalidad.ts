@@ -1,6 +1,4 @@
 import { readFile } from "fs/promises";
-import { createRequire } from "module";
-import { pathToFileURL } from "url";
 import path from "path";
 import * as XLSX from "xlsx";
 import { callPythonExtractor } from "@/lib/pdf/pythonBridge";
@@ -30,12 +28,19 @@ async function extraerLineasConPdfjs(
       (global as Record<string, unknown>).ImageData = class ImageData {};
   }
 
-  const pdfjsLib = await import("pdfjs-dist");
-  // Apuntar al worker real para que pdfjs pueda inicializar en Node.js.
-  // Requiere que pdfjs-dist esté en serverExternalPackages en next.config.js.
-  const req = createRequire(import.meta.url);
-  const workerPath = req.resolve("pdfjs-dist/build/pdf.worker.mjs");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString();
+  // pdfjs v4 es ESM-only. En Node (Next server) se usa el build LEGACY y NO se
+  // setea workerSrc: corre con fake worker en el hilo principal. Evita el
+  // require.resolve del worker .mjs, que rompía el build con pdfjs externalizado
+  // (experimental.serverComponentsExternalPackages).
+  let pdfjsLib: typeof import("pdfjs-dist");
+  try {
+    pdfjsLib = (await import(
+      // @ts-ignore — subpath legacy sin tipos; misma API que "pdfjs-dist"
+      "pdfjs-dist/legacy/build/pdf.mjs"
+    )) as typeof import("pdfjs-dist");
+  } catch {
+    pdfjsLib = await import("pdfjs-dist");
+  }
 
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
     .promise;
