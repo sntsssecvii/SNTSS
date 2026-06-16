@@ -114,8 +114,9 @@ function isNuevoIngresoEventual(item: TramiteData) {
   );
 }
 
-// Escalafón deshabilitado hasta validar con la persona responsable
-const ESCALAFON_HABILITADO = false;
+// Escalafón habilitado: posiciones validadas tras el fix de incondicionales
+// (las posiciones materializadas ya contemplan a los incondicionales).
+const ESCALAFON_HABILITADO = true;
 
 export default function DashboardPage() {
   const { user, userData, loading } = useAuth();
