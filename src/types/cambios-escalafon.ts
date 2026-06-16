@@ -24,6 +24,9 @@ export interface CambiosListado {
   sectorDesc: string; // "FARMACIA"
   categoriaCode: string; // "22230080"
   categoriaDesc: string; // "AYUDANTE DE FARMACIA 80"
+  area: number; // especialidad/área del listado (216, 232, 248...). Distingue
+  // especialidades que comparten categoriaCode (p.ej. ENF. ESP. QUIRÚRGICA vs
+  // PEDIATRÍA). 0 si no se pudo determinar.
   concepto: string; // "" | "014" | "054"
   fechaEmision: string; // "29/05/2026"
   totalRegistros: number;

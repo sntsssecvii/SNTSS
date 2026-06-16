@@ -8,21 +8,31 @@ import type {
 const COL_LISTADOS = "cambios_listados";
 const COL_REGISTROS = "cambios_registros";
 
-// Auto-reemplazo: misma categoría + mismo concepto = reemplaza
+// Auto-reemplazo: misma categoría + mismo concepto + misma ÁREA = reemplaza.
+// El área distingue especialidades que comparten categoriaCode (p.ej. ENF. ESP.
+// QUIRÚRGICA 216 vs PEDIATRÍA 232); sin ella, subir varias especialidades
+// borraba las anteriores y se perdían personas.
 export async function obtenerListadoVigenteCambios(
   categoriaCode: string,
   concepto: string,
+  area: number,
 ): Promise<CambiosListado | null> {
   const snap = await adminDb
     .collection(COL_LISTADOS)
     .where("categoriaCode", "==", categoriaCode)
     .where("concepto", "==", concepto)
     .orderBy("creadoEn", "desc")
-    .limit(1)
     .get();
   if (snap.empty) return null;
-  const doc = snap.docs[0];
-  return { id: doc.id, ...doc.data() } as CambiosListado;
+  const lista = snap.docs.map(
+    (doc) => ({ id: doc.id, ...doc.data() }) as CambiosListado,
+  );
+  // 1) Mismo área: es la identidad correcta del listado.
+  const exacto = lista.find((l) => l.area != null && l.area === area);
+  if (exacto) return exacto;
+  // 2) Doc legacy sin área: se reemplaza al re-subir para migrar el colapsado.
+  const legacy = lista.find((l) => l.area == null);
+  return legacy ?? null;
 }
 
 export async function guardarListadoCambios(

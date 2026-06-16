@@ -286,6 +286,12 @@ export default function DetalleLoteCambiosPage() {
                         </div>
                       </div>
 
+                      {listado.area ? (
+                        <span className="inline-flex w-fit items-center rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                          Área {listado.area}
+                        </span>
+                      ) : null}
+
                       <div className="space-y-4 mt-auto">
                         <div className="flex items-end justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                           <div className="flex flex-col">

@@ -8,6 +8,27 @@ import type {
   CambiosRegistro,
 } from "@/types/cambios-escalafon";
 
+// Área (especialidad) dominante de un listado. Es uniforme dentro de cada
+// listado SIAP; se usa para distinguir especialidades que comparten categoría.
+function areaDominante(
+  registros: Pick<CambiosRegistro, "especialidadArea">[],
+): number {
+  const conteo = new Map<number, number>();
+  for (const r of registros) {
+    const a = r.especialidadArea;
+    if (a && a > 0) conteo.set(a, (conteo.get(a) ?? 0) + 1);
+  }
+  let mejor = 0;
+  let max = 0;
+  for (const [area, n] of conteo) {
+    if (n > max) {
+      max = n;
+      mejor = area;
+    }
+  }
+  return mejor;
+}
+
 // ---------------------------------------------------------------------------
 // pdfjs — carga centralizada
 // ---------------------------------------------------------------------------
@@ -377,6 +398,7 @@ async function parsearDesdeCoordenadas(
       sectorDesc: headerData.sectorDesc ?? "",
       categoriaCode: headerData.categoriaCode ?? "",
       categoriaDesc: headerData.categoriaDesc ?? "",
+      area: areaDominante(registros),
       concepto: headerData.concepto ?? "",
       fechaEmision: headerData.fechaEmision ?? "",
       totalRegistros: registros.length,
@@ -1007,6 +1029,7 @@ async function parsearDesdeAdobe(pdfPath: string): Promise<CambiosParseResult> {
       sectorDesc: headerData.sectorDesc ?? "",
       categoriaCode: headerData.categoriaCode ?? "",
       categoriaDesc: headerData.categoriaDesc ?? "",
+      area: areaDominante(registros),
       concepto: headerData.concepto ?? "",
       fechaEmision: headerData.fechaEmision ?? "",
       totalRegistros: registros.length,
@@ -1102,6 +1125,7 @@ export async function parsearListadoCambios(
       sectorDesc: headerData.sectorDesc ?? "",
       categoriaCode: headerData.categoriaCode ?? "",
       categoriaDesc: headerData.categoriaDesc ?? "",
+      area: areaDominante(registros),
       concepto: headerData.concepto ?? "",
       fechaEmision: headerData.fechaEmision ?? "",
       totalRegistros: registros.length,
