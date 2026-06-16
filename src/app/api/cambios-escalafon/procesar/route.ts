@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
     const listadoVigente = await obtenerListadoVigenteCambios(
       listado.categoriaCode,
       listado.concepto,
+      listado.area,
     );
     const reemplazarId = listadoVigente?.id ?? null;
 
