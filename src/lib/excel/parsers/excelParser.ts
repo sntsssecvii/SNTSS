@@ -706,12 +706,12 @@ function parseCambiosRamaExcel(workbook: XLSX.WorkBook): ExcelParseResult {
 
       const isNumericNoProg = /^\d+$/.test(col0);
       // Detectar formato "LISTADO DE CAMBIOS DE RAMA" (columnas desplazadas):
-      // En el formato LISTADO, col7 es la matrícula (8-10 dígitos) y col6 es días laborados (4 dígitos).
+      // En el formato LISTADO, col7 es la matrícula (7-10 dígitos) y col6 es días laborados (≤6 dígitos).
       // En el formato original, col6 es la matrícula (7-10 dígitos) y col7 es el nombre.
       const col6 = String(row[6] || "").trim();
       const col7 = String(row[7] || "").trim();
       const isListadoFormat =
-        /^\d{8,10}$/.test(col7) && !/^\d{8,10}$/.test(col6);
+        /^\d{7,10}$/.test(col7) && !/^\d{7,10}$/.test(col6);
       const matriculaCandidate = isListadoFormat ? col7 : col6;
       const nombreCandidate = isListadoFormat
         ? String(row[8] || "").trim()
