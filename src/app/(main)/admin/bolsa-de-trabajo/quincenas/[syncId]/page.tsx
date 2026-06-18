@@ -103,7 +103,7 @@ export default function DetalleQuincenaPage() {
       const freshToken = await currentUser.getIdToken();
       setIdToken(freshToken);
       const response = await fetch(`/api/admin/bolsa/quincenas/${syncId}`, {
-        headers: { Authorization: `Bearer ${idToken}` },
+        headers: { Authorization: `Bearer ${freshToken}` },
         cache: "no-store",
       });
       const payload = (await response.json()) as {
