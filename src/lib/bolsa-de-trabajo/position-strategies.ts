@@ -226,27 +226,21 @@ export const cambiosRamaStrategy: PositionStrategy = {
       (record.subcategoria || '') === (target.subcategoria || '')
     )
 
+    // Los incondicionales (zona 0) se cuentan como un grupo separado: nunca se
+    // mezclan con las zonas especificas. La posicion de cada trabajador se calcula
+    // unicamente contra los de su misma zona, igual que en el PDF del Instituto.
     if (isZonaIncondicional(target.zona)) {
       return mismaCategoria.filter((record) => isZonaIncondicional(record.zona))
     }
 
-    return mismaCategoria.filter((record) =>
-      record.zona === target.zona || isZonaIncondicional(record.zona)
-    )
-  },
-  applyPriorityRules(records, target) {
-    if (isZonaIncondicional(target.zona)) return records
-
-    const prioritarios = records.filter((record) => isZonaIncondicional(record.zona))
-    const mismaZona = records.filter((record) => record.zona === target.zona)
-    return [...prioritarios, ...mismaZona]
+    return mismaCategoria.filter((record) => record.zona === target.zona)
   },
   explain(_result, target) {
     if (isZonaIncondicional(target.zona)) {
       return `Posicion calculada por consecutivo oficial dentro del grupo incondicional de ${target.categoria || 'la categoria'}.`
     }
 
-    return `Posicion calculada por consecutivo oficial dentro de ${target.categoria || 'la categoria'} en ${target.zona || 'la zona'}, priorizando primero a la zona incondicional.`
+    return `Posicion calculada por consecutivo oficial dentro de ${target.categoria || 'la categoria'} en ${target.zona || 'la zona'}.`
   },
 }
 

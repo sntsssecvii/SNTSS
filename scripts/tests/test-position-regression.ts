@@ -407,7 +407,7 @@ function testAmpliacionesJornada() {
   console.log('OK AMPLIACIONES_JORNADA usa categoria + adscripcion solicitada + turno y ordena por consecutivo')
 }
 
-function testCambiosRamaPriorizaIncondicional() {
+function testCambiosRamaCuentaPorZona() {
   const registros: BolsaDeTrabajoRegistro[] = [
     registro({ tipoDocumento: 'CAMBIOS_RAMA', numeroProg: '5', matricula: 'R001', nombre: 'Zona', categoria: 'MED', zona: 'TIJUANA' }),
     registro({ tipoDocumento: 'CAMBIOS_RAMA', numeroProg: '8', matricula: 'R002', nombre: 'Zona2', categoria: 'MED', zona: 'TIJUANA' }),
@@ -415,17 +415,19 @@ function testCambiosRamaPriorizaIncondicional() {
     registro({ tipoDocumento: 'CAMBIOS_RAMA', numeroProg: '2', matricula: 'R004', nombre: 'OtraZona', categoria: 'MED', zona: 'MEXICALI' }),
   ]
 
+  // La zona especifica cuenta SOLO contra su misma zona: los incondicionales no suman.
   const zona = calcularPosiciones(registros, 'R001', 'CAMBIOS_RAMA')
   assert.ok(zona)
-  assert.equal(zona.posicionBase, 2)
-  assert.equal(zona.totalEnCategoria, 3)
+  assert.equal(zona.posicionBase, 1)
+  assert.equal(zona.totalEnCategoria, 2)
 
+  // Los incondicionales (zona 0) son su propio grupo, separados de las zonas.
   const incondicional = calcularPosiciones(registros, 'R003', 'CAMBIOS_RAMA')
   assert.ok(incondicional)
   assert.equal(incondicional.posicionBase, 1)
   assert.equal(incondicional.totalEnCategoria, 1)
 
-  console.log('OK CAMBIOS_RAMA prioriza incondicional sobre la zona especifica')
+  console.log('OK CAMBIOS_RAMA cuenta la posicion por zona, sin mezclar incondicionales')
 }
 
 function main() {
@@ -442,7 +444,7 @@ function main() {
   testCambiosResidenciaDestino()
   testCambiosResidenciaFiltraPorSubcategoria()
   testAmpliacionesJornada()
-  testCambiosRamaPriorizaIncondicional()
+  testCambiosRamaCuentaPorZona()
   testMatriculaInexistente()
   console.log('\nTodas las regresiones de posiciones pasaron')
 }
