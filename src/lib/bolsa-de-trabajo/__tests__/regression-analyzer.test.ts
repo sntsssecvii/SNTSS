@@ -7,20 +7,29 @@ const makePos = (
     matricula: string;
     posicionBase: number;
   },
-): BolsaPosicionMaterializada => ({
-  id: overrides.matricula,
-  syncId: "sync-new",
-  tipoDocumento: "CAMBIOS_RAMA",
-  documentoId: "doc-1",
-  periodo: { anio: 2026, mes: 6, quincena: 1 },
-  versionCalculo: "1",
-  fechaMaterializacion: new Date(),
-  nombre: "Test",
-  categoria: "ENFERMERA GENERAL",
-  zona: "1-Tijuana",
-  totalEnCategoria: 10,
-  ...overrides,
-});
+): BolsaPosicionMaterializada => {
+  const base = {
+    id: overrides.matricula,
+    syncId: "sync-new",
+    tipoDocumento: "CAMBIOS_RAMA" as const,
+    documentoId: "doc-1",
+    periodo: { anio: 2026, mes: 6, quincena: 1 },
+    versionCalculo: "1",
+    fechaMaterializacion: new Date(),
+    nombre: "Test",
+    categoria: "ENFERMERA GENERAL",
+    zona: "1-Tijuana",
+    totalEnCategoria: 10,
+    ...overrides,
+  };
+  return {
+    ...base,
+    grupoComparable: base.grupoComparable ?? {
+      zona: base.zona,
+      categoria: base.categoria,
+    },
+  } as BolsaPosicionMaterializada;
+};
 
 describe("analyzeRegression", () => {
   it("retorna sinComparacion=true si no hay syncAnteriorId", () => {
@@ -167,6 +176,72 @@ describe("analyzeRegression", () => {
     expect(stats.retrocedieron).toBe(0);
     expect(stats.avanzaron).toBe(1);
     expect(stats.sinCambio).toBe(1);
+  });
+
+  it("no reporta falso retroceso cuando mismo grupo pero diferente turno", () => {
+    // Turno/Adsc: misma categoría+zona pero diferente turno = grupos distintos
+    const prev = [
+      makePos({
+        matricula: "97026500",
+        posicionBase: 1,
+        syncId: "sync-ant",
+        tipoDocumento: "CAMBIOS_TURNO_ADSCRIPCION",
+        categoria: "MEDICO FAMILIAR",
+        zona: "2-Mexicali",
+        grupoComparable: {
+          zona: "2-Mexicali",
+          categoria: "MEDICO FAMILIAR",
+          turnoNuevo: "MATUTINO",
+        },
+      }),
+      makePos({
+        matricula: "97026500",
+        posicionBase: 8,
+        syncId: "sync-ant",
+        tipoDocumento: "CAMBIOS_TURNO_ADSCRIPCION",
+        categoria: "MEDICO FAMILIAR",
+        zona: "2-Mexicali",
+        grupoComparable: {
+          zona: "2-Mexicali",
+          categoria: "MEDICO FAMILIAR",
+          turnoNuevo: "VESPERTINO",
+        },
+      }),
+    ];
+    const next = [
+      makePos({
+        matricula: "97026500",
+        posicionBase: 1,
+        tipoDocumento: "CAMBIOS_TURNO_ADSCRIPCION",
+        categoria: "MEDICO FAMILIAR",
+        zona: "2-Mexicali",
+        grupoComparable: {
+          zona: "2-Mexicali",
+          categoria: "MEDICO FAMILIAR",
+          turnoNuevo: "MATUTINO",
+        },
+      }),
+      makePos({
+        matricula: "97026500",
+        posicionBase: 8,
+        tipoDocumento: "CAMBIOS_TURNO_ADSCRIPCION",
+        categoria: "MEDICO FAMILIAR",
+        zona: "2-Mexicali",
+        grupoComparable: {
+          zona: "2-Mexicali",
+          categoria: "MEDICO FAMILIAR",
+          turnoNuevo: "VESPERTINO",
+        },
+      }),
+    ];
+    const result = analyzeRegression({
+      syncAnteriorId: "sync-ant",
+      newPositions: next,
+      previousPositions: prev,
+    });
+    const stats = result.porTipo["CAMBIOS_TURNO_ADSCRIPCION"]!;
+    expect(stats.retrocedieron).toBe(0);
+    expect(stats.sinCambio).toBe(2);
   });
 
   it("agrupa stats por tipoDocumento independientemente", () => {

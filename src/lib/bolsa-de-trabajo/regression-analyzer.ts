@@ -11,6 +11,18 @@ interface AnalyzeRegressionParams {
   previousPositions: BolsaPosicionMaterializada[];
 }
 
+function positionKey(pos: BolsaPosicionMaterializada): string {
+  // Usar grupoComparable completo como key porque un trabajador puede competir
+  // en múltiples grupos dentro del mismo tipo (diferente categoría, zona,
+  // subcategoría, turno, adscripción, etc.)
+  const grupo = pos.grupoComparable ?? {};
+  const grupoKey = Object.keys(grupo)
+    .sort()
+    .map((k) => grupo[k] ?? "")
+    .join("|");
+  return `${pos.tipoDocumento}::${pos.matricula}::${grupoKey}`;
+}
+
 export function analyzeRegression({
   syncAnteriorId,
   newPositions,
@@ -25,15 +37,9 @@ export function analyzeRegression({
     };
   }
 
-  // Lookup de posición anterior: tipoDocumento::matricula::categoria::zona → posicionBase
-  // Usar categoria+zona en la key porque un trabajador puede tener múltiples
-  // posiciones en el mismo tipo de documento (ej. Rama con diferentes categorías)
   const prevLookup = new Map<string, number>();
   for (const pos of previousPositions) {
-    prevLookup.set(
-      `${pos.tipoDocumento}::${pos.matricula}::${pos.categoria}::${pos.zona}`,
-      pos.posicionBase,
-    );
+    prevLookup.set(positionKey(pos), pos.posicionBase);
   }
 
   // Agrupar nuevas posiciones por tipo
@@ -53,9 +59,7 @@ export function analyzeRegression({
     let sinCambio = 0;
 
     for (const pos of positions) {
-      const prevPos = prevLookup.get(
-        `${pos.tipoDocumento}::${pos.matricula}::${pos.categoria}::${pos.zona}`,
-      );
+      const prevPos = prevLookup.get(positionKey(pos));
       if (prevPos === undefined) {
         sinCambio++;
       } else if (pos.posicionBase < prevPos) {
