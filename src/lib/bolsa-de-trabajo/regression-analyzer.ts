@@ -25,10 +25,15 @@ export function analyzeRegression({
     };
   }
 
-  // Lookup de posición anterior: tipoDocumento::matricula → posicionBase
+  // Lookup de posición anterior: tipoDocumento::matricula::categoria::zona → posicionBase
+  // Usar categoria+zona en la key porque un trabajador puede tener múltiples
+  // posiciones en el mismo tipo de documento (ej. Rama con diferentes categorías)
   const prevLookup = new Map<string, number>();
   for (const pos of previousPositions) {
-    prevLookup.set(`${pos.tipoDocumento}::${pos.matricula}`, pos.posicionBase);
+    prevLookup.set(
+      `${pos.tipoDocumento}::${pos.matricula}::${pos.categoria}::${pos.zona}`,
+      pos.posicionBase,
+    );
   }
 
   // Agrupar nuevas posiciones por tipo
@@ -48,7 +53,9 @@ export function analyzeRegression({
     let sinCambio = 0;
 
     for (const pos of positions) {
-      const prevPos = prevLookup.get(`${pos.tipoDocumento}::${pos.matricula}`);
+      const prevPos = prevLookup.get(
+        `${pos.tipoDocumento}::${pos.matricula}::${pos.categoria}::${pos.zona}`,
+      );
       if (prevPos === undefined) {
         sinCambio++;
       } else if (pos.posicionBase < prevPos) {
