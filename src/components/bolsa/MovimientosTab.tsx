@@ -105,7 +105,10 @@ export function MovimientosTab({
         const posAnteriores: BolsaPosicionMaterializada[] =
           dataAnterior.data ?? [];
         for (const p of posAnteriores) {
-          prevLookup.set(`${p.tipoDocumento}::${p.matricula}`, p.posicionBase);
+          prevLookup.set(
+            `${p.tipoDocumento}::${p.matricula}::${p.categoria}::${p.zona}`,
+            p.posicionBase,
+          );
         }
       }
 
@@ -113,7 +116,9 @@ export function MovimientosTab({
 
       const movimientos: MovimientoRow[] = posActuales.map((p) => {
         const posAnterior =
-          prevLookup.get(`${p.tipoDocumento}::${p.matricula}`) ?? null;
+          prevLookup.get(
+            `${p.tipoDocumento}::${p.matricula}::${p.categoria}::${p.zona}`,
+          ) ?? null;
         const grupo = [p.grupoComparable?.zona, p.grupoComparable?.categoria]
           .filter(Boolean)
           .join(" / ");

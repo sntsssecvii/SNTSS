@@ -124,6 +124,51 @@ describe("analyzeRegression", () => {
     expect(stats.retrocedieron).toBe(0);
   });
 
+  it("no reporta falso retroceso cuando trabajador tiene múltiples categorías", () => {
+    // Bug real: DORANTES CORIA tiene pos 3 en Tecate/ENFERMERA GENERAL
+    // y pos 75 en Tijuana/ENFERMERA GENERAL CLINICA. Sin key por categoría+zona,
+    // el Map sobrescribe y compara pos 3 (Tecate) contra pos 74 (Tijuana) = falso +71
+    const prev = [
+      makePos({
+        matricula: "97023847",
+        posicionBase: 3,
+        syncId: "sync-ant",
+        categoria: "ENFERMERA GENERAL",
+        zona: "5-Tecate",
+      }),
+      makePos({
+        matricula: "97023847",
+        posicionBase: 75,
+        syncId: "sync-ant",
+        categoria: "ENFERMERA GENERAL CLINICA",
+        zona: "3-Tijuana",
+      }),
+    ];
+    const next = [
+      makePos({
+        matricula: "97023847",
+        posicionBase: 3,
+        categoria: "ENFERMERA GENERAL",
+        zona: "5-Tecate",
+      }), // sin cambio
+      makePos({
+        matricula: "97023847",
+        posicionBase: 74,
+        categoria: "ENFERMERA GENERAL CLINICA",
+        zona: "3-Tijuana",
+      }), // avanzó (75 → 74)
+    ];
+    const result = analyzeRegression({
+      syncAnteriorId: "sync-ant",
+      newPositions: next,
+      previousPositions: prev,
+    });
+    const stats = result.porTipo["CAMBIOS_RAMA"]!;
+    expect(stats.retrocedieron).toBe(0);
+    expect(stats.avanzaron).toBe(1);
+    expect(stats.sinCambio).toBe(1);
+  });
+
   it("agrupa stats por tipoDocumento independientemente", () => {
     const prev = [
       makePos({
