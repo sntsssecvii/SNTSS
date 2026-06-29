@@ -80,6 +80,15 @@ export function MovimientosTab({
       const dataActual = await resActual.json();
       const posActuales: BolsaPosicionMaterializada[] = dataActual.data ?? [];
 
+      const posKey = (p: BolsaPosicionMaterializada) => {
+        const grupo = p.grupoComparable ?? {};
+        const grupoKey = Object.keys(grupo)
+          .sort()
+          .map((k) => grupo[k] ?? "")
+          .join("|");
+        return `${p.tipoDocumento}::${p.matricula}::${grupoKey}`;
+      };
+
       // Buscar sync anterior: usar prop o buscar esFuenteVerdad
       let prevLookup = new Map<string, number>();
       let syncAnteriorId = syncAnteriorIdProp;
@@ -105,20 +114,14 @@ export function MovimientosTab({
         const posAnteriores: BolsaPosicionMaterializada[] =
           dataAnterior.data ?? [];
         for (const p of posAnteriores) {
-          prevLookup.set(
-            `${p.tipoDocumento}::${p.matricula}::${p.categoria}::${p.zona}`,
-            p.posicionBase,
-          );
+          prevLookup.set(posKey(p), p.posicionBase);
         }
       }
 
       setSinComparacion(prevLookup.size === 0);
 
       const movimientos: MovimientoRow[] = posActuales.map((p) => {
-        const posAnterior =
-          prevLookup.get(
-            `${p.tipoDocumento}::${p.matricula}::${p.categoria}::${p.zona}`,
-          ) ?? null;
+        const posAnterior = prevLookup.get(posKey(p)) ?? null;
         const grupo = [p.grupoComparable?.zona, p.grupoComparable?.categoria]
           .filter(Boolean)
           .join(" / ");
