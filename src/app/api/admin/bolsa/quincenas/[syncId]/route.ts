@@ -1,18 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
 
-import { adminDb } from '@/lib/firebase/admin'
-import { requireAdminRequest } from '@/lib/firebase/server-auth'
-import { enforceRateLimit, RateLimitError } from '@/lib/security/rate-limit'
-import type { BolsaDeTrabajoDocumento, Sincronizacion } from '@/types/bolsa-de-trabajo'
+import { adminDb } from "@/lib/firebase/admin";
+import { requireAdminRequest } from "@/lib/firebase/server-auth";
+import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import type {
+  BolsaDeTrabajoDocumento,
+  Sincronizacion,
+} from "@/types/bolsa-de-trabajo";
 
 function convertirTimestamp(timestamp: any): Date {
-  if (timestamp?.toDate) return timestamp.toDate()
-  if (timestamp instanceof Date) return timestamp
-  return new Date()
+  if (timestamp?.toDate) return timestamp.toDate();
+  if (timestamp instanceof Date) return timestamp;
+  return new Date();
 }
 
 function convertirSincronizacion(doc: any): Sincronizacion {
-  const data = doc.data()
+  const data = doc.data();
   return {
     id: doc.id,
     anio: data.anio,
@@ -20,16 +23,19 @@ function convertirSincronizacion(doc: any): Sincronizacion {
     quincena: data.quincena,
     estado: data.estado,
     fechaInicio: convertirTimestamp(data.fechaInicio),
-    fechaFinalizacion: data.fechaFinalizacion ? convertirTimestamp(data.fechaFinalizacion) : undefined,
+    fechaFinalizacion: data.fechaFinalizacion
+      ? convertirTimestamp(data.fechaFinalizacion)
+      : undefined,
     archivosSubidos: data.archivosSubidos || [],
     esFuenteVerdad: data.esFuenteVerdad || false,
     subidoPor: data.subidoPor,
     subidoPorEmail: data.subidoPorEmail,
-  }
+    syncAnteriorId: data.syncAnteriorId ?? null,
+  };
 }
 
 function convertirDocumento(doc: any): BolsaDeTrabajoDocumento {
-  const data = doc.data()
+  const data = doc.data();
   return {
     id: doc.id,
     syncId: data.syncId,
@@ -48,31 +54,41 @@ function convertirDocumento(doc: any): BolsaDeTrabajoDocumento {
     totalRegistros: data.totalRegistros || 0,
     registrosValidados: data.registrosValidados || 0,
     registrosConErrores: data.registrosConErrores || 0,
-  }
+  };
 }
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ syncId: string }> }
+  { params }: { params: Promise<{ syncId: string }> },
 ) {
   try {
-    enforceRateLimit(request, { bucket: 'api:admin:bolsa:quincena-detalle', limit: 60, windowMs: 60_000 })
-    await requireAdminRequest(request)
+    enforceRateLimit(request, {
+      bucket: "api:admin:bolsa:quincena-detalle",
+      limit: 60,
+      windowMs: 60_000,
+    });
+    await requireAdminRequest(request);
 
-    const { syncId } = await params
-    const syncSnap = await adminDb.collection('sincronizaciones').doc(syncId).get()
+    const { syncId } = await params;
+    const syncSnap = await adminDb
+      .collection("sincronizaciones")
+      .doc(syncId)
+      .get();
 
     if (!syncSnap.exists) {
-      return NextResponse.json({ error: 'La quincena solicitada no existe.' }, { status: 404 })
+      return NextResponse.json(
+        { error: "La quincena solicitada no existe." },
+        { status: 404 },
+      );
     }
 
     const docsSnap = await adminDb
-      .collection('bolsa_de_trabajo_documentos')
-      .where('syncId', '==', syncId)
-      .orderBy('fechaCarga', 'desc')
-      .get()
+      .collection("bolsa_de_trabajo_documentos")
+      .where("syncId", "==", syncId)
+      .orderBy("fechaCarga", "desc")
+      .get();
 
     return NextResponse.json({
       success: true,
@@ -80,36 +96,51 @@ export async function GET(
         sync: convertirSincronizacion(syncSnap),
         documentos: docsSnap.docs.map(convertirDocumento),
       },
-    })
+    });
   } catch (error: any) {
-    console.error('Error obteniendo detalle de quincena de bolsa:', error)
+    console.error("Error obteniendo detalle de quincena de bolsa:", error);
 
-    if (error instanceof RateLimitError || error?.message === 'RATE_LIMITED') {
+    if (error instanceof RateLimitError || error?.message === "RATE_LIMITED") {
       return NextResponse.json(
-        { error: 'Demasiadas solicitudes. Intenta de nuevo en un momento.' },
-        { status: 429, headers: { 'Retry-After': String(error.retryAfterSeconds || 60) } }
-      )
+        { error: "Demasiadas solicitudes. Intenta de nuevo en un momento." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(error.retryAfterSeconds || 60) },
+        },
+      );
     }
 
-    if (error?.message === 'AUTH_REQUIRED') {
-      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
+    if (error?.message === "AUTH_REQUIRED") {
+      return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
-    if (error?.message === 'PROFILE_NOT_FOUND') {
-      return NextResponse.json({ error: 'Perfil de administrador no encontrado.' }, { status: 404 })
+    if (error?.message === "PROFILE_NOT_FOUND") {
+      return NextResponse.json(
+        { error: "Perfil de administrador no encontrado." },
+        { status: 404 },
+      );
     }
 
-    if (error?.message === 'ACCOUNT_INACTIVE') {
-      return NextResponse.json({ error: 'La cuenta no está activa.' }, { status: 403 })
+    if (error?.message === "ACCOUNT_INACTIVE") {
+      return NextResponse.json(
+        { error: "La cuenta no está activa." },
+        { status: 403 },
+      );
     }
 
-    if (error?.message === 'ADMIN_REQUIRED') {
-      return NextResponse.json({ error: 'Se requiere perfil de administrador.' }, { status: 403 })
+    if (error?.message === "ADMIN_REQUIRED") {
+      return NextResponse.json(
+        { error: "Se requiere perfil de administrador." },
+        { status: 403 },
+      );
     }
 
     return NextResponse.json(
-      { error: 'No se pudo obtener el detalle de la quincena.', details: error?.message || 'UNKNOWN_ERROR' },
-      { status: 500 }
-    )
+      {
+        error: "No se pudo obtener el detalle de la quincena.",
+        details: error?.message || "UNKNOWN_ERROR",
+      },
+      { status: 500 },
+    );
   }
 }

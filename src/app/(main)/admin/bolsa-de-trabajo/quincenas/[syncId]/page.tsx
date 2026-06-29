@@ -295,7 +295,7 @@ export default function DetalleQuincenaPage() {
         {tabActiva === "movimientos" && idToken && (
           <MovimientosTab
             syncId={syncId}
-            syncAnteriorId={(sync as any).syncAnteriorId ?? null}
+            syncAnteriorId={sync.syncAnteriorId ?? null}
             idToken={idToken}
           />
         )}
