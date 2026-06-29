@@ -31,6 +31,7 @@ function convertirSincronizacion(doc: any): Sincronizacion {
     subidoPor: data.subidoPor,
     subidoPorEmail: data.subidoPorEmail,
     syncAnteriorId: data.syncAnteriorId ?? null,
+    oculto: data.oculto ?? false,
   };
 }
 
