@@ -133,6 +133,67 @@ En 2Q Jun, HERRERA tiene más días (244 > 242) → pasó arriba.
 
 ## Rama de trabajo
 
-`feat/movimientos-tab-rediseno` — 3 commits pusheados, PR pendiente de crear (gh auth es zentry-app, no sntsssecvii).
+`feat/movimientos-tab-rediseno` — pusheado a `sntsssecvii/SNTSS`. PR pendiente de crear.
 
 Link para crear PR: https://github.com/sntsssecvii/SNTSS/pull/new/feat/movimientos-tab-rediseno
+
+> Nota auth: la cuenta `sntsssecvii` ya existe en `gh` (estaba inactiva). Activar con
+> `gh auth switch --user sntsssecvii` antes de hacer push o crear el PR.
+
+---
+
+## Resultado de la sesión con Gaby (29 junio 2026)
+
+### Decisiones confirmadas por Gaby
+
+1. **Cambios de Rama se cuenta por zona.** La posición de un trabajador se calcula
+   únicamente contra los de su misma zona. Los incondicionales (zona 0) NO suman a las
+   zonas específicas.
+2. **Los incondicionales van separados**, como su propio grupo (zona 0), con su propia
+   numeración (ej. 1 a 7 dentro de su categoría).
+3. **Sí es válido retroceder en Cambios de Rama** — el Instituto reordena su listado cada
+   quincena por antigüedad/días laborados. No es bug.
+4. **El portal del trabajador sigue mostrando solo la posición** (no "X de Y"). El total
+   ya viaja en la API (`totalEnCategoria`) pero se decidió no pintarlo.
+
+### Fix aplicado (commit `46fd1b5`)
+
+`src/lib/bolsa-de-trabajo/position-strategies.ts` → `cambiosRamaStrategy`:
+
+- `selectComparableRecords`: zona específica compara solo contra su misma zona (ya no
+  mezcla incondicionales).
+- Se eliminó `applyPriorityRules` (era lo que insertaba a los incondicionales arriba).
+- `explain`: se quitó la mención a "priorizando primero a la zona incondicional".
+- Test de regresión `scripts/tests/test-position-regression.ts` actualizado a la nueva
+  regla (`testCambiosRamaCuentaPorZona`). `npm run positions:test` pasa.
+
+### Validación
+
+- **Caso SANTANA LOYA EVERLYN (96021176)** — Ensenada / Enf Gral Clínica:
+  posición pasó de **71 → 64** (1Q Jun: 68 → 61), idéntica a su consecutivo en el PDF.
+- **Re-materializadas** las posiciones de 1Q Jun (`U2YDS8Qd0cV7Oks8yUsU`) y 2Q Jun
+  (`wzER70ILmJw2c8leGZuA`) con el fix. Hay que re-materializar AMBAS quincenas que se
+  comparan para que los deltas salgan bien.
+- **Retrocesos de Cambios de Rama (2Q vs 1Q Jun): de 48 → 5 reales.** Además 271
+  trabajadores avanzaron al recuperar su lugar real. La alerta global ya no se dispara.
+- Retrocesos restantes (5 Rama + 37 Nuevo Ingreso + 20 Ampliaciones + 1 Tipo Plaza) son
+  reordenamiento legítimo del Instituto por días laborados.
+
+### Notas técnicas para próximas sesiones
+
+- La subcolección `bolsa_de_trabajo_documentos/{docId}/registros` tiene el single-field
+  index EXENTO en `zona` y `categoria`: las queries de igualdad por esos campos (vía
+  Firebase MCP) devuelven vacío; solo `matricula` funciona. Para analizar, cargar con
+  Admin SDK y filtrar del lado cliente, derivando categoría/zona del propio registro
+  target (hay caracteres invisibles que rompen la comparación exacta contra constantes).
+- Re-materializar por script: cargar `.env.local` ANTES de importar `@/lib/firebase/admin`
+  (lee credenciales en top-level), usar import dinámico y llamar
+  `materializeSyncPositions(syncId, periodo)`. CJS no soporta top-level await — envolver
+  en `main()`. `materializeSyncPositions` NO toca `esFuenteVerdad` ni `oculto`.
+
+### Pendientes
+
+1. **Julio NO existe en Firestore.** El handoff original lo daba por subido, pero no hay
+   ninguna sincronización de mes 7. Hay que subir los 8 PDFs de 1Q Jul, materializar y
+   luego publicar (hacer visible).
+2. **Crear el PR** desde la cuenta `sntsssecvii` (link arriba).
