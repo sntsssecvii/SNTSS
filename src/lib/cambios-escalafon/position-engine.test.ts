@@ -157,17 +157,19 @@ describe("calcularPosicionesCambios", () => {
     expect(porMat["ADS_NO"]).toBe(4); // adscripción que no percibe
   });
 
-  it("reparte un incondicional en cada unidad de la zona, conservando su turno", () => {
+  it("reparte un incondicional en cada unidad de la zona, tomando el turno solicitado en esa unidad", () => {
     const registros = [
       reg({
         matricula: "CONCRETA1",
         adscripcionSolicitada: "HGZ 08",
         turnoSolicitado: "NOCTURNO",
+        tipo: "TURNO",
       }),
       reg({
         matricula: "CONCRETA2",
         adscripcionSolicitada: "HGR 23",
         turnoSolicitado: "MATUTINO",
+        tipo: "TURNO",
       }),
       reg({
         matricula: "INCOND",
@@ -178,10 +180,53 @@ describe("calcularPosicionesCambios", () => {
     ];
     const pos = calcularPosicionesCambios(registros);
     const delIncond = pos.filter((p) => p.registro.matricula === "INCOND");
-    // aparece en las dos unidades concretas de la zona
-    const unidades = new Set(delIncond.map((p) => p.unidad));
-    expect(unidades).toEqual(new Set(["HGZ 08", "HGR 23"]));
-    // conserva su turno (INCONDICIONAL) en cada una
-    expect(delIncond.every((p) => p.turno === "INCONDICIONAL")).toBe(true);
+    // Aparece en las dos unidades concretas, adoptando el turno de cada una
+    // (acepta cualquier turno), no un turno "INCONDICIONAL" aislado.
+    const grupos = new Set(delIncond.map((p) => `${p.unidad}/${p.turno}`));
+    expect(grupos).toEqual(new Set(["HGZ 08/NOCTURNO", "HGR 23/MATUTINO"]));
+  });
+
+  it("un incondicional compite contra las concretas de la unidad y rankea por antigüedad (caso EVODIA)", () => {
+    const registros = [
+      // Concreta vespertino en HGR 01, registrada al mediodía.
+      reg({
+        matricula: "EVODIA",
+        adscripcionSolicitada: "HGR 01",
+        turnoSolicitado: "VESPERTINO",
+        tipo: "ADSCRIPCIÓN",
+        fechaRegistro: "10/03/2026",
+        horaRegistro: "12:03:00",
+      }),
+      // Incondicional registrada 5 días antes → debe quedar arriba.
+      reg({
+        matricula: "TAPIA",
+        adscripcionSolicitada: "0-INCONDICIONAL",
+        turnoSolicitado: "INCONDICIONAL",
+        tipo: "ADSCRIPCIÓN",
+        fechaRegistro: "05/03/2026",
+        horaRegistro: "11:04:18",
+      }),
+      // Incondicional el mismo día pero más temprano → también arriba.
+      reg({
+        matricula: "LIZARRAGA",
+        adscripcionSolicitada: "0-INCONDICIONAL",
+        turnoSolicitado: "INCONDICIONAL",
+        tipo: "ADSCRIPCIÓN",
+        fechaRegistro: "10/03/2026",
+        horaRegistro: "09:09:31",
+      }),
+    ];
+    const pos = calcularPosicionesCambios(registros);
+    // Los incondicionales entran al grupo HGR 01 / VESPERTINO de EVODIA.
+    const grupo = pos.filter(
+      (p) => p.unidad === "HGR 01" && p.turno === "VESPERTINO",
+    );
+    const porMat = Object.fromEntries(
+      grupo.map((p) => [p.registro.matricula, p.lugar]),
+    );
+    expect(porMat["TAPIA"]).toBe(1); // más antiguo
+    expect(porMat["LIZARRAGA"]).toBe(2); // mismo día, más temprano
+    expect(porMat["EVODIA"]).toBe(3); // registrada al mediodía
+    expect(grupo.find((p) => p.registro.matricula === "EVODIA")!.totalEnGrupo).toBe(3);
   });
 });

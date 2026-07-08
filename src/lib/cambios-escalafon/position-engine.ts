@@ -11,8 +11,10 @@ import type { CambiosRegistro } from "@/types/cambios-escalafon";
 //      1) prelación por TIPO de cambio: TURNO → ÁREA → TIPO DE PLAZA →
 //         ADSCRIPCIÓN → RESIDENCIA
 //      2) a igual tipo, por fecha + hora de registro (más antiguo = lugar 1)
-//  - INCONDICIONAL (unidad "0-INCONDICIONAL"): cuenta en CADA unidad concreta
-//    de la zona, conservando su turno solicitado.
+//  - INCONDICIONAL (unidad "0-INCONDICIONAL"): acepta cualquier turno, así que
+//    compite en CADA unidad concreta de la zona y en CADA turno solicitado en
+//    esa unidad (no en un turno "INCONDICIONAL" aislado). Rankea por antigüedad
+//    contra las solicitudes concretas de cada turno.
 // ---------------------------------------------------------------------------
 
 export interface CambiosPosicion {
@@ -82,12 +84,18 @@ export function calcularPosicionesCambios(
 ): CambiosPosicion[] {
   if (registros.length === 0) return [];
 
-  // 1. Unidades concretas (no incondicionales) por zona.
+  // 1. Unidades concretas (no incondicionales) por zona y turnos por unidad.
+  //    turnosPorUnidad guarda, para cada unidad concreta, los turnos realmente
+  //    solicitados ahí: un incondicional se replicará en todos ellos.
   const unidadesPorZona = new Map<string, Set<string>>();
+  const turnosPorUnidad = new Map<string, Set<string>>(); // key: zona:::unidad
   for (const r of registros) {
     if (esUnidadIncondicional(r.adscripcionSolicitada)) continue;
     if (!unidadesPorZona.has(r.zona)) unidadesPorZona.set(r.zona, new Set());
     unidadesPorZona.get(r.zona)!.add(r.adscripcionSolicitada);
+    const ku = `${r.zona}${SEP}${r.adscripcionSolicitada}`;
+    if (!turnosPorUnidad.has(ku)) turnosPorUnidad.set(ku, new Set());
+    turnosPorUnidad.get(ku)!.add(r.turnoSolicitado);
   }
 
   // 2. Repartir cada registro en sus grupos de competencia.
@@ -110,7 +118,16 @@ export function calcularPosicionesCambios(
     if (esUnidadIncondicional(r.adscripcionSolicitada)) {
       const unidades = unidadesPorZona.get(r.zona);
       if (unidades && unidades.size > 0) {
-        for (const u of unidades) agregar(r.zona, u, r.turnoSolicitado, r);
+        // Acepta cualquier turno: entra en cada unidad de la zona y en cada
+        // turno solicitado en esa unidad, para competir con las concretas.
+        for (const u of unidades) {
+          const turnos = turnosPorUnidad.get(`${r.zona}${SEP}${u}`);
+          if (turnos && turnos.size > 0) {
+            for (const t of turnos) agregar(r.zona, u, t, r);
+          } else {
+            agregar(r.zona, u, r.turnoSolicitado, r);
+          }
+        }
       } else {
         // Zona sin unidades concretas: el incondicional queda en su propia fila.
         agregar(r.zona, r.adscripcionSolicitada, r.turnoSolicitado, r);
