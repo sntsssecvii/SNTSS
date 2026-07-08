@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { nombreListadoConEspecialidad } from "@/lib/cambios-escalafon/especialidades-enfermeria";
 import type { CambiosLote, CambiosListado } from "@/types/cambios-escalafon";
 
 function formatFecha(value?: string) {
@@ -343,7 +344,10 @@ export default function DetalleLoteCambiosPage() {
                     <CardContent className="p-6 flex flex-col space-y-4">
                       <div className="flex items-start justify-between min-h-[4.5rem]">
                         <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] line-clamp-3">
-                          {listado.categoriaDesc}
+                          {nombreListadoConEspecialidad(
+                            listado.categoriaDesc,
+                            listado.area,
+                          )}
                         </h3>
                         <div className="flex shrink-0 items-center gap-1.5">
                           <button
