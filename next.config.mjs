@@ -38,6 +38,20 @@ const nextConfig = {
     // superior `serverExternalPackages` es de Next 15 y aquí se ignoraba en
     // silencio → pdfjs terminaba empaquetado y el parser por coordenadas fallaba.
     serverComponentsExternalPackages: ["pdfjs-dist"],
+    // pdfjs v4 (build legacy) importa dinámicamente su worker `pdf.worker.mjs`
+    // para el fake worker. Al externalizar pdfjs, el file-tracing de Vercel NO
+    // detecta ese import dinámico y el archivo queda FUERA del Lambda, así que
+    // en runtime falla con "Cannot find module .../pdf.worker.mjs" y el parser
+    // por coordenadas cae al fallback de Adobe (extracción incorrecta). Forzamos
+    // su inclusión en las rutas que procesan PDF.
+    outputFileTracingIncludes: {
+      "/api/cambios-escalafon/procesar": [
+        "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+      ],
+      "/api/escalafon/procesar": [
+        "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+      ],
+    },
     serverActions: {
       bodySizeLimit: "10mb",
     },
