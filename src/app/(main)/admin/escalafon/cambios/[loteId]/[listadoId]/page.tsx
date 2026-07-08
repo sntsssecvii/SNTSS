@@ -31,6 +31,7 @@ import {
   claveRegistro,
   type CambiosPosicion,
 } from "@/lib/cambios-escalafon/position-engine";
+import { nombreListadoConEspecialidad } from "@/lib/cambios-escalafon/especialidades-enfermeria";
 import type {
   CambiosListado,
   CambiosLote,
@@ -290,7 +291,10 @@ export default function DetalleListadoCambiosPage() {
                   </span>
                 </div>
                 <h1 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
-                  {listado.categoriaDesc}
+                  {nombreListadoConEspecialidad(
+                    listado.categoriaDesc,
+                    listado.area,
+                  )}
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {listado.concepto

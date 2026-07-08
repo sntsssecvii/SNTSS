@@ -10,12 +10,23 @@ import {
   FolderOpen,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import type { EscalafonLote, EscalafonListado } from "@/types/escalafon";
 
@@ -43,6 +54,9 @@ export default function DetalleLotePage() {
   const [listados, setListados] = useState<EscalafonListado[]>([]);
   const [listadosEnOtrosLotes, setListadosEnOtrosLotes] = useState(0);
   const [busqueda, setBusqueda] = useState("");
+  const [listadoAEliminar, setListadoAEliminar] =
+    useState<EscalafonListado | null>(null);
+  const [eliminando, setEliminando] = useState(false);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -125,6 +139,43 @@ export default function DetalleLotePage() {
       });
     } finally {
       setCerrando(false);
+    }
+  };
+
+  const eliminarListado = async () => {
+    if (!listadoAEliminar?.id) return;
+    setEliminando(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Sesión no válida");
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch(`/api/escalafon/${listadoAEliminar.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(data.error ?? "Error al eliminar el listado");
+      }
+      setListadoAEliminar(null);
+      await cargarDatos();
+      toast({
+        title: "Listado eliminado",
+        description: "El listado y sus aspirantes se borraron.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo eliminar el listado.",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminando(false);
     }
   };
 
@@ -266,12 +317,20 @@ export default function DetalleLotePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {listadosFiltrados.map((listado) => (
-                <button
+                <div
                   key={listado.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() =>
                     router.push(`/admin/escalafon/${loteId}/${listado.id}`)
                   }
-                  className="text-left w-full"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/admin/escalafon/${loteId}/${listado.id}`);
+                    }
+                  }}
+                  className="text-left w-full cursor-pointer"
                 >
                   <Card className="group rounded-[2rem] transition-all duration-500 ease-out border-none relative overflow-hidden flex flex-col shadow-sm bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl ring-1 ring-slate-200/50 dark:ring-slate-800/50 hover:shadow-2xl hover:ring-primary/20">
                     <CardContent className="p-6 flex flex-col space-y-4">
@@ -279,8 +338,22 @@ export default function DetalleLotePage() {
                         <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tighter leading-[1.1] line-clamp-3">
                           {listado.categoriaDesc}
                         </h3>
-                        <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 animate-in fade-in zoom-in duration-500">
-                          <Check className="h-4 w-4 stroke-[3px]" />
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button
+                            type="button"
+                            title="Eliminar listado"
+                            aria-label="Eliminar listado"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setListadoAEliminar(listado);
+                            }}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 focus:opacity-100 group-hover:opacity-100 dark:hover:bg-red-950/40"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 animate-in fade-in zoom-in duration-500">
+                            <Check className="h-4 w-4 stroke-[3px]" />
+                          </div>
                         </div>
                       </div>
 
@@ -336,12 +409,49 @@ export default function DetalleLotePage() {
                       </div>
                     </CardContent>
                   </Card>
-                </button>
+                </div>
               ))}
             </div>
           )}
         </section>
       </div>
+
+      <AlertDialog
+        open={listadoAEliminar !== null}
+        onOpenChange={(open) => {
+          if (!open && !eliminando) setListadoAEliminar(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este listado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se borrará{" "}
+              <span className="font-bold">
+                {listadoAEliminar?.categoriaDesc}
+              </span>{" "}
+              y sus {listadoAEliminar?.aspirantesParsed ?? 0} aspirantes. Esta
+              acción no se puede deshacer; para recuperarlo hay que volver a
+              subir el PDF.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={eliminando}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                eliminarListado();
+              }}
+              disabled={eliminando}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {eliminando ? "Eliminando…" : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
