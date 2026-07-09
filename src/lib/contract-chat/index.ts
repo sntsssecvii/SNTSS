@@ -1382,14 +1382,26 @@ export async function searchContractSources(query: string): Promise<{
   };
 }
 
+// Rotate keys: if one fails, start with the other next time
+let lastFailedKeyIndex = -1;
+
 export function createGroqStream(
   query: string,
   sources: ContractSearchResult[],
   conversationHistory: ChatMessage[],
   tabuladorContext?: string,
 ): ReadableStream<Uint8Array> | null {
-  const apiKeys = getGroqApiKeys();
-  if (apiKeys.length === 0) return null;
+  const allKeys = getGroqApiKeys();
+  if (allKeys.length === 0) return null;
+
+  // Put the non-failed key first
+  const apiKeys =
+    lastFailedKeyIndex >= 0 && allKeys.length > 1
+      ? [
+          ...allKeys.slice(lastFailedKeyIndex + 1),
+          ...allKeys.slice(0, lastFailedKeyIndex + 1),
+        ]
+      : allKeys;
 
   const model = getGroqModel();
 
@@ -1418,53 +1430,76 @@ export function createGroqStream(
   return new ReadableStream({
     async start(controller) {
       try {
-        // Try each API key until one works
-        let response: Response | null = null;
+        // Find a working API key with a cheap pre-check
+        let workingKey: string | null = null;
         for (const key of apiKeys) {
-          const attempt = await fetch(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${key}`,
+          try {
+            const check = await fetch(
+              "https://api.groq.com/openai/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${key}`,
+                },
+                body: JSON.stringify({
+                  model,
+                  max_tokens: 1,
+                  messages: [{ role: "user", content: "ok" }],
+                }),
               },
-              body: JSON.stringify({
-                model,
-                temperature: 0.15,
-                max_tokens: 1024,
-                stream: true,
-                messages,
-              }),
-            },
-          );
-
-          if (attempt.ok && attempt.body) {
-            response = attempt;
-            break;
-          }
-
-          // If rate limited and we have more keys, try next
-          if (attempt.status === 429 && key !== apiKeys[apiKeys.length - 1]) {
-            console.log("[chat] Key rate limited, trying fallback...");
+            );
+            if (check.ok) {
+              workingKey = key;
+              break;
+            }
+            if (check.status === 429) {
+              lastFailedKeyIndex = allKeys.indexOf(key);
+              console.log(
+                "[chat] Key",
+                allKeys.indexOf(key) + 1,
+                "rate limited, trying next...",
+              );
+              continue;
+            }
+          } catch {
             continue;
           }
+        }
 
-          // Non-429 error or last key — report error
-          const errorText = await attempt.text();
+        if (!workingKey) {
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: errorText.slice(0, 200) })}\n\n`,
+              `data: ${JSON.stringify({ error: "Todas las API keys de Groq están en rate limit. Intenta en unos minutos." })}\n\n`,
             ),
           );
           controller.close();
           return;
         }
 
-        if (!response || !response.body) {
+        const response = await fetch(
+          "https://api.groq.com/openai/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${workingKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              temperature: 0.15,
+              max_tokens: 1024,
+              stream: true,
+              messages,
+            }),
+          },
+        );
+
+        if (!response.ok || !response.body) {
+          const errorText = await response.text();
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: "No hay API keys disponibles" })}\n\n`,
+              `data: ${JSON.stringify({ error: errorText.slice(0, 200) })}\n\n`,
             ),
           );
           controller.close();
