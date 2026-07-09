@@ -701,16 +701,30 @@ function readLocalEnvValue(filePath: string, key: string) {
   return null;
 }
 
-function getGroqApiKey() {
-  return (
+function getGroqApiKeys(): string[] {
+  const keys: string[] = [];
+  const primary =
     process.env.GROQ_API_KEY ||
     readLocalEnvValue(
       path.join(process.cwd(), ".env.groq.local"),
       "GROQ_API_KEY",
     ) ||
-    readLocalEnvValue(path.join(process.cwd(), ".env.local"), "GROQ_API_KEY") ||
-    null
-  );
+    readLocalEnvValue(path.join(process.cwd(), ".env.local"), "GROQ_API_KEY");
+  if (primary) keys.push(primary);
+
+  const fallback =
+    process.env.GROQ_API_KEY_FALLBACK ||
+    readLocalEnvValue(
+      path.join(process.cwd(), ".env.local"),
+      "GROQ_API_KEY_FALLBACK",
+    );
+  if (fallback) keys.push(fallback);
+
+  return keys;
+}
+
+function getGroqApiKey() {
+  return getGroqApiKeys()[0] || null;
 }
 
 function getGroqModel() {
@@ -1374,8 +1388,8 @@ export function createGroqStream(
   conversationHistory: ChatMessage[],
   tabuladorContext?: string,
 ): ReadableStream<Uint8Array> | null {
-  const apiKey = getGroqApiKey();
-  if (!apiKey) return null;
+  const apiKeys = getGroqApiKeys();
+  if (apiKeys.length === 0) return null;
 
   const model = getGroqModel();
 
@@ -1404,29 +1418,53 @@ export function createGroqStream(
   return new ReadableStream({
     async start(controller) {
       try {
-        const response = await fetch(
-          "https://api.groq.com/openai/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
+        // Try each API key until one works
+        let response: Response | null = null;
+        for (const key of apiKeys) {
+          const attempt = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${key}`,
+              },
+              body: JSON.stringify({
+                model,
+                temperature: 0.15,
+                max_tokens: 1024,
+                stream: true,
+                messages,
+              }),
             },
-            body: JSON.stringify({
-              model,
-              temperature: 0.15,
-              max_tokens: 1024,
-              stream: true,
-              messages,
-            }),
-          },
-        );
+          );
 
-        if (!response.ok || !response.body) {
-          const errorText = await response.text();
+          if (attempt.ok && attempt.body) {
+            response = attempt;
+            break;
+          }
+
+          // If rate limited and we have more keys, try next
+          if (attempt.status === 429 && key !== apiKeys[apiKeys.length - 1]) {
+            console.log("[chat] Key rate limited, trying fallback...");
+            continue;
+          }
+
+          // Non-429 error or last key — report error
+          const errorText = await attempt.text();
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ error: errorText.slice(0, 200) })}\n\n`,
+            ),
+          );
+          controller.close();
+          return;
+        }
+
+        if (!response || !response.body) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ error: "No hay API keys disponibles" })}\n\n`,
             ),
           );
           controller.close();
