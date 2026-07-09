@@ -1453,11 +1453,57 @@ export function createGroqStream(
           );
 
           if (attempt.ok && attempt.body) {
-            response = attempt;
+            // Read first chunk to check for rate limit in stream body
+            const peekReader = attempt.body.getReader();
+            const firstChunk = await peekReader.read();
+            const firstText = firstChunk.value
+              ? new TextDecoder().decode(firstChunk.value)
+              : "";
+
+            if (
+              firstText.includes("Rate limit") ||
+              firstText.includes("rate_limit")
+            ) {
+              peekReader.releaseLock();
+              lastFailedKeyIndex = allKeys.indexOf(key);
+              if (ki < apiKeys.length - 1) {
+                console.log(
+                  "[chat] Key",
+                  ki + 1,
+                  "rate limited in stream body, trying next...",
+                );
+                continue;
+              }
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ error: "Rate limit alcanzado. Intenta en unos minutos." })}\n\n`,
+                ),
+              );
+              controller.close();
+              return;
+            }
+
+            // Key works! Create a new stream that replays the first chunk
+            const remainingStream = attempt.body;
+            response = new Response(
+              new ReadableStream({
+                start(c) {
+                  if (firstChunk.value) c.enqueue(firstChunk.value);
+                },
+                async pull(c) {
+                  const { done, value } = await peekReader.read();
+                  if (done) {
+                    c.close();
+                    return;
+                  }
+                  c.enqueue(value);
+                },
+              }),
+            );
             break;
           }
 
-          // Rate limited or error — try next key
+          // HTTP error — try next key
           lastFailedKeyIndex = allKeys.indexOf(key);
           if (ki < apiKeys.length - 1) {
             console.log(
