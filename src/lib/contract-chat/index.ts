@@ -897,6 +897,9 @@ const TYPO_CORRECTIONS: Record<string, string> = {
   vacasiones: "vacaciones",
   bacaciones: "vacaciones",
   bacacione: "vacaciones",
+  vaciones: "vacaciones",
+  vacacione: "vacaciones",
+  bacaciónes: "vacaciones",
   prestaiones: "prestaciones",
   prestacioes: "prestaciones",
   escalafn: "escalafón",
@@ -1083,59 +1086,135 @@ function loadPrestaciones(): PrestacionEntry[] {
   }
 }
 
-const PRESTACIONES_PATTERNS = [
-  /\b(prestacion|prestaciones|beneficio|beneficios)\b/i,
-  /\b(que.*compone|que.*incluye|que.*recib[eo]|que.*dan|que.*otorg)\b/i,
-  /\b(ingreso.*total|ingreso.*real|cuanto.*realmente|ademas.*sueldo)\b/i,
-  /\b(aguinaldo|fondo.*ahorro|prima.*vacacion|seguro.*vida|guarderia)\b/i,
-  /\b(anteojos|lentes|ropa.*trabajo|uniforme|estacionamiento)\b/i,
-  /\b(renta|habitacion|vivienda|vehiculo|auto)\b/i,
+// Términos coloquiales del trabajador → prestación (solo para palabras que NO
+// aparecen literalmente en el nombre; el resto se engancha automáticamente).
+const PRESTACION_SINONIMOS: Array<{ nombre: string; terminos: string[] }> = [
+  { nombre: "Anteojos", terminos: ["lentes", "gafas", "vista"] },
+  {
+    nombre: "Ayuda para Renta de Casa-Habitación",
+    terminos: ["renta", "vivienda", "habitacion", "casa"],
+  },
+  {
+    nombre: "Adquisición de Vehículos Automotores",
+    terminos: ["auto", "coche", "carro", "automovil"],
+  },
+  { nombre: "Guarderías Infantiles", terminos: ["guarderia", "estancia"] },
+  { nombre: "Ropa de Trabajo y Uniformes", terminos: ["uniforme", "bata"] },
+  { nombre: "Fondo de Ahorro", terminos: ["ahorro"] },
+  { nombre: "Programas Educativos", terminos: ["beca", "becas", "estudios"] },
+  {
+    nombre: "Descuento Balnearios y Campamentos",
+    terminos: ["balneario", "campamento", "malinche"],
+  },
+  { nombre: "Prima Dominical", terminos: ["domingo", "dominical"] },
+  {
+    nombre: "Asistencia Médica, Dental y Farmacéutica",
+    terminos: ["dentista", "dental", "medicamento", "farmacia"],
+  },
+  {
+    nombre: "Ayuda para Actividades Culturales y Recreativas",
+    terminos: ["cultural", "recreativa", "quinquenio"],
+  },
+  {
+    nombre: "Préstamos para Fomento a la Habitación",
+    terminos: ["prestamo", "credito"],
+  },
 ];
 
-function isPrestacionesQuery(query: string): boolean {
-  return PRESTACIONES_PATTERNS.some((p) => p.test(query));
+// Tokens genéricos del nombre que causarían falsos positivos.
+const PRESTACION_STOPWORDS = new Set([
+  "ayuda",
+  "para",
+  "personal",
+  "trabajo",
+  "social",
+  "reconocimiento",
+  "clinica",
+  "festivales",
+  "prima",
+]);
+
+// Palabras significativas del nombre + sinónimos → disparadores de cada prestación.
+function prestacionKeywords(p: PrestacionEntry): string[] {
+  const fromName = normalizeText(p.nombre)
+    .split(/[^a-z0-9]+/i)
+    .filter((w) => w.length >= 5 && !PRESTACION_STOPWORDS.has(w));
+  const syn =
+    PRESTACION_SINONIMOS.find((s) => s.nombre === p.nombre)?.terminos ?? [];
+  return Array.from(
+    new Set([...fromName, ...syn.map((t) => normalizeText(t))]),
+  );
+}
+
+const PRESTACIONES_GENERAL_PATTERNS = [
+  /\b(prestacion|prestaciones|beneficio|beneficios)\b/i,
+  /\b(que.*(incluye|recib|dan|otorg|compone))\b/i,
+  /\b(ingreso.*total|ingreso.*real|cuanto.*realmente|ademas.*sueldo)\b/i,
+];
+
+function isGeneralPrestacionesQuery(query: string): boolean {
+  return PRESTACIONES_GENERAL_PATTERNS.some((p) => p.test(query));
+}
+
+function matchPrestaciones(query: string): PrestacionEntry[] {
+  const normalized = normalizeText(query);
+  const qTokens = normalized
+    .split(/[^a-z0-9]+/i)
+    .filter((w) => w.length >= 4);
+
+  // Enlaza si el keyword aparece literal, o comparte raíz con un token de la
+  // consulta (tolera plural/singular: "estacionamiento" ~ "estacionamientos").
+  const matches = (kw: string) =>
+    normalized.includes(kw) ||
+    qTokens.some((t) => {
+      const [short, long] = kw.length <= t.length ? [kw, t] : [t, kw];
+      return short.length >= 5 && long.startsWith(short);
+    });
+
+  return loadPrestaciones().filter((p) =>
+    prestacionKeywords(p).some(matches),
+  );
+}
+
+function formatMontos(montos: Record<string, unknown>): string {
+  if (!montos || Object.keys(montos).length === 0) return "";
+  return ` Datos: ${JSON.stringify(montos)}.`;
 }
 
 function buildPrestacionesContext(query: string): string | null {
   const prestaciones = loadPrestaciones();
   if (prestaciones.length === 0) return null;
-  if (!isPrestacionesQuery(query)) return null;
 
-  const normalized = normalizeText(query);
+  const matching = matchPrestaciones(query);
 
-  // Check if asking about specific prestación
-  const queryStems = normalized
-    .split(" ")
-    .filter((w) => w.length >= 4)
-    .map((w) => w.slice(0, Math.max(5, w.length - 2)));
-
-  const matching = prestaciones.filter((p) => {
-    const combined = normalizeText(p.nombre + " " + p.descripcion);
-    return queryStems.some((stem) => combined.includes(stem));
-  });
-
+  // Match específico (1-5) → contexto detallado con montos estructurados
   if (matching.length > 0 && matching.length <= 5) {
     return [
-      "DATOS ESTRUCTURADOS DE PRESTACIONES DEL CONTRATO:",
+      "DATOS ESTRUCTURADOS DE PRESTACIONES DEL CONTRATO. Usa estas cifras exactas; " +
+        "si la pregunta pide un cálculo por antigüedad y los datos dan la fórmula (p. ej. días base + incremento por año), calcula el resultado y explícalo:",
       ...matching.map(
         (p) =>
-          `- ${p.nombre} (Cláusula ${p.clausula}, p. ${p.pagina}): ${p.descripcion}. Aplica a: ${p.aplica}.`,
+          `- ${p.nombre} (Cláusula ${p.clausula}, p. ${p.pagina}): ${p.descripcion} Aplica a: ${p.aplica}.${formatMontos(p.montos)}`,
       ),
     ].join("\n");
   }
 
-  // General prestaciones question — show summary
-  return [
-    "RESUMEN DE PRESTACIONES DEL CONTRATO (además del sueldo base tabular):",
-    ...prestaciones
-      .slice(0, 15)
-      .map(
-        (p) =>
-          `- ${p.nombre} (Cl. ${p.clausula}, p. ${p.pagina}): ${p.descripcion.slice(0, 120)}`,
-      ),
-    `Total: ${prestaciones.length} prestaciones documentadas.`,
-    "El sueldo real de un trabajador = sueldo base tabular + sobresueldos por rama + ayuda renta (82.15%) + fondo de ahorro + prima vacacional + demás prestaciones.",
-  ].join("\n");
+  // Pregunta general de prestaciones → resumen completo
+  if (isGeneralPrestacionesQuery(query) || matching.length > 5) {
+    return [
+      "RESUMEN DE PRESTACIONES DEL CONTRATO (además del sueldo base tabular):",
+      ...prestaciones
+        .slice(0, 15)
+        .map(
+          (p) =>
+            `- ${p.nombre} (Cl. ${p.clausula}, p. ${p.pagina}): ${p.descripcion.slice(0, 120)}`,
+        ),
+      `Total: ${prestaciones.length} prestaciones documentadas.`,
+      "El sueldo real de un trabajador = sueldo base tabular + sobresueldos por rama + ayuda renta (82.15%) + fondo de ahorro + prima vacacional + demás prestaciones.",
+    ].join("\n");
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1297,10 +1376,11 @@ export async function searchContractSources(query: string): Promise<{
   sources.sort((a, b) => b.score - a.score);
   const reranked = sources.slice(0, 8);
 
-  // Check if structured data is relevant
+  // Check if structured data is relevant. Prestaciones usa la consulta
+  // reescrita (typos/abreviaciones corregidos) para enganchar mejor.
   const tabuladorContext = buildTabuladorContext(trimmedQuery) || undefined;
   const prestacionesContext =
-    buildPrestacionesContext(trimmedQuery) || undefined;
+    buildPrestacionesContext(`${trimmedQuery} ${searchQuery}`) || undefined;
 
   // Merge structured contexts
   const structuredContext =
