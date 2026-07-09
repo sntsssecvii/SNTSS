@@ -1,0 +1,3039 @@
+{
+  "generatedAt": "2026-07-08T19:06:32.189898",
+  "source": "Contrato Colectivo de Trabajo IMSS-SNTSS 2025-2027",
+  "pages": "91-101",
+  "totalCategorias": 335,
+  "categorias": [
+    {
+      "categoria": "Pasante de Abogado",
+      "sector": "ABOGADOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 784.3,
+      "sueldoMesPesos": 5097.96,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Abogado",
+      "sector": "ABOGADOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Abogado",
+      "sector": "ABOGADOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Auxiliar Técnico de Actuariado",
+      "sector": "ACTUARIAL",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1162.02,
+      "sueldoMesPesos": 7553.14,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Social Oficial Técnico de Actuariado",
+      "sector": "ACTUARIAL",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1283.9,
+      "sueldoMesPesos": 8345.36,
+      "escalafon": 2,
+      "pagina": 91
+    },
+    {
+      "categoria": "Social Técnico de Actuariado Social",
+      "sector": "ACTUARIAL",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1374.2,
+      "sueldoMesPesos": 8932.24,
+      "escalafon": 3,
+      "pagina": 91
+    },
+    {
+      "categoria": "Actuario Social Matemático",
+      "sector": "ACTUARIAL",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1474.08,
+      "sueldoMesPesos": 9581.5,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Auxiliar de Almacén",
+      "sector": "ALMACENES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 730.18,
+      "sueldoMesPesos": 4746.16,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Auxiliar de Almacén",
+      "sector": "ALMACENES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 730.18,
+      "sueldoMesPesos": 5841.44,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Oficial de Almacén",
+      "sector": "ALMACENES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 91
+    },
+    {
+      "categoria": "Coordinador de Almacén",
+      "sector": "ALMACENES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 91
+    },
+    {
+      "categoria": "Jefe de Grupo de Almacén",
+      "sector": "ALMACENES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 91
+    },
+    {
+      "categoria": "Especialista de Almacén",
+      "sector": "ALMACENES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 91
+    },
+    {
+      "categoria": "Arquitecto",
+      "sector": "ARQUITECTOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Asistente Médica",
+      "sector": "ASISTENTES MÉDICAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 4963.16,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Asistente Médica",
+      "sector": "ASISTENTES MÉDICAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Coordinadora de Asistentes Médicas",
+      "sector": "ASISTENTES MÉDICAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 845.9,
+      "sueldoMesPesos": 6767.2,
+      "escalafon": 2,
+      "pagina": 91
+    },
+    {
+      "categoria": "Ayudante de Autopsia",
+      "sector": "AUTOPSIAS (D.F.)",
+      "jornada": 6.5,
+      "sueldoHoraMes": 819.38,
+      "sueldoMesPesos": 5326.04,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Ayudante de Autopsia",
+      "sector": "AUTOPSIAS (D.F.)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 819.38,
+      "sueldoMesPesos": 6555.1,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Auxiliar de Servicios Administrativos",
+      "sector": "AUXILIAR DE SERVICIOS ADMINISTRATIVOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 508.1,
+      "sueldoMesPesos": 3302.5,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Auxiliar de Servicios Administrativos",
+      "sector": "AUXILIAR DE SERVICIOS ADMINISTRATIVOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 508.1,
+      "sueldoMesPesos": 4064.76,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Técnico de Bibliotecas",
+      "sector": "BIBLIOTECARIOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 859.92,
+      "sueldoMesPesos": 5589.56,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Técnico de Bibliotecas",
+      "sector": "BIBLIOTECARIOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 859.92,
+      "sueldoMesPesos": 6879.38,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Asistente de Bibliotecario",
+      "sector": "BIBLIOTECARIOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1137.9,
+      "sueldoMesPesos": 7396.12,
+      "escalafon": 2,
+      "pagina": 91
+    },
+    {
+      "categoria": "Asistente de Bibliotecario",
+      "sector": "BIBLIOTECARIOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1137.9,
+      "sueldoMesPesos": 9103.14,
+      "escalafon": 2,
+      "pagina": 91
+    },
+    {
+      "categoria": "Bibliotecario",
+      "sector": "BIBLIOTECARIOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Bibliotecario",
+      "sector": "BIBLIOTECARIOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Biólogo",
+      "sector": "BIÓLOGOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 91
+    },
+    {
+      "categoria": "Ayudante de Cajero B",
+      "sector": "CAJEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 627.76,
+      "sueldoMesPesos": 5022.12,
+      "escalafon": 1,
+      "pagina": 91
+    },
+    {
+      "categoria": "Ayudante de Cajero A",
+      "sector": "CAJEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 666.34,
+      "sueldoMesPesos": 5330.68,
+      "escalafon": 2,
+      "pagina": 91
+    },
+    {
+      "categoria": "Cajero D",
+      "sector": "CAJEROS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 823.42,
+      "sueldoMesPesos": 5351.94,
+      "escalafon": 3,
+      "pagina": 91
+    },
+    {
+      "categoria": "Cajero D",
+      "sector": "CAJEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 823.42,
+      "sueldoMesPesos": 6587.36,
+      "escalafon": 3,
+      "pagina": 92
+    },
+    {
+      "categoria": "Cajero C",
+      "sector": "CAJEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 874.94,
+      "sueldoMesPesos": 6999.44,
+      "escalafon": 4,
+      "pagina": 92
+    },
+    {
+      "categoria": "Cajero B",
+      "sector": "CAJEROS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 936.06,
+      "sueldoMesPesos": 6084.36,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Cajero A",
+      "sector": "CAJEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 957.08,
+      "sueldoMesPesos": 7656.68,
+      "escalafon": 6,
+      "pagina": 92
+    },
+    {
+      "categoria": "Camillero de Unidades Hospitalarias",
+      "sector": "CAMILLEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.62,
+      "sueldoMesPesos": 5748.92,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Auxiliar de Administración de C.V.",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 5744.26,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Auxiliar de Atención Médica de C.V.",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 712.24,
+      "sueldoMesPesos": 5697.86,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Auxiliar de Hospedaje de C.V.",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 723.48,
+      "sueldoMesPesos": 5787.78,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Auxiliar de Operación Contable de C.V.",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 834.86,
+      "sueldoMesPesos": 6678.82,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Lavandero en Centros Vacacionales",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 703.32,
+      "sueldoMesPesos": 5626.62,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "C.V.",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 703.32,
+      "sueldoMesPesos": 5626.62,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Operador de Servicios Internos de C.V.",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 609.44,
+      "sueldoMesPesos": 4875.46,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Operador de Vehículos de C.V.",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 717.26,
+      "sueldoMesPesos": 5738.04,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Planchador en Centros Vacacionales",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 703.32,
+      "sueldoMesPesos": 5626.62,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Vigilante de Centros Vacacionales",
+      "sector": "CENTROS VACACIONALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 609.44,
+      "sueldoMesPesos": 4875.46,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Cirujano Máxilo Facial",
+      "sector": "CIRUJANOS MÁXILO FACIALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1605.52,
+      "sueldoMesPesos": 12844.2,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Citotecnólogo",
+      "sector": "CITOTECNÓLOGOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico Polivalente",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 5744.26,
+      "escalafon": 1,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico Electricista",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 761.3,
+      "sueldoMesPesos": 6090.42,
+      "escalafon": 2,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico Electrónico",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 761.3,
+      "sueldoMesPesos": 6090.42,
+      "escalafon": 2,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico Mecánico",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 761.3,
+      "sueldoMesPesos": 6090.42,
+      "escalafon": 2,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico Plomero",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 761.3,
+      "sueldoMesPesos": 6090.42,
+      "escalafon": 2,
+      "pagina": 92
+    },
+    {
+      "categoria": "Refrigeración",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 840.96,
+      "sueldoMesPesos": 6727.66,
+      "escalafon": 3,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico A en Equipos Médicos",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 840.96,
+      "sueldoMesPesos": 6727.66,
+      "escalafon": 3,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico A en Fluidos y Energéticos",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 840.96,
+      "sueldoMesPesos": 6727.66,
+      "escalafon": 3,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico A en Plantas de Lavado",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 840.96,
+      "sueldoMesPesos": 6727.66,
+      "escalafon": 3,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico A en Telecomunicaciones",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 840.96,
+      "sueldoMesPesos": 6727.66,
+      "escalafon": 3,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico B en Equipos Médicos",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 937.62,
+      "sueldoMesPesos": 7500.94,
+      "escalafon": 4,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico B en Fluidos y Energéticos",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 937.62,
+      "sueldoMesPesos": 7500.94,
+      "escalafon": 4,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico B en Plantas de Lavado",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 937.62,
+      "sueldoMesPesos": 7500.94,
+      "escalafon": 4,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico B en Telecomunicaciones",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 937.62,
+      "sueldoMesPesos": 7500.94,
+      "escalafon": 4,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico en Equipos Reciprocantes",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 937.62,
+      "sueldoMesPesos": 7500.94,
+      "escalafon": 4,
+      "pagina": 92
+    },
+    {
+      "categoria": "Laboratorio",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico C en Fluidos y Energéticos",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico C en Plantas de Lavado",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico C en Telecomunicaciones",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Especialidades",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico en Equipos de Absorción",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico en Equipos Helicoidal",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 92
+    },
+    {
+      "categoria": "Técnico en Equipos de Rayos X",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 93
+    },
+    {
+      "categoria": "Técnico en Equipos Turbocentrífugo",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1055.2,
+      "sueldoMesPesos": 8441.62,
+      "escalafon": 5,
+      "pagina": 93
+    },
+    {
+      "categoria": "Especialidades",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Especialista en Equipos de Laboratorio",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Fluidos",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Acondicionado y Refrigeración",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Especialista en Plantas de Lavado",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Médica",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Especialista en Equipos de Rayos X",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Especialista en Fluidos y Energéticos",
+      "sector": "CONSERVACIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1198.88,
+      "sueldoMesPesos": 9591.02,
+      "escalafon": 6,
+      "pagina": 93
+    },
+    {
+      "categoria": "Contador",
+      "sector": "CONTABILIDAD",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Contador",
+      "sector": "CONTABILIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Contador Auditor",
+      "sector": "CONTABILIDAD",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Contador Auditor",
+      "sector": "CONTABILIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Cuidador de Animales",
+      "sector": "CUIDADOR DE ANIMALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 703.32,
+      "sueldoMesPesos": 5626.62,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Construcción",
+      "sector": "DIBUJANTES DE CONSTRUCCIÓN",
+      "jornada": 6.5,
+      "sueldoHoraMes": 897.14,
+      "sueldoMesPesos": 5831.5,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Construcción",
+      "sector": "DIBUJANTES DE CONSTRUCCIÓN",
+      "jornada": 8.0,
+      "sueldoHoraMes": 897.14,
+      "sueldoMesPesos": 7177.18,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Estadística y Publicidad C",
+      "sector": "DIBUJANTES DE ESTADÍSTICA Y PUBLICIDAD",
+      "jornada": 6.5,
+      "sueldoHoraMes": 642.46,
+      "sueldoMesPesos": 4175.98,
+      "escalafon": 1,
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Estadística y Publicidad B",
+      "sector": "DIBUJANTES DE ESTADÍSTICA Y PUBLICIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 682.72,
+      "sueldoMesPesos": 5461.8,
+      "escalafon": 2,
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Estadística y Publicidad A",
+      "sector": "DIBUJANTES DE ESTADÍSTICA Y PUBLICIDAD",
+      "jornada": 6.5,
+      "sueldoHoraMes": 897.14,
+      "sueldoMesPesos": 5831.5,
+      "escalafon": 3,
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Estadística y Publicidad A",
+      "sector": "DIBUJANTES DE ESTADÍSTICA Y PUBLICIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 897.14,
+      "sueldoMesPesos": 7177.18,
+      "escalafon": 3,
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Ingeniería y Arquitectura",
+      "sector": "DIBUJANTES DE ESTADÍSTICA Y PUBLICIDAD",
+      "jornada": 6.5,
+      "sueldoHoraMes": 897.14,
+      "sueldoMesPesos": 5831.5,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Dibujante de Ingeniería y Arquitectura",
+      "sector": "DIBUJANTES DE ESTADÍSTICA Y PUBLICIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 897.14,
+      "sueldoMesPesos": 7177.18,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Pasante de Economista",
+      "sector": "ECONOMISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 734.56,
+      "sueldoMesPesos": 5876.44,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Economista",
+      "sector": "ECONOMISTAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Economista",
+      "sector": "ECONOMISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Educadora",
+      "sector": "EDUCADORAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 911.5,
+      "sueldoMesPesos": 5469.06,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Educadora",
+      "sector": "EDUCADORAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 911.5,
+      "sueldoMesPesos": 5924.68,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Educadora",
+      "sector": "EDUCADORAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 911.5,
+      "sueldoMesPesos": 7291.94,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Electrocardiografista",
+      "sector": "ELECTROCARDIOGRAFISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 909.94,
+      "sueldoMesPesos": 7279.54,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Elevadorista",
+      "sector": "ELEVADORISTAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 639.24,
+      "sueldoMesPesos": 4154.86,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Elevadorista",
+      "sector": "ELEVADORISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 639.24,
+      "sueldoMesPesos": 5113.92,
+      "escalafon": "Aut",
+      "pagina": 93
+    },
+    {
+      "categoria": "Auxiliar de Enfermería General",
+      "sector": "ENFERMERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Auxiliar de Enfermería en Salud Pública",
+      "sector": "ENFERMERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Enfermera General",
+      "sector": "ENFERMERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 922.64,
+      "sueldoMesPesos": 7381.12,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Enfermera General Clínica (EGC)",
+      "sector": "ENFERMERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 987.28,
+      "sueldoMesPesos": 7898.3,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Enfermera Especialista",
+      "sector": "ENFERMERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1051.94,
+      "sueldoMesPesos": 8415.48,
+      "escalafon": 2,
+      "pagina": 94
+    },
+    {
+      "categoria": "Enfermera Jefe de Piso",
+      "sector": "ENFERMERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 3,
+      "pagina": 94
+    },
+    {
+      "categoria": "Estomatólogo",
+      "sector": "ESTOMATÓLOGOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1490.52,
+      "sueldoMesPesos": 11924.12,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Auxiliar de Farmacia",
+      "sector": "FARMACEUTICOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 803.08,
+      "sueldoMesPesos": 5220.34,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Auxiliar de Farmacia",
+      "sector": "FARMACEUTICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 803.08,
+      "sueldoMesPesos": 6424.6,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Ayudante de Farmacia",
+      "sector": "FARMACEUTICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 897.54,
+      "sueldoMesPesos": 7180.26,
+      "escalafon": 2,
+      "pagina": 94
+    },
+    {
+      "categoria": "Oficial de Farmacia",
+      "sector": "FARMACEUTICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1041.14,
+      "sueldoMesPesos": 8329.04,
+      "escalafon": 3,
+      "pagina": 94
+    },
+    {
+      "categoria": "Coordinador de Farmacia",
+      "sector": "FARMACEUTICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1225.04,
+      "sueldoMesPesos": 9800.3,
+      "escalafon": 4,
+      "pagina": 94
+    },
+    {
+      "categoria": "Fonoaudiólogo",
+      "sector": "FONOAUDIÓLOGOS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Fonoaudiólogo",
+      "sector": "FONOAUDIÓLOGOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Guardavidas",
+      "sector": "GUARDAVIDAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 703.36,
+      "sueldoMesPesos": 4571.8,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Oficial de Puericultura",
+      "sector": "GUARDERÍAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 4667.16,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Oficial de Puericultura",
+      "sector": "GUARDERÍAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 5744.26,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Técnico de Puericultura",
+      "sector": "GUARDERÍAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 778.8,
+      "sueldoMesPesos": 6230.44,
+      "escalafon": 2,
+      "pagina": 94
+    },
+    {
+      "categoria": "Heliografista",
+      "sector": "HELIOGRAFISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 834.24,
+      "sueldoMesPesos": 6673.96,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Histotecnólogo",
+      "sector": "HISTOTECNÓLOGOS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Histotecnólogo",
+      "sector": "HISTOTECNÓLOGOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Pasante de Ingeniero",
+      "sector": "INGENIEROS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 784.3,
+      "sueldoMesPesos": 5097.96,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Ingeniero",
+      "sector": "INGENIEROS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Ingeniero",
+      "sector": "INGENIEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Inhaloterapeuta",
+      "sector": "INHALOTERAPEUTAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Inhaloterapeuta",
+      "sector": "INHALOTERAPEUTAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 6398.64,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Inhaloterapeuta",
+      "sector": "INHALOTERAPEUTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Auxiliar de Servicios de Intendencia",
+      "sector": "INTENDENCIA",
+      "jornada": 6.5,
+      "sueldoHoraMes": 609.44,
+      "sueldoMesPesos": 3961.3,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Auxiliar de Servicios de Intendencia",
+      "sector": "INTENDENCIA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 609.44,
+      "sueldoMesPesos": 4875.46,
+      "escalafon": 1,
+      "pagina": 94
+    },
+    {
+      "categoria": "Ayudante de Servicios de Intendencia",
+      "sector": "INTENDENCIA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 706.08,
+      "sueldoMesPesos": 5648.58,
+      "escalafon": 2,
+      "pagina": 94
+    },
+    {
+      "categoria": "Oficial de Servicios de Intendencia",
+      "sector": "INTENDENCIA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 762.34,
+      "sueldoMesPesos": 6098.68,
+      "escalafon": 3,
+      "pagina": 94
+    },
+    {
+      "categoria": "Intendente",
+      "sector": "INTENDENTES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 820.72,
+      "sueldoMesPesos": 6565.76,
+      "escalafon": "Aut",
+      "pagina": 94
+    },
+    {
+      "categoria": "Auxiliar de Laboratorio",
+      "sector": "LABORATORISTAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 4732.06,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Auxiliar de Laboratorio",
+      "sector": "LABORATORISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 6309.58,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Laboratorista",
+      "sector": "LABORATORISTAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 1035.46,
+      "sueldoMesPesos": 6212.9,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Laboratorista",
+      "sector": "LABORATORISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1035.46,
+      "sueldoMesPesos": 8283.66,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Operador de Servicios de Lavandería",
+      "sector": "LAVANDERÍAS CENTRALES Y HOSPITALARIAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 703.32,
+      "sueldoMesPesos": 4571.8,
+      "escalafon": 1,
+      "pagina": 95
+    },
+    {
+      "categoria": "Operador de Servicios de Lavandería",
+      "sector": "LAVANDERÍAS CENTRALES Y HOSPITALARIAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 703.32,
+      "sueldoMesPesos": 5626.62,
+      "escalafon": 1,
+      "pagina": 95
+    },
+    {
+      "categoria": "Oficial de Servicios de Lavandería",
+      "sector": "LAVANDERÍAS CENTRALES Y HOSPITALARIAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 759.36,
+      "sueldoMesPesos": 4935.84,
+      "escalafon": 2,
+      "pagina": 95
+    },
+    {
+      "categoria": "Oficial de Servicios de Lavandería",
+      "sector": "LAVANDERÍAS CENTRALES Y HOSPITALARIAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 759.36,
+      "sueldoMesPesos": 6074.84,
+      "escalafon": 2,
+      "pagina": 95
+    },
+    {
+      "categoria": "Médicas y No Médicas",
+      "sector": "LIMPIEZA E HIGIENE",
+      "jornada": 8.0,
+      "sueldoHoraMes": 609.44,
+      "sueldoMesPesos": 4875.46,
+      "escalafon": 1,
+      "pagina": 95
+    },
+    {
+      "categoria": "Médicas y No Médicas",
+      "sector": "LIMPIEZA E HIGIENE",
+      "jornada": 8.0,
+      "sueldoHoraMes": 706.08,
+      "sueldoMesPesos": 5648.58,
+      "escalafon": 2,
+      "pagina": 95
+    },
+    {
+      "categoria": "Machetero",
+      "sector": "MACHETEROS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 626.44,
+      "sueldoMesPesos": 4071.5,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Machetero",
+      "sector": "MACHETEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 626.44,
+      "sueldoMesPesos": 5011.44,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Masajista",
+      "sector": "MASAJISTAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 601.3,
+      "sueldoMesPesos": 3908.44,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Médico General",
+      "sector": "MÉDICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1218.98,
+      "sueldoMesPesos": 9751.8,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Médico No Familiar",
+      "sector": "MÉDICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1605.52,
+      "sueldoMesPesos": 12844.2,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Médico Familiar",
+      "sector": "MÉDICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1605.52,
+      "sueldoMesPesos": 12844.2,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Técnico de Microfotografía",
+      "sector": "MICROFOTOGRAFISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Multilitista",
+      "sector": "MULTILITISTAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 801.42,
+      "sueldoMesPesos": 5209.52,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Multilitista",
+      "sector": "MULTILITISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 801.42,
+      "sueldoMesPesos": 6411.42,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Nutricionista Dietista",
+      "sector": "NUTRICIÓN Y DIETÉTICA",
+      "jornada": 6.5,
+      "sueldoHoraMes": 907.28,
+      "sueldoMesPesos": 5897.4,
+      "escalafon": 1,
+      "pagina": 95
+    },
+    {
+      "categoria": "Nutricionista Dietista",
+      "sector": "NUTRICIÓN Y DIETÉTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 907.28,
+      "sueldoMesPesos": 7258.16,
+      "escalafon": 1,
+      "pagina": 95
+    },
+    {
+      "categoria": "Especialista en Nutrición y Dietética",
+      "sector": "NUTRICIÓN Y DIETÉTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1051.94,
+      "sueldoMesPesos": 8415.48,
+      "escalafon": 2,
+      "pagina": 95
+    },
+    {
+      "categoria": "Nutriólogo Clínico Especializado",
+      "sector": "NUTRICIÓN Y DIETÉTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 3,
+      "pagina": 95
+    },
+    {
+      "categoria": "Operador de Equipo A",
+      "sector": "OPERADORES DE EQUIPO DE INTERCOMUNICACIÓN NEUMÁTICA",
+      "jornada": 6.5,
+      "sueldoHoraMes": 991.12,
+      "sueldoMesPesos": 6442.26,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Automático",
+      "sector": "OPERADORES DE MÁQUINAS DE REVELADO AUTOMÁTICO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 703.32,
+      "sueldoMesPesos": 5626.62,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Optometrista",
+      "sector": "OPTOMETRISTAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Optometrista",
+      "sector": "OPTOMETRISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Orientador",
+      "sector": "ORIENTADORES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1008.92,
+      "sueldoMesPesos": 6557.9,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Orientador",
+      "sector": "ORIENTADORES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1008.92,
+      "sueldoMesPesos": 8071.42,
+      "escalafon": "Aut",
+      "pagina": 95
+    },
+    {
+      "categoria": "Auxiliar de Orientador Técnico Médico",
+      "sector": "ORIENTADOR TÉCNICO MÉDICO (AUXILIARES)",
+      "jornada": 6.5,
+      "sueldoHoraMes": 623.72,
+      "sueldoMesPesos": 4054.16,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Ortopedista",
+      "sector": "ORTOPEDISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Partera",
+      "sector": "PARTERAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1051.94,
+      "sueldoMesPesos": 6837.68,
+      "escalafon": 1,
+      "pagina": 96
+    },
+    {
+      "categoria": "Partera",
+      "sector": "PARTERAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1051.94,
+      "sueldoMesPesos": 8415.48,
+      "escalafon": 1,
+      "pagina": 96
+    },
+    {
+      "categoria": "Jefe de Parteras",
+      "sector": "PARTERAS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1130.84,
+      "sueldoMesPesos": 7350.52,
+      "escalafon": 2,
+      "pagina": 96
+    },
+    {
+      "categoria": "Jefe de Parteras",
+      "sector": "PARTERAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1130.84,
+      "sueldoMesPesos": 9046.64,
+      "escalafon": 2,
+      "pagina": 96
+    },
+    {
+      "categoria": "Peluquero",
+      "sector": "PELUQUEROS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 620.48,
+      "sueldoMesPesos": 4963.88,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 739.74,
+      "sueldoMesPesos": 4808.42,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 739.74,
+      "sueldoMesPesos": 5917.9,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 757.62,
+      "sueldoMesPesos": 4924.46,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 757.62,
+      "sueldoMesPesos": 6060.88,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 613.98,
+      "sueldoMesPesos": 3990.86,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 613.98,
+      "sueldoMesPesos": 4911.82,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Unidad Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 729.66,
+      "sueldoMesPesos": 4742.96,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Unidad Médica",
+      "sector": "POLIVALENTES PARA CLÍNICAS Y CLÍNICAS HOSPITALES AUXILIARES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 729.66,
+      "sueldoMesPesos": 5837.3,
+      "escalafon": "Aut",
+      "pagina": 96
+    },
+    {
+      "categoria": "Preparador de Mezclas",
+      "sector": "PREPARADORES DE MEZCLAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": 1,
+      "pagina": 96
+    },
+    {
+      "categoria": "Profesor de Educación Física A",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 4.0,
+      "sueldoHoraMes": 1031.86,
+      "sueldoMesPesos": 4127.42,
+      "escalafon": 1,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física A",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 6.0,
+      "sueldoHoraMes": 888.72,
+      "sueldoMesPesos": 5332.22,
+      "escalafon": 1,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física A",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 888.72,
+      "sueldoMesPesos": 7109.82,
+      "escalafon": 1,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física B",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 4.0,
+      "sueldoHoraMes": 1151.1,
+      "sueldoMesPesos": 4604.38,
+      "escalafon": 2,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física B",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 6.0,
+      "sueldoHoraMes": 1007.94,
+      "sueldoMesPesos": 6047.7,
+      "escalafon": 2,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física B",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1007.94,
+      "sueldoMesPesos": 8063.58,
+      "escalafon": 2,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física C",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 4.0,
+      "sueldoHoraMes": 1295.52,
+      "sueldoMesPesos": 5182.08,
+      "escalafon": 3,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física C",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 6.0,
+      "sueldoHoraMes": 1152.42,
+      "sueldoMesPesos": 6914.4,
+      "escalafon": 3,
+      "pagina": 97
+    },
+    {
+      "categoria": "Profesor de Educación Física C",
+      "sector": "PROFESORES DE EDUCACIÓN FÍSICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1152.42,
+      "sueldoMesPesos": 9219.34,
+      "escalafon": 3,
+      "pagina": 97
+    },
+    {
+      "categoria": "Promotor de Estomatología",
+      "sector": "PROMOTORES DE ESTOMATOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Promotor de Salud Comunitaria",
+      "sector": "PROMOTORES DE SALUD COMUNITARIA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Psicólogo",
+      "sector": "PSICÓLOGOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Psicólogo Clínico",
+      "sector": "PSICÓLOGOS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 8422.92,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Psicólogo Clínico",
+      "sector": "PSICÓLOGOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Psicómetra",
+      "sector": "PSICÓMETRAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Psicómetra",
+      "sector": "PSICÓMETRAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Químico Clínico",
+      "sector": "QUÍMICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": 1,
+      "pagina": 97
+    },
+    {
+      "categoria": "Químico Clínico Jefe de Sección",
+      "sector": "QUÍMICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1474.18,
+      "sueldoMesPesos": 11793.36,
+      "escalafon": 2,
+      "pagina": 97
+    },
+    {
+      "categoria": "Técnico Radiólogo",
+      "sector": "RADIÓLOGOS (TÉCNICOS)",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Técnico Radiólogo",
+      "sector": "RADIÓLOGOS (TÉCNICOS)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Radioterapeuta",
+      "sector": "RADIOTERAPEUTAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Radioterapeuta",
+      "sector": "RADIOTERAPEUTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Redactor B",
+      "sector": "REDACTORES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 705.12,
+      "sueldoMesPesos": 4583.28,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Manejador de Alimentos",
+      "sector": "SERVICIOS DE NUTRICIÓN Y DIETÉTICA",
+      "jornada": 6.5,
+      "sueldoHoraMes": 609.44,
+      "sueldoMesPesos": 3961.3,
+      "escalafon": 1,
+      "pagina": 97
+    },
+    {
+      "categoria": "Manejador de Alimentos",
+      "sector": "SERVICIOS DE NUTRICIÓN Y DIETÉTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 609.44,
+      "sueldoMesPesos": 4875.46,
+      "escalafon": 1,
+      "pagina": 97
+    },
+    {
+      "categoria": "Cocinero Técnico 2",
+      "sector": "SERVICIOS DE NUTRICIÓN Y DIETÉTICA",
+      "jornada": 6.5,
+      "sueldoHoraMes": 706.08,
+      "sueldoMesPesos": 4589.44,
+      "escalafon": 2,
+      "pagina": 97
+    },
+    {
+      "categoria": "Cocinero Técnico 2",
+      "sector": "SERVICIOS DE NUTRICIÓN Y DIETÉTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 706.08,
+      "sueldoMesPesos": 5648.58,
+      "escalafon": 2,
+      "pagina": 97
+    },
+    {
+      "categoria": "Cocinero Técnico 1",
+      "sector": "SERVICIOS DE NUTRICIÓN Y DIETÉTICA",
+      "jornada": 6.5,
+      "sueldoHoraMes": 762.34,
+      "sueldoMesPesos": 4955.02,
+      "escalafon": 3,
+      "pagina": 97
+    },
+    {
+      "categoria": "Cocinero Técnico 1",
+      "sector": "SERVICIOS DE NUTRICIÓN Y DIETÉTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 762.34,
+      "sueldoMesPesos": 6098.68,
+      "escalafon": 3,
+      "pagina": 97
+    },
+    {
+      "categoria": "Sociólogo",
+      "sector": "SOCIÓLOGOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.86,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 97
+    },
+    {
+      "categoria": "Auxiliar de Soporte Técnico en Informática",
+      "sector": "SOPORTE TÉCNICO EN INFORMÁTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 1,
+      "pagina": 97
+    },
+    {
+      "categoria": "Oficial de Soporte Técnico en Informática",
+      "sector": "SOPORTE TÉCNICO EN INFORMÁTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 2,
+      "pagina": 97
+    },
+    {
+      "categoria": "Informática",
+      "sector": "SOPORTE TÉCNICO EN INFORMÁTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 3,
+      "pagina": 97
+    },
+    {
+      "categoria": "Técnico en Anestesia",
+      "sector": "TÉCNICO ANESTESIÓLOGO",
+      "jornada": 6.0,
+      "sueldoHoraMes": 1082.98,
+      "sueldoMesPesos": 6497.8,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Técnico en Anestesia",
+      "sector": "TÉCNICO ANESTESIÓLOGO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1082.98,
+      "sueldoMesPesos": 8663.78,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Electrodiagnóstico",
+      "sector": "TÉCNICOS EN EL MANEJO DE APARATOS DE ELECTRODIAGNÓSTICO",
+      "jornada": 6.0,
+      "sueldoHoraMes": 909.94,
+      "sueldoMesPesos": 5459.64,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Electrodiagnóstico",
+      "sector": "TÉCNICOS EN EL MANEJO DE APARATOS DE ELECTRODIAGNÓSTICO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 909.94,
+      "sueldoMesPesos": 7279.54,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Técnico en Medicina Nuclear",
+      "sector": "TÉCNICOS EN MEDICINA NUCLEAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Dietología",
+      "sector": "TÉCNICOS EN SERVICIOS DE DIETOLOGÍA",
+      "jornada": 6.5,
+      "sueldoHoraMes": 793.94,
+      "sueldoMesPesos": 5160.52,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Dietología",
+      "sector": "TÉCNICOS EN SERVICIOS DE DIETOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 793.94,
+      "sueldoMesPesos": 6351.46,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Operador Telefónico A",
+      "sector": "TELECOMUNICACIONES (ÁREA DE TELEFONÍA)",
+      "jornada": 6.5,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 4667.16,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Operador Telefónico A",
+      "sector": "TELECOMUNICACIONES (ÁREA DE TELEFONÍA)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 5744.26,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Operador Telefónico B",
+      "sector": "TELECOMUNICACIONES (ÁREA DE TELEFONÍA)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 834.86,
+      "sueldoMesPesos": 6678.82,
+      "escalafon": 2,
+      "pagina": 98
+    },
+    {
+      "categoria": "Operador Telefónico C",
+      "sector": "TELECOMUNICACIONES (ÁREA DE TELEFONÍA)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 980.56,
+      "sueldoMesPesos": 7844.5,
+      "escalafon": 3,
+      "pagina": 98
+    },
+    {
+      "categoria": "Coordinador de Operadores Telefónicos",
+      "sector": "TELECOMUNICACIONES (ÁREA DE TELEFONÍA)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1163.54,
+      "sueldoMesPesos": 9308.32,
+      "escalafon": 4,
+      "pagina": 98
+    },
+    {
+      "categoria": "Terapista Físico",
+      "sector": "TERAPISTAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Terapista Físico",
+      "sector": "TERAPISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Terapista Ocupacional",
+      "sector": "TERAPISTAS",
+      "jornada": 6.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 5906.46,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Terapista Ocupacional",
+      "sector": "TERAPISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 984.42,
+      "sueldoMesPesos": 7875.28,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Operador General de Tiendas",
+      "sector": "TIENDAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 730.18,
+      "sueldoMesPesos": 5841.44,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Jefe de Línea en Tiendas",
+      "sector": "TIENDAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 778.34,
+      "sueldoMesPesos": 6226.66,
+      "escalafon": 2,
+      "pagina": 98
+    },
+    {
+      "categoria": "Trabajadora Social",
+      "sector": "TRABAJADORES SOCIALES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 907.28,
+      "sueldoMesPesos": 5897.4,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Trabajadora Social",
+      "sector": "TRABAJADORES SOCIALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 907.28,
+      "sueldoMesPesos": 7258.16,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Trabajador Social Clínico",
+      "sector": "TRABAJADORES SOCIALES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1034.36,
+      "sueldoMesPesos": 8274.84,
+      "escalafon": 2,
+      "pagina": 98
+    },
+    {
+      "categoria": "Auxiliar de Trabajo Social",
+      "sector": "TRABAJO SOCIAL (AUXILIARES)",
+      "jornada": 6.5,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 4667.16,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Auxiliar de Trabajo Social",
+      "sector": "TRABAJO SOCIAL (AUXILIARES)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 5744.26,
+      "escalafon": "Aut",
+      "pagina": 98
+    },
+    {
+      "categoria": "Chofer",
+      "sector": "TRANSPORTES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 717.26,
+      "sueldoMesPesos": 4662.28,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Chofer",
+      "sector": "TRANSPORTES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 717.26,
+      "sueldoMesPesos": 5738.04,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Motociclista",
+      "sector": "TRANSPORTES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 717.26,
+      "sueldoMesPesos": 4662.28,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Motociclista",
+      "sector": "TRANSPORTES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 717.26,
+      "sueldoMesPesos": 5738.04,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "Controlador de Vehículos",
+      "sector": "TRANSPORTES",
+      "jornada": 6.5,
+      "sueldoHoraMes": 913.5,
+      "sueldoMesPesos": 5937.82,
+      "escalafon": 2,
+      "pagina": 98
+    },
+    {
+      "categoria": "Controlador de Vehículos",
+      "sector": "TRANSPORTES",
+      "jornada": 8.0,
+      "sueldoHoraMes": 913.5,
+      "sueldoMesPesos": 7308.0,
+      "escalafon": 2,
+      "pagina": 98
+    },
+    {
+      "categoria": "de Urgencia",
+      "sector": "TRASLADO DE PACIENTES EN VEHÍCULOS DE ALTA TECNOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 922.64,
+      "sueldoMesPesos": 7381.12,
+      "escalafon": 1,
+      "pagina": 98
+    },
+    {
+      "categoria": "de Terapia Intensiva",
+      "sector": "TRASLADO DE PACIENTES EN VEHÍCULOS DE ALTA TECNOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1051.94,
+      "sueldoMesPesos": 8415.48,
+      "escalafon": 2,
+      "pagina": 99
+    },
+    {
+      "categoria": "Pacientes de Urgencia",
+      "sector": "TRASLADO DE PACIENTES EN VEHÍCULOS DE ALTA TECNOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 899.2,
+      "sueldoMesPesos": 7193.64,
+      "escalafon": 1,
+      "pagina": 99
+    },
+    {
+      "categoria": "Pacientes de Terapia Intensiva",
+      "sector": "TRASLADO DE PACIENTES EN VEHÍCULOS DE ALTA TECNOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 972.94,
+      "sueldoMesPesos": 7783.54,
+      "escalafon": 2,
+      "pagina": 99
+    },
+    {
+      "categoria": "Urgencia",
+      "sector": "TRASLADO DE PACIENTES EN VEHÍCULOS DE ALTA TECNOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1605.52,
+      "sueldoMesPesos": 12844.2,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Terapia Intensiva",
+      "sector": "TRASLADO DE PACIENTES EN VEHÍCULOS DE ALTA TECNOLOGÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1605.52,
+      "sueldoMesPesos": 12844.2,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Campo",
+      "sector": "UNIDADES MÉDICAS DE ESQUEMA MODIFICADO Y CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 739.74,
+      "sueldoMesPesos": 5917.9,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Campo",
+      "sector": "UNIDADES MÉDICAS DE ESQUEMA MODIFICADO Y CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Campo",
+      "sector": "UNIDADES MÉDICAS DE ESQUEMA MODIFICADO Y CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 6309.58,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "y Campo",
+      "sector": "UNIDADES MÉDICAS DE ESQUEMA MODIFICADO Y CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 623.84,
+      "sueldoMesPesos": 4990.68,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Esquema Modificado y Campo",
+      "sector": "UNIDADES MÉDICAS DE ESQUEMA MODIFICADO Y CAMPO",
+      "jornada": 6.0,
+      "sueldoHoraMes": 1478.18,
+      "sueldoMesPesos": 8869.12,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Esquema Modificado y Campo",
+      "sector": "UNIDADES MÉDICAS DE ESQUEMA MODIFICADO Y CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 6309.58,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Médica de Campo",
+      "sector": "UNIDADES MÉDICAS DE CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 739.74,
+      "sueldoMesPesos": 5917.9,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Médica de Campo",
+      "sector": "UNIDADES MÉDICAS DE CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Unidad Médica de Campo",
+      "sector": "UNIDADES MÉDICAS DE CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 623.84,
+      "sueldoMesPesos": 4990.68,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Campo",
+      "sector": "UNIDADES MÉDICAS DE CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 968.54,
+      "sueldoMesPesos": 7748.32,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Médica de Campo",
+      "sector": "UNIDADES MÉDICAS DE CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 623.84,
+      "sueldoMesPesos": 4990.68,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Unidad Médica de Campo (Laboratorio)",
+      "sector": "UNIDADES MÉDICAS DE CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 6309.58,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "(Radiodiagnóstico)",
+      "sector": "UNIDADES MÉDICAS DE CAMPO",
+      "jornada": 8.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 6309.58,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Mensajero",
+      "sector": "UNIVERSAL DE OFICINAS (RAMA)",
+      "jornada": 6.5,
+      "sueldoHoraMes": 608.5,
+      "sueldoMesPesos": 3955.4,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Mensajero",
+      "sector": "UNIVERSAL DE OFICINAS (RAMA)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 608.5,
+      "sueldoMesPesos": 4868.04,
+      "escalafon": "Aut",
+      "pagina": 99
+    },
+    {
+      "categoria": "Auxiliar Universal de Oficinas",
+      "sector": "UNIVERSAL DE OFICINAS (RAMA)",
+      "jornada": 6.5,
+      "sueldoHoraMes": 730.18,
+      "sueldoMesPesos": 4746.16,
+      "escalafon": 1,
+      "pagina": 100
+    },
+    {
+      "categoria": "Auxiliar Universal de Oficinas",
+      "sector": "UNIVERSAL DE OFICINAS (RAMA)",
+      "jornada": 8.0,
+      "sueldoHoraMes": 730.18,
+      "sueldoMesPesos": 5841.44,
+      "escalafon": 1,
+      "pagina": 100
+    },
+    {
+      "categoria": "Oficial de Tesorería",
+      "sector": "SECTOR DE TESORERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 100
+    },
+    {
+      "categoria": "Coordinador de Tesorería",
+      "sector": "SECTOR DE TESORERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Tesorería",
+      "sector": "SECTOR DE TESORERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 100
+    },
+    {
+      "categoria": "Especialista de Tesorería",
+      "sector": "SECTOR DE TESORERÍA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 100
+    },
+    {
+      "categoria": "Oficial de Servicios Técnicos",
+      "sector": "SECTOR DE SERVICIOS TÉCNICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 100
+    },
+    {
+      "categoria": "Coordinador de Servicios Técnicos",
+      "sector": "SECTOR DE SERVICIOS TÉCNICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Servicios Técnicos",
+      "sector": "SECTOR DE SERVICIOS TÉCNICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 100
+    },
+    {
+      "categoria": "Especialista de Servicios Técnicos",
+      "sector": "SECTOR DE SERVICIOS TÉCNICOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 100
+    },
+    {
+      "categoria": "Oficial de Servicios Administrativos",
+      "sector": "SECTOR DE SERVICIOS ADMINISTRATIVOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 100
+    },
+    {
+      "categoria": "Coordinador de Servicios Administrativos",
+      "sector": "SECTOR DE SERVICIOS ADMINISTRATIVOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Servicios Administrativos",
+      "sector": "SECTOR DE SERVICIOS ADMINISTRATIVOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 100
+    },
+    {
+      "categoria": "Especialista de Servicios Administrativos",
+      "sector": "SECTOR DE SERVICIOS ADMINISTRATIVOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 100
+    },
+    {
+      "categoria": "Oficial de Personal",
+      "sector": "SECTOR DE SERVICIOS DE PERSONAL",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 100
+    },
+    {
+      "categoria": "Coordinador de Personal",
+      "sector": "SECTOR DE SERVICIOS DE PERSONAL",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Personal",
+      "sector": "SECTOR DE SERVICIOS DE PERSONAL",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 100
+    },
+    {
+      "categoria": "Especialista de Personal",
+      "sector": "SECTOR DE SERVICIOS DE PERSONAL",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 100
+    },
+    {
+      "categoria": "Oficial de Estadística",
+      "sector": "SECTOR DE SERVICIOS DE ESTADÍSTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 100
+    },
+    {
+      "categoria": "Coordinador de Estadística",
+      "sector": "SECTOR DE SERVICIOS DE ESTADÍSTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Estadística",
+      "sector": "SECTOR DE SERVICIOS DE ESTADÍSTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 100
+    },
+    {
+      "categoria": "Especialista de Estadística",
+      "sector": "SECTOR DE SERVICIOS DE ESTADÍSTICA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 100
+    },
+    {
+      "categoria": "Oficial de Procesamiento de Datos",
+      "sector": "SECTOR DE SERVICIOS DE PROCESAMIENTO DE DATOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 100
+    },
+    {
+      "categoria": "Coordinador de Procesamiento de Datos",
+      "sector": "SECTOR DE SERVICIOS DE PROCESAMIENTO DE DATOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Procesamiento de Datos",
+      "sector": "SECTOR DE SERVICIOS DE PROCESAMIENTO DE DATOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 100
+    },
+    {
+      "categoria": "Especialista de Procesamiento de Datos",
+      "sector": "SECTOR DE SERVICIOS DE PROCESAMIENTO DE DATOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 100
+    },
+    {
+      "categoria": "Oficial de Contabilidad",
+      "sector": "SECTOR DE SERVICIOS DE CONTABILIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 883.52,
+      "sueldoMesPesos": 7068.14,
+      "escalafon": 2,
+      "pagina": 100
+    },
+    {
+      "categoria": "Coordinador de Contabilidad",
+      "sector": "SECTOR DE SERVICIOS DE CONTABILIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1042.56,
+      "sueldoMesPesos": 8340.48,
+      "escalafon": 3,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Contabilidad",
+      "sector": "SECTOR DE SERVICIOS DE CONTABILIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1280.26,
+      "sueldoMesPesos": 10242.12,
+      "escalafon": 4,
+      "pagina": 100
+    },
+    {
+      "categoria": "Especialista de Contabilidad",
+      "sector": "SECTOR DE SERVICIOS DE CONTABILIDAD",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": 5,
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Oficina A",
+      "sector": "JEFES DE OFICINA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": "Aut",
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe Técnico de Cobranzas y Adeudos",
+      "sector": "JEFES DE OFICINA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": "Aut",
+      "pagina": 100
+    },
+    {
+      "categoria": "Jefe de Grupo de Servicios de Personal",
+      "sector": "JEFES DE OFICINA",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1408.32,
+      "sueldoMesPesos": 11266.48,
+      "escalafon": "Aut",
+      "pagina": 100
+    },
+    {
+      "categoria": "D.F. y Valle de México)",
+      "sector": "PROGRAMADOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.62,
+      "sueldoMesPesos": 5748.92,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "D.F. y Valle de México)",
+      "sector": "PROGRAMADOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 845.82,
+      "sueldoMesPesos": 6766.56,
+      "escalafon": 1,
+      "pagina": 101
+    },
+    {
+      "categoria": "Sistema Foráneo)",
+      "sector": "PROGRAMADOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 768.96,
+      "sueldoMesPesos": 4998.14,
+      "escalafon": 1,
+      "pagina": 101
+    },
+    {
+      "categoria": "Sistema Foráneo)",
+      "sector": "PROGRAMADOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 768.96,
+      "sueldoMesPesos": 6151.64,
+      "escalafon": 1,
+      "pagina": 101
+    },
+    {
+      "categoria": "Ordinarios y Programados",
+      "sector": "PROGRAMADOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 913.5,
+      "sueldoMesPesos": 5937.82,
+      "escalafon": 2,
+      "pagina": 101
+    },
+    {
+      "categoria": "Ordinarios y Programados",
+      "sector": "PROGRAMADOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 913.5,
+      "sueldoMesPesos": 7308.0,
+      "escalafon": 2,
+      "pagina": 101
+    },
+    {
+      "categoria": "Auxiliar de Velatorio",
+      "sector": "VELATORIOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 610.0,
+      "sueldoMesPesos": 4880.0,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Operador de Velatorio",
+      "sector": "VELATORIOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 717.26,
+      "sueldoMesPesos": 5738.04,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Ayudante de Embalsamamiento",
+      "sector": "VELATORIOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 767.0,
+      "sueldoMesPesos": 6136.0,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Veterinario",
+      "sector": "VETERINARIOS",
+      "jornada": 6.5,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 9125.04,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Veterinario",
+      "sector": "VETERINARIOS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1403.84,
+      "sueldoMesPesos": 11230.64,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Yesista",
+      "sector": "YESISTAS",
+      "jornada": 8.0,
+      "sueldoHoraMes": 718.04,
+      "sueldoMesPesos": 5744.26,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 1 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 2810.74,
+      "sueldoMesPesos": null,
+      "beca": 3448.42,
+      "totalPesos": 6259.16,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 2 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 3042.46,
+      "sueldoMesPesos": null,
+      "beca": 3713.1,
+      "totalPesos": 6755.56,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 3 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 3119.54,
+      "sueldoMesPesos": null,
+      "beca": 3801.28,
+      "totalPesos": 6920.82,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 4 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 3197.52,
+      "sueldoMesPesos": null,
+      "beca": 3889.74,
+      "totalPesos": 7087.26,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 5 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 3293.5,
+      "sueldoMesPesos": null,
+      "beca": 4006.38,
+      "totalPesos": 7299.88,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 6 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 3392.26,
+      "sueldoMesPesos": null,
+      "beca": 4126.6,
+      "totalPesos": 7518.86,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 7 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 3494.16,
+      "sueldoMesPesos": null,
+      "beca": 4250.46,
+      "totalPesos": 7744.62,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Residente ( R 8 )",
+      "sector": "MÉDICOS RESIDENTES EN PERÍODO DE ADIESTRAMIENTO",
+      "jornada": null,
+      "sueldoHoraMes": 3598.82,
+      "sueldoMesPesos": null,
+      "beca": 4377.96,
+      "totalPesos": 7976.78,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Auxiliar de Administración en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 739.74,
+      "sueldoMesPesos": 5917.9,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Auxiliar de Área Médica en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Auxiliar de Área Médica en U. M. C.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Auxiliar de Enfermería General en H.R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 101
+    },
+    {
+      "categoria": "Auxiliar de Enfermera General en U.M.R",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 763.58,
+      "sueldoMesPesos": 6108.68,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Auxiliar de Servicios Generales en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 623.84,
+      "sueldoMesPesos": 4990.68,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Citotecnólogo en H.R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 917.2,
+      "sueldoMesPesos": 7337.54,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "H.R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1051.94,
+      "sueldoMesPesos": 8415.48,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Enfermera General en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 913.76,
+      "sueldoMesPesos": 7310.08,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Programa",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 987.28,
+      "sueldoMesPesos": 7898.3,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Estomatólogo en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1490.52,
+      "sueldoMesPesos": 11924.12,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Laboratorista en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1043.72,
+      "sueldoMesPesos": 8349.78,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Médico General en U. M. C.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1218.98,
+      "sueldoMesPesos": 9751.8,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Médico No Familiar H.R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 1605.52,
+      "sueldoMesPesos": 12844.2,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Nutricionista Dietista en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 913.76,
+      "sueldoMesPesos": 7310.08,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Oficial de Conservación en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 713.7,
+      "sueldoMesPesos": 5709.56,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Operador de Mantenimiento en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 713.7,
+      "sueldoMesPesos": 5709.56,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "“Laboratorio” en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 6309.58,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "“Radiodiagnóstico” en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 788.7,
+      "sueldoMesPesos": 6309.58,
+      "escalafon": "Aut",
+      "pagina": 102
+    },
+    {
+      "categoria": "Trabajadora Social en H. R.",
+      "sector": "IMSS-BIENESTAR",
+      "jornada": 8.0,
+      "sueldoHoraMes": 913.76,
+      "sueldoMesPesos": 7310.08,
+      "escalafon": "Aut",
+      "pagina": 102
+    }
+  ]
+}
