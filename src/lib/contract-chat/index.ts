@@ -3,14 +3,30 @@ import fs from "fs";
 import path from "path";
 
 import type {
+  ChatMessage,
   ContractChatAnswer,
+  ContractChatStatus,
   ContractChunk,
   ContractIndex,
   ContractSearchResult,
 } from "@/lib/contract-chat/types";
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
 const CONTRACT_FILENAME = "contrato-colectivo-de-trabajo-2025-2027.pdf";
 const CONTRACT_PATH = path.join(process.cwd(), "artifacts", CONTRACT_FILENAME);
+const LOCAL_PYTHON_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "pdf",
+  "extractors",
+  "venv",
+  "bin",
+  "python3",
+);
 const CONTRACT_INDEX_PATH = path.join(
   process.cwd(),
   "src",
@@ -18,9 +34,29 @@ const CONTRACT_INDEX_PATH = path.join(
   "contract-chat",
   "contract-index-data.json",
 );
-const TARGET_CHUNK_SIZE = 1600;
-const CHUNK_OVERLAP = 240;
+
+const TABULADOR_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "contract-chat",
+  "tabulador-sueldos.json",
+);
+
+const TARGET_CHUNK_SIZE = 800;
+const CHUNK_OVERLAP = 120;
 const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
+const JINA_EMBEDDING_MODEL = "jina-embeddings-v3";
+const JINA_BATCH_SIZE = 100;
+const MAX_CONVERSATION_HISTORY = 10;
+
+// Weights for hybrid search — semantic dominates to avoid keyword false positives
+const SEMANTIC_WEIGHT = 0.8;
+const KEYWORD_WEIGHT = 0.2;
+
+// ---------------------------------------------------------------------------
+// Stopwords & expansions
+// ---------------------------------------------------------------------------
 
 const SPANISH_STOPWORDS = new Set([
   "al",
@@ -95,12 +131,80 @@ const SPANISH_STOPWORDS = new Set([
 
 const INDEX_MARKERS = ["indice", "tabla de contenido", "contenido"];
 
+const QUERY_EXPANSIONS: Record<string, string[]> = {
+  aguinaldo: ["aguinaldo", "gratificacion"],
+  antigüedad: ["antiguedad", "antiguedad", "anos", "servicio"],
+  becas: ["becas", "beca", "estudios", "capacitacion"],
+  cambio: ["cambio", "cambios", "traslado", "adscripcion"],
+  confianza: ["confianza", "trabajador", "base"],
+  descanso: ["vacaciones", "descanso", "descansos"],
+  descansos: ["vacaciones", "descanso", "descansos"],
+  despido: ["despido", "rescision", "separacion", "cese"],
+  economico: ["permisos", "economicos", "licencias"],
+  economicos: ["permisos", "economicos", "licencias"],
+  embarazo: ["maternidad", "embarazo", "lactancia", "guarderia"],
+  enfermedad: ["enfermedad", "incapacidad", "medica", "profesional"],
+  escalafon: ["escalafon", "promocion", "promociones", "puesto", "puestos"],
+  guarderia: ["guarderia", "guarderias", "infantil", "hijos"],
+  habitacion: ["habitacion", "vivienda", "prestamo", "hipotecario", "fomento"],
+  horario: ["horario", "jornada", "turno", "turnos"],
+  incapacidades: ["incapacidad", "licencias", "medica"],
+  incapacidad: ["incapacidad", "licencias", "medica"],
+  jornada: ["jornada", "horario", "turno", "horas"],
+  jubilar: ["jubilacion", "jubilaciones", "pensiones"],
+  jubilacion: ["jubilacion", "jubilaciones", "pensiones", "retiro"],
+  jubilaciones: ["jubilacion", "jubilaciones", "pensiones"],
+  lentes: ["anteojos", "lentes", "optica"],
+  licencia: ["licencia", "licencias", "permisos"],
+  licencias: ["licencia", "licencias", "permisos"],
+  maternidad: ["maternidad", "embarazo", "lactancia", "parto"],
+  nivelacion: [
+    "nivelacion",
+    "calificacion",
+    "calificaciones",
+    "antiguedad",
+    "escalafon",
+  ],
+  pension: ["pension", "pensiones", "jubilacion"],
+  pensiones: ["pension", "pensiones", "jubilacion"],
+  permiso: ["permiso", "permisos", "licencias"],
+  permisos: ["permiso", "permisos", "licencias"],
+  prestamo: ["prestamo", "prestamos", "credito", "hipotecario"],
+  promocion: ["promocion", "promociones", "escalafon"],
+  promociones: ["promocion", "promociones", "escalafon"],
+  rescision: ["rescision", "despido", "separacion"],
+  ropa: ["ropa", "uniforme", "uniformes", "vestuario"],
+  salario: ["salario", "salarios", "sueldo", "sueldos", "pago", "tabulador"],
+  sueldo: ["salario", "salarios", "sueldo", "sueldos", "pago"],
+  sueldos: ["salario", "salarios", "sueldo", "sueldos", "pago"],
+  turno: ["turno", "turnos", "jornada", "horario"],
+  vacacion: ["vacaciones", "vacacionales"],
+  vacaciones: ["vacaciones", "vacacionales", "descanso"],
+  vacacional: ["vacaciones", "vacacionales"],
+  vacacionales: ["vacaciones", "vacacionales"],
+  vivienda: ["vivienda", "habitacion", "prestamo", "hipotecario"],
+};
+
+const CONVERSATIONAL_PATTERNS = [
+  /\b(hola|buenos dias|buenas tardes|buenas noches|hey|ayuda)\b/,
+  /\b(que puedes hacer|como funcionas|como te uso|en que me ayudas)\b/,
+  /\b(gracias|ok|vale|entendido|perfecto)\b/,
+];
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
 let contractIndexPromise: Promise<ContractIndex> | null = null;
 
 interface ExtractedPage {
   pageNumber: number;
   text: string;
 }
+
+// ---------------------------------------------------------------------------
+// Text utilities
+// ---------------------------------------------------------------------------
 
 function normalizeText(value: string) {
   return value
@@ -113,7 +217,13 @@ function normalizeText(value: string) {
 }
 
 function tokenizeQuery(query: string) {
-  return Array.from(new Set(tokenizeNormalizedText(normalizeText(query))));
+  const normalizedQuery = normalizeText(query);
+  const baseTokens = tokenizeNormalizedText(normalizedQuery);
+  const expandedTokens = baseTokens.flatMap((token) => [
+    token,
+    ...(QUERY_EXPANSIONS[token] || []),
+  ]);
+  return Array.from(new Set(expandedTokens));
 }
 
 function tokenizeNormalizedText(value: string) {
@@ -132,95 +242,441 @@ function countTokens(value: string) {
   );
 }
 
-function splitTextIntoChunks(text: string) {
-  const compactText = text.replace(/\s+/g, " ").trim();
-  if (!compactText) return [];
-  if (compactText.length <= TARGET_CHUNK_SIZE) return [compactText];
+// ---------------------------------------------------------------------------
+// Smart chunking — split by clause/article boundaries
+// ---------------------------------------------------------------------------
 
-  const chunks: string[] = [];
+const CLAUSE_REGEX = /^Cláusula\s+(\d+(?:\s*Bis)?)\s*[\.\-–]\s*(.+)/im;
+const CHAPTER_REGEX = /^Capítulo\s+([IVXLC]+(?:\.\d+)?)\s*[\.\-–]\s*(.+)/im;
+
+interface RawSection {
+  clauseNumber?: number;
+  clauseTitle?: string;
+  chapterTitle?: string;
+  pageNumber: number;
+  text: string;
+}
+
+function splitPagesIntoSections(pages: ExtractedPage[]): RawSection[] {
+  const sections: RawSection[] = [];
+  let currentChapter = "";
+  let currentClause: { number?: number; title?: string } = {};
+  let currentText = "";
+  let currentPage = 1;
+
+  function flushSection() {
+    const trimmed = currentText.trim();
+    if (trimmed.length > 30) {
+      sections.push({
+        clauseNumber: currentClause.number,
+        clauseTitle: currentClause.title,
+        chapterTitle: currentChapter || undefined,
+        pageNumber: currentPage,
+        text: trimmed,
+      });
+    }
+    currentText = "";
+  }
+
+  for (const page of pages) {
+    const lines = page.text.split(/\r?\n/);
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+
+      // Skip header/footer noise
+      if (/^CONTRATO COLECTIVO DE TRABAJO$/i.test(trimmedLine)) continue;
+      if (/^(Índice|Contenido|A-Z)\s*$/i.test(trimmedLine)) continue;
+      if (/^\d+$/.test(trimmedLine)) continue; // page numbers
+
+      const chapterMatch = trimmedLine.match(CHAPTER_REGEX);
+      if (chapterMatch) {
+        flushSection();
+        currentChapter = `Capítulo ${chapterMatch[1]}.- ${chapterMatch[2]}`;
+        currentPage = page.pageNumber;
+        continue;
+      }
+
+      const clauseMatch = trimmedLine.match(CLAUSE_REGEX);
+      if (clauseMatch) {
+        flushSection();
+        const num = parseInt(clauseMatch[1], 10);
+        currentClause = {
+          number: Number.isFinite(num) ? num : undefined,
+          title: clauseMatch[2].trim(),
+        };
+        currentPage = page.pageNumber;
+        currentText = trimmedLine + "\n";
+        continue;
+      }
+
+      currentText += trimmedLine + "\n";
+      if (!currentClause.number) {
+        currentPage = page.pageNumber;
+      }
+    }
+  }
+
+  flushSection();
+  return sections;
+}
+
+const TABULAR_PATTERNS = [
+  /tabulador de sueldos/i,
+  /sueldo\s+hora-mes/i,
+  /jor-?\s*nada\s+hora/i,
+  /mes-pesos/i,
+  /profesiogramas?\s+categor/i,
+];
+
+function isTabularContent(text: string): boolean {
+  return TABULAR_PATTERNS.some((p) => p.test(text));
+}
+
+function splitSectionIntoChunks(
+  section: RawSection,
+): Omit<ContractChunk, "normalizedText" | "tokenCounts">[] {
+  const text = section.text.replace(/\s+/g, " ").trim();
+
+  // Tabular content (tabuladores, profesiogramas index) — use larger chunks to avoid cutting tables
+  const maxSize = isTabularContent(text) ? 2400 : TARGET_CHUNK_SIZE;
+
+  if (text.length <= maxSize) {
+    return [
+      {
+        id: section.clauseNumber
+          ? `clause-${section.clauseNumber}-chunk-1`
+          : `page-${section.pageNumber}-chunk-1`,
+        pageNumber: section.pageNumber,
+        clauseNumber: section.clauseNumber,
+        clauseTitle: section.clauseTitle,
+        chapterTitle: section.chapterTitle,
+        text,
+      },
+    ];
+  }
+
+  const chunks: Omit<ContractChunk, "normalizedText" | "tokenCounts">[] = [];
   let start = 0;
+  let chunkIndex = 1;
 
-  while (start < compactText.length) {
-    let end = Math.min(start + TARGET_CHUNK_SIZE, compactText.length);
-    if (end < compactText.length) {
-      const nextBreak = compactText.lastIndexOf(". ", end);
-      if (nextBreak > start + 500) {
-        end = nextBreak + 1;
+  while (start < text.length) {
+    let end = Math.min(start + maxSize, text.length);
+    if (end < text.length) {
+      const breakPoint = text.lastIndexOf(". ", end);
+      if (breakPoint > start + 300) {
+        end = breakPoint + 1;
       }
     }
 
-    chunks.push(compactText.slice(start, end).trim());
-    if (end >= compactText.length) break;
+    const chunkText = text.slice(start, end).trim();
+    if (chunkText.length > 20) {
+      // Prepend clause context to each chunk for better retrieval
+      const prefix = section.clauseNumber
+        ? `Cláusula ${section.clauseNumber}.- ${section.clauseTitle || ""}: `
+        : "";
+      const fullText =
+        chunkIndex > 1 && prefix ? prefix + chunkText : chunkText;
+
+      chunks.push({
+        id: section.clauseNumber
+          ? `clause-${section.clauseNumber}-chunk-${chunkIndex}`
+          : `page-${section.pageNumber}-chunk-${chunkIndex}`,
+        pageNumber: section.pageNumber,
+        clauseNumber: section.clauseNumber,
+        clauseTitle: section.clauseTitle,
+        chapterTitle: section.chapterTitle,
+        text: fullText,
+      });
+      chunkIndex++;
+    }
+
+    if (end >= text.length) break;
     start = Math.max(end - CHUNK_OVERLAP, start + 1);
   }
 
   return chunks;
 }
 
+// ---------------------------------------------------------------------------
+// Embeddings — Jina AI (jina-embeddings-v3)
+// ---------------------------------------------------------------------------
+
+function getJinaApiKey() {
+  return (
+    process.env.JINA_API_KEY ||
+    readLocalEnvValue(path.join(process.cwd(), ".env.local"), "JINA_API_KEY") ||
+    null
+  );
+}
+
+async function jinaEmbed(
+  texts: string[],
+  task: "retrieval.passage" | "retrieval.query",
+  apiKey: string,
+): Promise<number[][]> {
+  const response = await fetch("https://api.jina.ai/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: JINA_EMBEDDING_MODEL,
+      input: texts,
+      task,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Jina HTTP ${response.status}: ${errorText.slice(0, 300)}`);
+  }
+
+  const payload = (await response.json()) as {
+    data: Array<{ embedding: number[] }>;
+  };
+  return payload.data.map((d) => d.embedding);
+}
+
+async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const apiKey = getJinaApiKey();
+  if (!apiKey) {
+    throw new Error(
+      "JINA_API_KEY no configurada. Se requiere para generar embeddings.",
+    );
+  }
+
+  const allEmbeddings: number[][] = [];
+  const totalBatches = Math.ceil(texts.length / JINA_BATCH_SIZE);
+
+  for (let i = 0; i < texts.length; i += JINA_BATCH_SIZE) {
+    const batch = texts.slice(i, i + JINA_BATCH_SIZE);
+    const batchNum = Math.floor(i / JINA_BATCH_SIZE) + 1;
+
+    const embeddings = await jinaEmbed(batch, "retrieval.passage", apiKey);
+    allEmbeddings.push(...embeddings);
+
+    if (batchNum % 5 === 0 || batchNum === totalBatches) {
+      console.log(`  Embeddings: ${batchNum}/${totalBatches} batches`);
+    }
+  }
+
+  return allEmbeddings;
+}
+
+async function generateQueryEmbedding(query: string): Promise<number[]> {
+  const apiKey = getJinaApiKey();
+  if (!apiKey) return [];
+
+  const [embedding] = await jinaEmbed([query], "retrieval.query", apiKey);
+  return embedding;
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+// ---------------------------------------------------------------------------
+// Excerpt creation
+// ---------------------------------------------------------------------------
+
 function createExcerpt(text: string, tokens: string[]) {
   const sentences = text
     .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 
-  if (sentences.length === 0) {
-    return text.slice(0, 260).trim();
-  }
+  if (sentences.length === 0) return text.slice(0, 300).trim();
 
-  const rankedSentences = sentences
+  const ranked = sentences
     .map((sentence) => {
-      const normalizedSentence = normalizeText(sentence);
-      const score = tokens.reduce((sum, token) => {
-        return sum + (normalizedSentence.includes(token) ? 1 : 0);
-      }, 0);
-
+      const norm = normalizeText(sentence);
+      const score = tokens.reduce(
+        (sum, t) => sum + (norm.includes(t) ? 1 : 0),
+        0,
+      );
       return { sentence, score };
     })
     .sort((a, b) => b.score - a.score);
 
-  const selected = rankedSentences
-    .filter((item) => item.score > 0)
+  const selected = ranked
+    .filter((r) => r.score > 0)
     .slice(0, 2)
-    .map((item) => item.sentence);
+    .map((r) => r.sentence);
 
-  if (selected.length > 0) {
-    return selected.join(" ");
-  }
-
-  return sentences.slice(0, 2).join(" ");
+  return selected.length > 0
+    ? selected.join(" ")
+    : sentences.slice(0, 2).join(" ");
 }
 
-function buildAnswerText(query: string, sources: ContractSearchResult[]) {
-  if (sources.length === 0) {
-    return [
-      "No encontré un pasaje suficientemente claro para responder con confianza dentro del contrato indexado.",
-      "Prueba con otra redacción, una frase textual del documento, o una referencia más concreta como capítulo, artículo o tema.",
-    ].join("\n\n");
-  }
+// ---------------------------------------------------------------------------
+// Keyword scoring (TF-IDF)
+// ---------------------------------------------------------------------------
 
-  const topSources = sources.slice(0, 3);
-  const summaryLines = topSources.map((source, index) => {
-    return `${index + 1}. ${source.excerpt} (p. ${source.chunk.pageNumber})`;
-  });
-
-  const matchedTerms = Array.from(
-    new Set(topSources.flatMap((source) => source.matchedTerms)),
+function scoreChunkKeywords(
+  chunk: ContractChunk,
+  index: ContractIndex,
+  normalizedQuery: string,
+  tokens: string[],
+  pageHints: number[],
+) {
+  let score = 0;
+  const matchedTerms: string[] = [];
+  const isIndexChunk = INDEX_MARKERS.some((m) =>
+    chunk.normalizedText.includes(m),
   );
 
-  const intro =
-    matchedTerms.length > 0
-      ? `Encontré pasajes relevantes del contrato para la consulta "${query}". Coinciden principalmente con: ${matchedTerms.join(", ")}.`
-      : `Encontré pasajes relevantes del contrato para la consulta "${query}".`;
+  if (normalizedQuery && chunk.normalizedText.includes(normalizedQuery)) {
+    score += 15;
+  }
 
-  const outro =
-    "Respuesta generada en modo sandbox extractivo. Conviene validar el contexto completo en las páginas citadas antes de usarlo como criterio operativo.";
+  if (pageHints.includes(chunk.pageNumber)) {
+    score += 20;
+  }
 
-  return [intro, summaryLines.join("\n"), outro].join("\n\n");
+  const chunkTokenTotal =
+    Object.values(chunk.tokenCounts).reduce((sum, c) => sum + c, 0) || 1;
+
+  for (const token of tokens) {
+    const occurrences = chunk.tokenCounts[token] || 0;
+    if (occurrences === 0) continue;
+    const df = index.documentFrequencies[token] || 1;
+    const idf = Math.log((index.chunkCount + 1) / df);
+    const tf = occurrences / chunkTokenTotal;
+    score += tf * idf * 100;
+    matchedTerms.push(token);
+  }
+
+  if (chunk.normalizedText.startsWith(normalizedQuery)) {
+    score += 6;
+  }
+
+  if (tokens.length > 0 && matchedTerms.length === 0) {
+    score = 0;
+  }
+
+  if (isIndexChunk) {
+    score = Math.max(0, score - 10);
+  }
+
+  return { score, matchedTerms: Array.from(new Set(matchedTerms)) };
 }
+
+// ---------------------------------------------------------------------------
+// Hybrid search
+// ---------------------------------------------------------------------------
+
+async function hybridSearch(
+  query: string,
+  index: ContractIndex,
+  topK: number = 8,
+): Promise<ContractSearchResult[]> {
+  const normalizedQuery = normalizeText(query);
+  const tokens = tokenizeQuery(query);
+  const pageHints = extractPageHints(query);
+
+  // Keyword scores
+  const keywordResults = index.chunks.map((chunk) => {
+    const { score, matchedTerms } = scoreChunkKeywords(
+      chunk,
+      index,
+      normalizedQuery,
+      tokens,
+      pageHints,
+    );
+    return { chunk, keywordScore: score, matchedTerms };
+  });
+
+  // Normalize keyword scores to 0-1
+  const maxKeyword = Math.max(...keywordResults.map((r) => r.keywordScore), 1);
+
+  // Semantic scores
+  let queryEmbedding: number[] = [];
+  const embeddingCount = index.chunks.filter((c) => c.embedding?.length).length;
+  let hasEmbeddings = index.hasEmbeddings && embeddingCount > 0;
+
+  if (hasEmbeddings) {
+    try {
+      queryEmbedding = await generateQueryEmbedding(query);
+    } catch (error) {
+      console.error(
+        "Error generando embedding de query, usando solo keyword:",
+        error,
+      );
+      hasEmbeddings = false;
+    }
+  }
+
+  const results: ContractSearchResult[] = keywordResults.map((kr) => {
+    const semanticScore =
+      hasEmbeddings && queryEmbedding.length > 0 && kr.chunk.embedding?.length
+        ? cosineSimilarity(queryEmbedding, kr.chunk.embedding)
+        : 0;
+
+    const normalizedKeyword = kr.keywordScore / maxKeyword;
+
+    const combinedScore = hasEmbeddings
+      ? SEMANTIC_WEIGHT * semanticScore + KEYWORD_WEIGHT * normalizedKeyword
+      : normalizedKeyword;
+
+    return {
+      chunk: kr.chunk,
+      score: combinedScore,
+      semanticScore,
+      keywordScore: kr.keywordScore,
+      matchedTerms: kr.matchedTerms,
+      excerpt: createExcerpt(kr.chunk.text, tokens),
+    };
+  });
+
+  return results
+    .filter((r) => r.score > 0.05)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+}
+
+// ---------------------------------------------------------------------------
+// Conversational detection
+// ---------------------------------------------------------------------------
+
+function isConversationalPrompt(normalizedQuery: string, tokens: string[]) {
+  if (tokens.length === 0) return true;
+  return CONVERSATIONAL_PATTERNS.some((p) => p.test(normalizedQuery));
+}
+
+function buildConversationalAnswer() {
+  return [
+    "Soy tu asistente del contrato colectivo IMSS-SNTSS 2025-2027.",
+    "",
+    "Puedes preguntarme cosas como:",
+    "- ¿Cuántos días de vacaciones me tocan con 5 años de antigüedad?",
+    "- ¿Qué dice sobre permisos económicos?",
+    "- ¿Cuáles son los requisitos para jubilación?",
+    "- ¿Qué cláusula habla de guarderías?",
+    "- ¿Qué prestamos de vivienda hay?",
+    "",
+    "Pregunta lo que necesites — te respondo directo con las páginas exactas del contrato.",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// LLM — Groq (Llama 3.3 70B)
+// ---------------------------------------------------------------------------
 
 function readLocalEnvValue(filePath: string, key: string) {
   if (!fs.existsSync(filePath)) return null;
-
   const content = fs.readFileSync(filePath, "utf8");
   for (const line of content.split(/\r?\n/)) {
     const trimmed = line.trim();
@@ -228,7 +684,6 @@ function readLocalEnvValue(filePath: string, key: string) {
     if (!trimmed.startsWith(`${key}=`)) continue;
     return trimmed.slice(key.length + 1).trim();
   }
-
   return null;
 }
 
@@ -256,42 +711,39 @@ function getGroqModel() {
   );
 }
 
+const SYSTEM_PROMPT = `Eres el asistente virtual del contrato colectivo de trabajo IMSS-SNTSS 2025-2027. Tu rol es ayudar a trabajadores sindicalizados a entender sus derechos y prestaciones.
+
+REGLAS ABSOLUTAS — ROMPER CUALQUIERA ES INACEPTABLE:
+1. Responde ÚNICAMENTE con información que aparezca TEXTUALMENTE en las fuentes proporcionadas abajo. Si no está en las fuentes, di "No encontré esa información en las cláusulas que tengo disponibles."
+2. JAMÁS inventes números de cláusula, páginas, montos, plazos, porcentajes ni requisitos. Si no aparece el dato exacto en las fuentes, NO lo menciones.
+3. Los números de cláusula y página SOLO puedes tomarlos de los campos "Ubicación" y "Página" de cada fuente. NUNCA generes un número de cláusula o página que no esté explícitamente en las fuentes.
+4. Cuando cites, usa EXACTAMENTE el número de cláusula y página de la fuente. Ejemplo: si la fuente dice "Cláusula 81 | Página 53", cita así: (Cláusula 81, p. 53).
+5. Si las fuentes tienen información parcial, dilo honestamente: "Las fuentes que recuperé mencionan X, pero no incluyen el detalle completo."
+
+SOBRE SALARIOS:
+- Cuando menciones sueldos del tabulador, SIEMPRE aclara que es el "sueldo base tabular".
+- Si hay sobresueldos o compensaciones adicionales en las fuentes (como el 31% de enfermería), calcula el sueldo real y muéstralo: "Sueldo base: $X + 31% sobresueldo = $Y real".
+- Recuerda que además del sueldo base hay prestaciones: aguinaldo, fondo de ahorro, vales, etc.
+
+ESTILO:
+- Español claro, directo y conversacional — como un asesor sindical con paciencia.
+- Frases cortas. No repitas la pregunta del usuario.
+- NO empieces con "Según el contrato colectivo..." ni frases genéricas. Ve directo al grano.
+- Estructura respuestas largas con bullets.
+- Si el usuario pregunta algo de seguimiento, usa el contexto de la conversación para dar respuestas coherentes. NO repitas datos que ya diste — responde lo que se preguntó.
+- Máximo 8-10 líneas útiles a menos que pida más detalle.
+- Al final de tu respuesta, lista las páginas de referencia en formato: "Páginas de referencia: p. X, p. Y"`;
+
 async function generateGroqAnswer(
   query: string,
   sources: ContractSearchResult[],
+  conversationHistory: ChatMessage[],
 ) {
   const apiKey = getGroqApiKey();
-  if (!apiKey || sources.length === 0) {
-    return null;
-  }
+  if (!apiKey || sources.length === 0) return null;
 
   const model = getGroqModel();
-  const context = sources
-    .slice(0, 6)
-    .map((source, index) => {
-      return [
-        `Fuente ${index + 1}`,
-        `Pagina: ${source.chunk.pageNumber}`,
-        `Coincidencias: ${source.matchedTerms.join(", ") || "sin coincidencias explicitas"}`,
-        `Texto: ${source.chunk.text}`,
-      ].join("\n");
-    })
-    .join("\n\n");
-
-  const systemPrompt = [
-    "Eres un asistente para explorar un contrato colectivo del SNTSS.",
-    "Responde solo con base en el contexto recuperado.",
-    "Si el contexto no alcanza, dilo con claridad.",
-    "Cita paginas entre parentesis al final de cada afirmacion importante, por ejemplo (p. 38).",
-    "No inventes articulos, clausulas ni interpretaciones legales no respaldadas por el texto.",
-    "Responde en espanol claro y directo.",
-  ].join(" ");
-
-  const userPrompt = [
-    `Pregunta del usuario: ${query}`,
-    "Contexto recuperado del contrato:",
-    context,
-  ].join("\n\n");
+  const messages = buildGroqMessages(query, sources, conversationHistory);
 
   const response = await fetch(
     "https://api.groq.com/openai/v1/chat/completions",
@@ -303,12 +755,9 @@ async function generateGroqAnswer(
       },
       body: JSON.stringify({
         model,
-        temperature: 0.2,
-        max_tokens: 700,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        temperature: 0.15,
+        max_tokens: 1024,
+        messages,
       }),
     },
   );
@@ -323,76 +772,518 @@ async function generateGroqAnswer(
   };
 
   const content = payload.choices?.[0]?.message?.content?.trim();
-  if (!content) {
-    throw new Error("GROQ_EMPTY_RESPONSE");
-  }
+  if (!content) throw new Error("GROQ_EMPTY_RESPONSE");
 
-  return {
-    model,
-    content,
-  };
+  return { model, content };
 }
 
-function scoreChunk(
-  chunk: ContractChunk,
-  index: ContractIndex,
-  normalizedQuery: string,
-  tokens: string[],
-  pageHints: number[],
-) {
-  let score = 0;
-  const matchedTerms: string[] = [];
-  const isIndexChunk = INDEX_MARKERS.some((marker) =>
-    chunk.normalizedText.includes(marker),
-  );
+function buildGroqMessages(
+  query: string,
+  sources: ContractSearchResult[],
+  conversationHistory: ChatMessage[],
+  tabuladorContext?: string,
+): Array<{ role: string; content: string }> {
+  const context = sources
+    .slice(0, 8)
+    .map((source, i) => {
+      const clauseInfo = source.chunk.clauseNumber
+        ? `Cláusula ${source.chunk.clauseNumber}${source.chunk.clauseTitle ? ` - ${source.chunk.clauseTitle}` : ""}`
+        : `Sección general`;
+      const chapterInfo = source.chunk.chapterTitle
+        ? ` | ${source.chunk.chapterTitle}`
+        : "";
+      return [
+        `--- Fuente ${i + 1} ---`,
+        `Ubicación: ${clauseInfo}${chapterInfo} | Página ${source.chunk.pageNumber}`,
+        `Texto: ${source.chunk.text}`,
+      ].join("\n");
+    })
+    .join("\n\n");
 
-  if (normalizedQuery && chunk.normalizedText.includes(normalizedQuery)) {
-    score += 15;
+  const messages: Array<{ role: string; content: string }> = [
+    { role: "system", content: SYSTEM_PROMPT },
+  ];
+
+  const recentHistory = conversationHistory.slice(-MAX_CONVERSATION_HISTORY);
+  for (const msg of recentHistory) {
+    messages.push({ role: msg.role, content: msg.content });
   }
 
-  if (pageHints.includes(chunk.pageNumber)) {
-    score += 20;
-  }
+  const validPages = Array.from(
+    new Set(sources.slice(0, 8).map((s) => s.chunk.pageNumber)),
+  ).sort((a, b) => a - b);
+  const validClauses = sources
+    .slice(0, 8)
+    .filter((s) => s.chunk.clauseNumber)
+    .map((s) => `Cláusula ${s.chunk.clauseNumber} (p. ${s.chunk.pageNumber})`)
+    .filter((v, i, a) => a.indexOf(v) === i);
 
-  const chunkTokenTotal =
-    Object.values(chunk.tokenCounts).reduce((sum, count) => sum + count, 0) ||
-    1;
+  messages.push({
+    role: "user",
+    content: [
+      `Pregunta: ${query}`,
+      "",
+      tabuladorContext ? tabuladorContext : null,
+      tabuladorContext ? "" : null,
+      context ? "Contexto recuperado del contrato:" : null,
+      context || null,
+      "",
+      validPages.length > 0
+        ? `PÁGINAS VÁLIDAS que puedes citar: ${validPages.map((p) => `p. ${p}`).join(", ")}`
+        : null,
+      validClauses.length > 0
+        ? `CLÁUSULAS VÁLIDAS: ${validClauses.join(", ")}`
+        : null,
+      "IMPORTANTE: NO cites ninguna página o cláusula que no esté en las listas anteriores. Los datos del tabulador de sueldos son EXACTOS — cítalos textualmente.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  });
 
-  for (const token of tokens) {
-    const occurrences = chunk.tokenCounts[token] || 0;
-    if (occurrences === 0) continue;
-    const documentFrequency = index.documentFrequencies[token] || 1;
-    const inverseDocumentFrequency = Math.log(
-      (index.chunkCount + 1) / documentFrequency,
+  return messages;
+}
+
+async function rewriteQuery(query: string): Promise<string> {
+  const apiKey = getGroqApiKey();
+  if (!apiKey) return query;
+
+  try {
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          temperature: 0,
+          max_tokens: 100,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Reescribe la pregunta del usuario para buscar en un contrato colectivo de trabajo IMSS-SNTSS. " +
+                "Corrige errores ortográficos. Usa términos formales del contrato (cláusula, prestación, rescisión, etc). " +
+                "Responde SOLO con la pregunta reescrita, nada más. Si la pregunta ya es clara, repítela tal cual.",
+            },
+            { role: "user", content: query },
+          ],
+        }),
+      },
     );
-    const normalizedTermFrequency = occurrences / chunkTokenTotal;
-    score += normalizedTermFrequency * inverseDocumentFrequency * 100;
-    matchedTerms.push(token);
+
+    if (!response.ok) return query;
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    const rewritten = payload.choices?.[0]?.message?.content?.trim();
+    return rewritten && rewritten.length > 3 ? rewritten : query;
+  } catch {
+    return query;
+  }
+}
+
+async function rerankSources(
+  query: string,
+  sources: ContractSearchResult[],
+): Promise<ContractSearchResult[]> {
+  if (sources.length <= 3) return sources;
+
+  const apiKey = getGroqApiKey();
+  if (!apiKey) return sources;
+
+  try {
+    const sourceSummaries = sources
+      .map(
+        (s, i) =>
+          `[${i + 1}] p.${s.chunk.pageNumber}${s.chunk.clauseNumber ? ` Cláusula ${s.chunk.clauseNumber}` : ""}: ${s.chunk.text.slice(0, 200)}`,
+      )
+      .join("\n");
+
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          temperature: 0,
+          max_tokens: 60,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Dado una pregunta y fragmentos de un contrato colectivo, devuelve SOLO los números de los fragmentos relevantes ordenados por relevancia. " +
+                "Formato: solo números separados por comas. Ejemplo: 3,1,5. Excluye los irrelevantes.",
+            },
+            {
+              role: "user",
+              content: `Pregunta: ${query}\n\nFragmentos:\n${sourceSummaries}`,
+            },
+          ],
+        }),
+      },
+    );
+
+    if (!response.ok) return sources;
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    const ranking = payload.choices?.[0]?.message?.content?.trim();
+    if (!ranking) return sources;
+
+    const indices = ranking
+      .split(/[,\s]+/)
+      .map((s) => parseInt(s, 10) - 1)
+      .filter((i) => Number.isFinite(i) && i >= 0 && i < sources.length);
+
+    if (indices.length === 0) return sources;
+
+    // Return reranked sources, adding any missed ones at the end
+    const reranked = indices.map((i) => sources[i]);
+    const remaining = sources.filter((_, i) => !indices.includes(i));
+    return [...reranked, ...remaining];
+  } catch {
+    return sources;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tabulador de sueldos — structured salary data
+// ---------------------------------------------------------------------------
+
+interface TabuladorEntry {
+  categoria: string;
+  sector: string;
+  jornada: number | null;
+  sueldoHoraMes: number | null;
+  sueldoMesPesos: number | null;
+  escalafon: number | string;
+  pagina: number;
+}
+
+interface TabuladorData {
+  totalCategorias: number;
+  categorias: TabuladorEntry[];
+}
+
+let tabuladorCache: TabuladorData | null = null;
+
+function loadTabulador(): TabuladorData | null {
+  if (tabuladorCache) return tabuladorCache;
+  if (!fs.existsSync(TABULADOR_PATH)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(TABULADOR_PATH, "utf8"));
+    tabuladorCache = data as TabuladorData;
+    return tabuladorCache;
+  } catch {
+    return null;
+  }
+}
+
+const SALARY_PATTERNS = [
+  /\b(salario|sueldo|sueldos|tabulador|gana|ganan|pagan|cobr[ao]|cuanto.*gana|cuanto.*pagan)\b/i,
+  /\b(mayor salario|mejor pagad|mas gana|top salario|salario mas alto)\b/i,
+  /\b(categoria|categorias|profesiograma)\b/i,
+];
+
+function isSalaryQuery(query: string): boolean {
+  const normalized = normalizeText(query);
+  return SALARY_PATTERNS.some((p) => p.test(normalized) || p.test(query));
+}
+
+function buildTabuladorContext(query: string): string | null {
+  const tabulador = loadTabulador();
+  if (!tabulador) return null;
+
+  const normalized = normalizeText(query);
+  const entries = tabulador.categorias;
+
+  // Check if asking for highest/lowest salary
+  if (/\b(mayor|mas alto|mejor pagad|top|maximo)\b/i.test(query)) {
+    const sorted = [...entries]
+      .filter((e) => e.sueldoMesPesos)
+      .sort((a, b) => (b.sueldoMesPesos || 0) - (a.sueldoMesPesos || 0));
+    const top10 = sorted.slice(0, 10);
+    return [
+      "DATOS DEL TABULADOR DE SUELDOS BASE (Top 10 salarios más altos):",
+      ...top10.map(
+        (e, i) =>
+          `${i + 1}. ${e.categoria} (${e.sector}) — $${e.sueldoMesPesos?.toLocaleString("es-MX")} mes / Jornada ${e.jornada}h / Esc. ${e.escalafon} / p. ${e.pagina}`,
+      ),
+      `Total categorías en tabulador: ${tabulador.totalCategorias}`,
+    ].join("\n");
   }
 
-  if (chunk.normalizedText.startsWith(normalizedQuery)) {
-    score += 6;
+  if (/\b(menor|mas bajo|peor pagad|minimo|bottom)\b/i.test(query)) {
+    const sorted = [...entries]
+      .filter((e) => e.sueldoMesPesos && e.sueldoMesPesos > 0)
+      .sort((a, b) => (a.sueldoMesPesos || 0) - (b.sueldoMesPesos || 0));
+    const bottom10 = sorted.slice(0, 10);
+    return [
+      "DATOS DEL TABULADOR DE SUELDOS BASE (10 salarios más bajos):",
+      ...bottom10.map(
+        (e, i) =>
+          `${i + 1}. ${e.categoria} (${e.sector}) — $${e.sueldoMesPesos?.toLocaleString("es-MX")} mes / Jornada ${e.jornada}h / Esc. ${e.escalafon} / p. ${e.pagina}`,
+      ),
+      `Total categorías en tabulador: ${tabulador.totalCategorias}`,
+    ].join("\n");
   }
 
-  if (tokens.length > 0 && matchedTerms.length === 0) {
-    score = 0;
+  // Search for specific category — use prefix matching (stem-like)
+  // "enfermeras" matches "enfermeria", "coordinador" matches "coordinadora", etc.
+  const queryWords = normalized
+    .split(" ")
+    .filter((w) => w.length >= 4)
+    .map((w) => w.slice(0, Math.max(5, w.length - 2))); // stem: drop last 2 chars, min 5
+
+  const matchingEntries = entries.filter((e) => {
+    const catNorm = normalizeText(e.categoria);
+    const secNorm = normalizeText(e.sector);
+    const combined = catNorm + " " + secNorm;
+    return queryWords.some((stem) => combined.includes(stem));
+  });
+
+  if (matchingEntries.length > 0) {
+    const limited = matchingEntries.slice(0, 20);
+    return [
+      `DATOS DEL TABULADOR DE SUELDOS BASE (${limited.length} categorías encontradas${matchingEntries.length > 20 ? ` de ${matchingEntries.length} total` : ""}):`,
+      `NOTA: Estos son SUELDOS BASE TABULARES. Algunas categorías reciben compensaciones adicionales (sobresueldos) según las cláusulas del contrato. Por ejemplo, enfermería recibe +31% (Cláusula 151), psicología +3% (Cláusula 153), etc. El sueldo real = sueldo base + compensaciones + prestaciones.`,
+      ...limited.map(
+        (e) =>
+          `- ${e.categoria} (${e.sector}) — Sueldo base: $${e.sueldoMesPesos?.toLocaleString("es-MX")}/mes / Jornada ${e.jornada}h / Esc. ${e.escalafon} / p. ${e.pagina}`,
+      ),
+      `Total categorías en tabulador: ${tabulador.totalCategorias}`,
+    ].join("\n");
   }
 
-  if (isIndexChunk) {
-    score = Math.max(0, score - 10);
+  // If it's a general salary question, give summary
+  if (isSalaryQuery(query)) {
+    const sorted = [...entries]
+      .filter((e) => e.sueldoMesPesos)
+      .sort((a, b) => (b.sueldoMesPesos || 0) - (a.sueldoMesPesos || 0));
+    return [
+      `RESUMEN DEL TABULADOR DE SUELDOS BASE:`,
+      `Total categorías: ${tabulador.totalCategorias}`,
+      `Salario más alto: $${sorted[0]?.sueldoMesPesos?.toLocaleString("es-MX")} (${sorted[0]?.categoria})`,
+      `Salario más bajo: $${sorted[sorted.length - 1]?.sueldoMesPesos?.toLocaleString("es-MX")} (${sorted[sorted.length - 1]?.categoria})`,
+      `Usa preguntas específicas como "salario de enfermera" o "cuánto gana un coordinador" para datos exactos.`,
+    ].join("\n");
   }
+
+  return null;
+}
+
+export async function searchContractSources(query: string): Promise<{
+  sources: ContractSearchResult[];
+  isConversational: boolean;
+  tabuladorContext?: string;
+}> {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) throw new Error("QUERY_REQUIRED");
+
+  const index = await getContractIndex();
+  const tokens = tokenizeQuery(trimmedQuery);
+  const normalizedQuery = normalizeText(trimmedQuery);
+
+  if (isConversationalPrompt(normalizedQuery, tokens)) {
+    return { sources: [], isConversational: true };
+  }
+
+  // Query rewriting for better retrieval
+  const rewrittenQuery = await rewriteQuery(trimmedQuery);
+  const searchQuery =
+    rewrittenQuery !== trimmedQuery ? rewrittenQuery : trimmedQuery;
+
+  // Search with both original and rewritten query, merge results
+  const sources = await hybridSearch(searchQuery, index, 10);
+
+  // If rewritten, also search with original and merge
+  if (searchQuery !== trimmedQuery) {
+    const originalSources = await hybridSearch(trimmedQuery, index, 6);
+    const existingIds = new Set(sources.map((s) => s.chunk.id));
+    for (const s of originalSources) {
+      if (!existingIds.has(s.chunk.id)) {
+        sources.push(s);
+      }
+    }
+    sources.sort((a, b) => b.score - a.score);
+  }
+
+  // Rerank top results with LLM
+  const topSources = sources.slice(0, 8);
+  const reranked = await rerankSources(trimmedQuery, topSources);
+
+  // Check if tabulador data is relevant
+  const tabuladorContext = buildTabuladorContext(trimmedQuery) || undefined;
 
   return {
-    score,
-    matchedTerms: Array.from(new Set(matchedTerms)),
+    sources: reranked.slice(0, 8),
+    isConversational: false,
+    tabuladorContext,
   };
 }
+
+export function createGroqStream(
+  query: string,
+  sources: ContractSearchResult[],
+  conversationHistory: ChatMessage[],
+  tabuladorContext?: string,
+): ReadableStream<Uint8Array> | null {
+  const apiKey = getGroqApiKey();
+  if (!apiKey) return null;
+
+  const model = getGroqModel();
+
+  // For conversational (no sources), use a lighter prompt
+  const messages =
+    sources.length > 0 || tabuladorContext
+      ? buildGroqMessages(query, sources, conversationHistory, tabuladorContext)
+      : [
+          {
+            role: "system" as const,
+            content:
+              "Eres el asistente del contrato colectivo IMSS-SNTSS 2025-2027. " +
+              "Responde de forma natural, amigable y breve. Puedes saludar, despedirte, o guiar al usuario. " +
+              "Si te preguntan algo que no es del contrato, recuérdale amablemente que estás para consultas del contrato. " +
+              "Responde en español, máximo 3-4 líneas.",
+          },
+          ...conversationHistory.slice(-6).map((m) => ({
+            role: m.role as string,
+            content: m.content,
+          })),
+          { role: "user" as const, content: query },
+        ];
+
+  const encoder = new TextEncoder();
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        const response = await fetch(
+          "https://api.groq.com/openai/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              temperature: 0.15,
+              max_tokens: 1024,
+              stream: true,
+              messages,
+            }),
+          },
+        );
+
+        if (!response.ok || !response.body) {
+          const errorText = await response.text();
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ error: errorText.slice(0, 200) })}\n\n`,
+            ),
+          );
+          controller.close();
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === "data: [DONE]") continue;
+            if (!trimmed.startsWith("data: ")) continue;
+
+            try {
+              const json = JSON.parse(trimmed.slice(6));
+              const delta = json.choices?.[0]?.delta?.content;
+              if (delta) {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ text: delta })}\n\n`,
+                  ),
+                );
+              }
+            } catch {
+              // skip malformed chunks
+            }
+          }
+        }
+
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      } catch (error) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ error: error instanceof Error ? error.message : "Stream error" })}\n\n`,
+          ),
+        );
+        controller.close();
+      }
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Extractive fallback answer
+// ---------------------------------------------------------------------------
+
+function buildAnswerText(sources: ContractSearchResult[]) {
+  if (sources.length === 0) {
+    return "No encontré información relevante sobre eso en el contrato. Intenta reformular tu pregunta con términos más específicos — por ejemplo, mencionando la cláusula, prestación o tema concreto que buscas.";
+  }
+
+  const topSources = sources.slice(0, 4);
+  const lines = topSources.map((s) => {
+    const label = s.chunk.clauseNumber
+      ? `Cláusula ${s.chunk.clauseNumber}${s.chunk.clauseTitle ? ` (${s.chunk.clauseTitle})` : ""}`
+      : `Página ${s.chunk.pageNumber}`;
+    return `- ${label}: ${s.excerpt}`;
+  });
+
+  return [
+    "Encontré estas referencias relevantes en el contrato:",
+    "",
+    ...lines,
+    "",
+    `Revisa las páginas ${topSources.map((s) => s.chunk.pageNumber).join(", ")} para el detalle completo.`,
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Page hint extraction
+// ---------------------------------------------------------------------------
 
 function extractPageHints(query: string) {
   const matches = query.match(/\b(?:pagina|pag|p)\.?\s*(\d{1,3})\b/gi) || [];
   return matches
-    .map((match) => Number(match.replace(/[^\d]/g, "")))
-    .filter((value) => Number.isFinite(value) && value > 0);
+    .map((m) => Number(m.replace(/[^\d]/g, "")))
+    .filter((v) => Number.isFinite(v) && v > 0);
+}
+
+// ---------------------------------------------------------------------------
+// PDF extraction
+// ---------------------------------------------------------------------------
+
+function getPythonExecutable() {
+  return fs.existsSync(LOCAL_PYTHON_PATH) ? LOCAL_PYTHON_PATH : "python3";
 }
 
 async function extractPagesFromPdf(pdfPath: string): Promise<ExtractedPage[]> {
@@ -416,7 +1307,7 @@ with pdfplumber.open(pdf_path) as pdf:
 print(json.dumps({"pages": pages}, ensure_ascii=False))
 `.trim();
 
-    const child = spawn("python3", ["-c", pythonScript, pdfPath], {
+    const child = spawn(getPythonExecutable(), ["-c", pythonScript, pdfPath], {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -426,11 +1317,9 @@ print(json.dumps({"pages": pages}, ensure_ascii=False))
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
     });
-
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-
     child.on("error", (error) => {
       reject(error);
     });
@@ -440,16 +1329,13 @@ print(json.dumps({"pages": pages}, ensure_ascii=False))
         reject(new Error(stderr || `Python terminó con código ${code}`));
         return;
       }
-
       try {
         const payload = JSON.parse(stdout) as { pages?: ExtractedPage[] };
         resolve(payload.pages || []);
       } catch (error) {
         reject(
           new Error(
-            `No se pudo interpretar la salida del extractor de contrato: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            `No se pudo interpretar la salida del extractor: ${error instanceof Error ? error.message : String(error)}`,
           ),
         );
       }
@@ -457,34 +1343,52 @@ print(json.dumps({"pages": pages}, ensure_ascii=False))
   });
 }
 
+// ---------------------------------------------------------------------------
+// Index building
+// ---------------------------------------------------------------------------
+
 async function buildContractIndex(): Promise<ContractIndex> {
   if (!fs.existsSync(CONTRACT_PATH)) {
     throw new Error(
-      `No se encontró el contrato base en ${CONTRACT_PATH}. Coloca el PDF en la raíz del proyecto para usar el sandbox.`,
+      `No se encontró el contrato base en ${CONTRACT_PATH}. Coloca el PDF en artifacts/ para usar el sandbox.`,
     );
   }
 
   const contractStats = await fs.promises.stat(CONTRACT_PATH);
   const pages = await extractPagesFromPdf(CONTRACT_PATH);
+
+  // Smart chunking by clause/section
+  const sections = splitPagesIntoSections(pages);
   const documentFrequencies: Record<string, number> = {};
 
-  const chunks = pages.flatMap((page) => {
-    return splitTextIntoChunks(page.text).map((chunkText, index) => {
-      const normalizedText = normalizeText(chunkText);
+  const chunks: ContractChunk[] = sections.flatMap((section) => {
+    return splitSectionIntoChunks(section).map((raw) => {
+      const normalizedText = normalizeText(raw.text);
       const tokenCounts = countTokens(normalizedText);
       for (const token of Object.keys(tokenCounts)) {
         documentFrequencies[token] = (documentFrequencies[token] || 0) + 1;
       }
-
-      return {
-        id: `page-${page.pageNumber}-chunk-${index + 1}`,
-        pageNumber: page.pageNumber,
-        text: chunkText,
-        normalizedText,
-        tokenCounts,
-      };
+      return { ...raw, normalizedText, tokenCounts };
     });
   });
+
+  // Generate embeddings
+  let hasEmbeddings = false;
+  try {
+    console.log(`Generando embeddings para ${chunks.length} chunks...`);
+    const texts = chunks.map((c) => c.text);
+    const embeddings = await generateEmbeddings(texts);
+    for (let i = 0; i < chunks.length; i++) {
+      chunks[i].embedding = embeddings[i];
+    }
+    hasEmbeddings = true;
+    console.log(`Embeddings generados exitosamente.`);
+  } catch (error) {
+    console.error(
+      "No se pudieron generar embeddings, el índice funcionará solo con keywords:",
+      error,
+    );
+  }
 
   return {
     contractPath: CONTRACT_PATH,
@@ -495,8 +1399,13 @@ async function buildContractIndex(): Promise<ContractIndex> {
     vocabularySize: Object.keys(documentFrequencies).length,
     documentFrequencies,
     chunks,
+    hasEmbeddings,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Index persistence
+// ---------------------------------------------------------------------------
 
 async function saveContractIndex(index: ContractIndex) {
   await fs.promises.mkdir(path.dirname(CONTRACT_INDEX_PATH), {
@@ -510,14 +1419,11 @@ async function saveContractIndex(index: ContractIndex) {
 }
 
 async function loadPersistedContractIndex() {
-  if (!fs.existsSync(CONTRACT_INDEX_PATH)) {
-    return null;
-  }
+  if (!fs.existsSync(CONTRACT_INDEX_PATH)) return null;
 
   const rawIndex = await fs.promises.readFile(CONTRACT_INDEX_PATH, "utf8");
   const parsedIndex = JSON.parse(rawIndex) as ContractIndex;
 
-  // En desarrollo, si el PDF está disponible, validar frescura por mtime
   if (fs.existsSync(CONTRACT_PATH)) {
     const contractStats = await fs.promises.stat(CONTRACT_PATH);
     if (parsedIndex.sourceMtimeMs !== contractStats.mtimeMs) {
@@ -528,20 +1434,72 @@ async function loadPersistedContractIndex() {
   return parsedIndex;
 }
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export async function getContractChatStatus(): Promise<ContractChatStatus> {
+  const pdfExists = fs.existsSync(CONTRACT_PATH);
+  const pdfStats = pdfExists ? await fs.promises.stat(CONTRACT_PATH) : null;
+  const indexExists = fs.existsSync(CONTRACT_INDEX_PATH);
+  const status: ContractChatStatus = {
+    pdf: {
+      exists: pdfExists,
+      fileName: CONTRACT_FILENAME,
+      path: CONTRACT_PATH,
+      mtimeMs: pdfStats?.mtimeMs,
+    },
+    index: { exists: indexExists, fresh: false },
+    llm: {
+      provider: "groq",
+      configured: Boolean(getGroqApiKey()),
+      model: getGroqModel(),
+    },
+    ready: false,
+  };
+
+  if (!indexExists) return status;
+
+  try {
+    const rawIndex = await fs.promises.readFile(CONTRACT_INDEX_PATH, "utf8");
+    const parsedIndex = JSON.parse(rawIndex) as ContractIndex;
+    const fresh = Boolean(
+      pdfStats && parsedIndex.sourceMtimeMs === pdfStats.mtimeMs,
+    );
+
+    status.index = {
+      exists: true,
+      fresh,
+      builtAt: parsedIndex.builtAt,
+      pageCount: parsedIndex.pageCount,
+      chunkCount: parsedIndex.chunkCount,
+      vocabularySize: parsedIndex.vocabularySize,
+      hasEmbeddings: parsedIndex.hasEmbeddings,
+      sourceMtimeMs: parsedIndex.sourceMtimeMs,
+    };
+    status.ready = pdfExists && fresh && parsedIndex.chunkCount > 0;
+  } catch (error) {
+    status.index = {
+      exists: true,
+      fresh: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  return status;
+}
+
 export async function getContractIndex() {
   if (!contractIndexPromise) {
     contractIndexPromise = (async () => {
       const persistedIndex = await loadPersistedContractIndex();
-      if (persistedIndex) {
-        return persistedIndex;
-      }
+      if (persistedIndex) return persistedIndex;
 
       const rebuiltIndex = await buildContractIndex();
       await saveContractIndex(rebuiltIndex);
       return rebuiltIndex;
     })();
   }
-
   return contractIndexPromise;
 }
 
@@ -554,47 +1512,48 @@ export async function rebuildContractIndex() {
 
 export async function answerContractQuestion(
   query: string,
+  conversationHistory: ChatMessage[] = [],
 ): Promise<ContractChatAnswer> {
   const trimmedQuery = query.trim();
-  if (!trimmedQuery) {
-    throw new Error("QUERY_REQUIRED");
-  }
+  if (!trimmedQuery) throw new Error("QUERY_REQUIRED");
 
   const index = await getContractIndex();
   const tokens = tokenizeQuery(trimmedQuery);
   const normalizedQuery = normalizeText(trimmedQuery);
-  const pageHints = extractPageHints(trimmedQuery);
 
-  const rankedSources = index.chunks
-    .map((chunk) => {
-      const { score, matchedTerms } = scoreChunk(
-        chunk,
-        index,
-        normalizedQuery,
-        tokens,
-        pageHints,
-      );
+  if (isConversationalPrompt(normalizedQuery, tokens)) {
+    return {
+      answer: buildConversationalAnswer(),
+      query: trimmedQuery,
+      generatedAt: new Date().toISOString(),
+      sourceCount: 0,
+      answerMode: "extractive",
+      sources: [],
+      diagnostics: {
+        contractPath: index.contractPath,
+        pageCount: index.pageCount,
+        chunkCount: index.chunkCount,
+        usedGroq: false,
+        searchMode: "keyword",
+      },
+    };
+  }
 
-      return {
-        chunk,
-        score,
-        matchedTerms,
-        excerpt: createExcerpt(chunk.text, tokens),
-      };
-    })
-    .filter((result) => result.score > 0)
-    .sort(
-      (a, b) => b.score - a.score || a.chunk.pageNumber - b.chunk.pageNumber,
-    )
-    .slice(0, 6);
+  // Hybrid search
+  const rankedSources = await hybridSearch(trimmedQuery, index, 8);
 
-  let answer = buildAnswerText(trimmedQuery, rankedSources);
+  let answer = buildAnswerText(rankedSources);
   let answerMode: ContractChatAnswer["answerMode"] = "extractive";
   let groqModel: string | undefined;
   let usedGroq = false;
+  const searchMode = index.hasEmbeddings ? "hybrid" : "keyword";
 
   try {
-    const groqResponse = await generateGroqAnswer(trimmedQuery, rankedSources);
+    const groqResponse = await generateGroqAnswer(
+      trimmedQuery,
+      rankedSources,
+      conversationHistory,
+    );
     if (groqResponse) {
       answer = groqResponse.content;
       answerMode = "groq";
@@ -602,10 +1561,7 @@ export async function answerContractQuestion(
       usedGroq = true;
     }
   } catch (error) {
-    console.error(
-      "Groq no disponible para sandbox de contrato, usando fallback extractivo:",
-      error,
-    );
+    console.error("Groq no disponible, usando fallback extractivo:", error);
   }
 
   return {
@@ -621,6 +1577,7 @@ export async function answerContractQuestion(
       chunkCount: index.chunkCount,
       model: groqModel,
       usedGroq,
+      searchMode,
     },
   };
 }
