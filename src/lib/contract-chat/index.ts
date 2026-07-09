@@ -812,7 +812,7 @@ function buildGroqMessages(
   tabuladorContext?: string,
 ): Array<{ role: string; content: string }> {
   const context = sources
-    .slice(0, 8)
+    .slice(0, 4)
     .map((source, i) => {
       const clauseInfo = source.chunk.clauseNumber
         ? `Cláusula ${source.chunk.clauseNumber}${source.chunk.clauseTitle ? ` - ${source.chunk.clauseTitle}` : ""}`
@@ -823,7 +823,7 @@ function buildGroqMessages(
       return [
         `--- Fuente ${i + 1} ---`,
         `Ubicación: ${clauseInfo}${chapterInfo} | Página ${source.chunk.pageNumber}`,
-        `Texto: ${source.chunk.text}`,
+        `Texto: ${source.chunk.text.slice(0, 600)}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -838,10 +838,10 @@ function buildGroqMessages(
   }
 
   const validPages = Array.from(
-    new Set(sources.slice(0, 8).map((s) => s.chunk.pageNumber)),
+    new Set(sources.slice(0, 4).map((s) => s.chunk.pageNumber)),
   ).sort((a, b) => a - b);
   const validClauses = sources
-    .slice(0, 8)
+    .slice(0, 4)
     .filter((s) => s.chunk.clauseNumber)
     .map((s) => `Cláusula ${s.chunk.clauseNumber} (p. ${s.chunk.pageNumber})`)
     .filter((v, i, a) => a.indexOf(v) === i);
@@ -928,74 +928,6 @@ function rewriteQueryLocal(query: string): string {
   }
 
   return result;
-}
-
-async function rerankSources(
-  query: string,
-  sources: ContractSearchResult[],
-): Promise<ContractSearchResult[]> {
-  if (sources.length <= 3) return sources;
-
-  const apiKey = getGroqApiKey();
-  if (!apiKey) return sources;
-
-  try {
-    const sourceSummaries = sources
-      .map(
-        (s, i) =>
-          `[${i + 1}] p.${s.chunk.pageNumber}${s.chunk.clauseNumber ? ` Cláusula ${s.chunk.clauseNumber}` : ""}: ${s.chunk.text.slice(0, 200)}`,
-      )
-      .join("\n");
-
-    const response = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
-          temperature: 0,
-          max_tokens: 60,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Dado una pregunta y fragmentos de un contrato colectivo, devuelve SOLO los números de los fragmentos relevantes ordenados por relevancia. " +
-                "Formato: solo números separados por comas. Ejemplo: 3,1,5. Excluye los irrelevantes.",
-            },
-            {
-              role: "user",
-              content: `Pregunta: ${query}\n\nFragmentos:\n${sourceSummaries}`,
-            },
-          ],
-        }),
-      },
-    );
-
-    if (!response.ok) return sources;
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string | null } }>;
-    };
-    const ranking = payload.choices?.[0]?.message?.content?.trim();
-    if (!ranking) return sources;
-
-    const indices = ranking
-      .split(/[,\s]+/)
-      .map((s) => parseInt(s, 10) - 1)
-      .filter((i) => Number.isFinite(i) && i >= 0 && i < sources.length);
-
-    if (indices.length === 0) return sources;
-
-    // Return reranked sources, adding any missed ones at the end
-    const reranked = indices.map((i) => sources[i]);
-    const remaining = sources.filter((_, i) => !indices.includes(i));
-    return [...reranked, ...remaining];
-  } catch {
-    return sources;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1382,8 +1314,12 @@ export async function searchContractSources(query: string): Promise<{
   };
 }
 
-// Rotate keys: if one fails, start with the other next time
-let lastFailedKeyIndex = -1;
+// Simple throttle — Groq free tier has ~6000 TPM org-level limit
+let lastGroqCallMs = 0;
+const GROQ_MIN_INTERVAL_MS = 4_000; // 4s between calls to stay under TPM
+
+// Round-robin key rotation: alternate keys proactively to spread TPM load
+let nextKeyIndex = 0;
 
 export function createGroqStream(
   query: string,
@@ -1394,14 +1330,13 @@ export function createGroqStream(
   const allKeys = getGroqApiKeys();
   if (allKeys.length === 0) return null;
 
-  // Put the non-failed key first
-  const apiKeys =
-    lastFailedKeyIndex >= 0 && allKeys.length > 1
-      ? [
-          ...allKeys.slice(lastFailedKeyIndex + 1),
-          ...allKeys.slice(0, lastFailedKeyIndex + 1),
-        ]
-      : allKeys;
+  // Round-robin: start with a different key each request
+  const startIndex = nextKeyIndex % allKeys.length;
+  nextKeyIndex++;
+  const apiKeys = [
+    ...allKeys.slice(startIndex),
+    ...allKeys.slice(0, startIndex),
+  ];
 
   const model = getGroqModel();
 
@@ -1430,6 +1365,16 @@ export function createGroqStream(
   return new ReadableStream({
     async start(controller) {
       try {
+        // Throttle to stay under Groq TPM limits
+        const now = Date.now();
+        const elapsed = now - lastGroqCallMs;
+        if (elapsed < GROQ_MIN_INTERVAL_MS && lastGroqCallMs > 0) {
+          await new Promise((r) =>
+            setTimeout(r, GROQ_MIN_INTERVAL_MS - elapsed),
+          );
+        }
+        lastGroqCallMs = Date.now();
+
         // Try each key directly with streaming
         let response: Response | null = null;
         for (let ki = 0; ki < apiKeys.length; ki++) {
@@ -1464,8 +1409,7 @@ export function createGroqStream(
               firstText.includes("Rate limit") ||
               firstText.includes("rate_limit")
             ) {
-              peekReader.releaseLock();
-              lastFailedKeyIndex = allKeys.indexOf(key);
+              peekReader.cancel();
               if (ki < apiKeys.length - 1) {
                 console.log(
                   "[chat] Key",
@@ -1483,20 +1427,23 @@ export function createGroqStream(
               return;
             }
 
-            // Key works! Create a new stream that replays the first chunk
-            const remainingStream = attempt.body;
+            // Key works — replay first chunk then pipe the rest via the same reader
             response = new Response(
               new ReadableStream({
                 start(c) {
                   if (firstChunk.value) c.enqueue(firstChunk.value);
                 },
                 async pull(c) {
-                  const { done, value } = await peekReader.read();
-                  if (done) {
+                  try {
+                    const { done, value } = await peekReader.read();
+                    if (done) {
+                      c.close();
+                      return;
+                    }
+                    c.enqueue(value);
+                  } catch {
                     c.close();
-                    return;
                   }
-                  c.enqueue(value);
                 },
               }),
             );
@@ -1504,7 +1451,6 @@ export function createGroqStream(
           }
 
           // HTTP error — try next key
-          lastFailedKeyIndex = allKeys.indexOf(key);
           if (ki < apiKeys.length - 1) {
             console.log(
               "[chat] Key",
@@ -1515,9 +1461,15 @@ export function createGroqStream(
           }
 
           const errorText = await attempt.text();
+          const isRateLimit =
+            attempt.status === 429 || errorText.includes("Rate limit");
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: errorText.slice(0, 200) })}\n\n`,
+              `data: ${JSON.stringify({
+                error: isRateLimit
+                  ? "Límite de uso alcanzado. Espera un minuto e intenta de nuevo."
+                  : errorText.slice(0, 200),
+              })}\n\n`,
             ),
           );
           controller.close();
