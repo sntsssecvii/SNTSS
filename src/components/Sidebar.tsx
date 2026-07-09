@@ -23,6 +23,7 @@ import {
   Activity,
   UserRound,
   Tag,
+  Bot,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -118,11 +119,18 @@ const getNavItems = (
   }
 
   if (isDeveloper) {
-    baseItems.push({
-      title: "Admin Global",
-      href: "/admin/global",
-      icon: Crown,
-    });
+    baseItems.push(
+      {
+        title: "Admin Global",
+        href: "/admin/global",
+        icon: Crown,
+      },
+      {
+        title: "Chatbot CCT",
+        href: "/admin/lab/chat-contrato",
+        icon: Bot,
+      },
+    );
   }
 
   if (roleUpper === "BOLSA") {
