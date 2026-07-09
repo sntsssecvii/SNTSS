@@ -1181,11 +1181,80 @@ function formatMontos(montos: Record<string, unknown>): string {
   return ` Datos: ${JSON.stringify(montos)}.`;
 }
 
-function buildPrestacionesContext(query: string): string | null {
+// --- Enganche SEMÁNTICO de prestaciones (por significado, no por palabras) ---
+// Requiere prestaciones-embeddings.json (generado con embed-prestaciones.ts).
+// Sin ese archivo o sin Jina, matchPrestacionesSemantic devuelve [] y solo
+// opera el enganche por keywords.
+interface PrestacionEmbeddingEntry {
+  nombre: string;
+  embedding: number[];
+}
+
+let prestacionesEmbCache: PrestacionEmbeddingEntry[] | null = null;
+const PRESTACIONES_EMB_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "contract-chat",
+  "prestaciones-embeddings.json",
+);
+
+function loadPrestacionesEmbeddings(): PrestacionEmbeddingEntry[] | null {
+  if (prestacionesEmbCache) return prestacionesEmbCache;
+  if (!fs.existsSync(PRESTACIONES_EMB_PATH)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(PRESTACIONES_EMB_PATH, "utf8"));
+    prestacionesEmbCache = data.entries as PrestacionEmbeddingEntry[];
+    return prestacionesEmbCache;
+  } catch {
+    return null;
+  }
+}
+
+// Umbral de similitud coseno (Jina v3 asimétrico query/passage).
+const PRESTACION_SEMANTIC_THRESHOLD = 0.55;
+
+function matchPrestacionesSemantic(
+  queryEmbedding: number[] | undefined,
+): PrestacionEntry[] {
+  if (!queryEmbedding || queryEmbedding.length === 0) return [];
+  const embeddings = loadPrestacionesEmbeddings();
+  if (!embeddings) return [];
+
+  const byName = new Map(loadPrestaciones().map((p) => [p.nombre, p]));
+  return embeddings
+    .map((e) => ({
+      nombre: e.nombre,
+      score: e.embedding?.length
+        ? cosineSimilarity(queryEmbedding, e.embedding)
+        : 0,
+    }))
+    .filter((e) => e.score >= PRESTACION_SEMANTIC_THRESHOLD)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map((e) => byName.get(e.nombre))
+    .filter((p): p is PrestacionEntry => Boolean(p));
+}
+
+function buildPrestacionesContext(
+  query: string,
+  queryEmbedding?: number[],
+): string | null {
   const prestaciones = loadPrestaciones();
   if (prestaciones.length === 0) return null;
 
-  const matching = matchPrestaciones(query);
+  // Unión: enganche semántico (por significado) + por keywords (refuerzo).
+  const seen = new Set<string>();
+  const matching: PrestacionEntry[] = [];
+  for (const p of [
+    ...matchPrestacionesSemantic(queryEmbedding),
+    ...matchPrestaciones(query),
+  ]) {
+    if (!seen.has(p.nombre)) {
+      seen.add(p.nombre);
+      matching.push(p);
+    }
+  }
 
   // Match específico (1-5) → contexto detallado con montos estructurados
   if (matching.length > 0 && matching.length <= 5) {
@@ -1256,7 +1325,10 @@ function loadFaqIndex(): FaqIndex | null {
   }
 }
 
-async function faqSemanticSearch(query: string): Promise<{
+async function faqSemanticSearch(
+  query: string,
+  precomputedEmbedding?: number[],
+): Promise<{
   matchedChunkIds: string[];
   bestFaq: { question: string; answer: string; score: number } | null;
 }> {
@@ -1265,11 +1337,14 @@ async function faqSemanticSearch(query: string): Promise<{
     return { matchedChunkIds: [], bestFaq: null };
   }
 
-  let queryEmbedding: number[];
-  try {
-    queryEmbedding = await generateQueryEmbedding(query);
-  } catch {
-    return { matchedChunkIds: [], bestFaq: null };
+  // Reutiliza el embedding ya generado en searchContractSources si existe.
+  let queryEmbedding = precomputedEmbedding;
+  if (!queryEmbedding || queryEmbedding.length === 0) {
+    try {
+      queryEmbedding = await generateQueryEmbedding(query);
+    } catch {
+      return { matchedChunkIds: [], bestFaq: null };
+    }
   }
 
   if (queryEmbedding.length === 0) {
@@ -1322,15 +1397,27 @@ export async function searchContractSources(query: string): Promise<{
     return { sources: [], isConversational: true };
   }
 
-  // FAQ semantic search — find relevant chunk IDs from pre-generated FAQs
-  const { matchedChunkIds } = await faqSemanticSearch(trimmedQuery);
-
   // Local query rewriting — typos, abbreviations (no LLM call, saves tokens)
   const rewrittenQuery = rewriteQueryLocal(trimmedQuery);
   const searchQuery =
     rewrittenQuery !== trimmedQuery.toLowerCase()
       ? rewrittenQuery
       : trimmedQuery;
+
+  // Genera el embedding de la consulta UNA vez y lo comparte entre el buscador
+  // de FAQs y el enganche semántico de prestaciones (evita llamadas de más).
+  let queryEmbedding: number[] = [];
+  try {
+    queryEmbedding = await generateQueryEmbedding(searchQuery);
+  } catch {
+    queryEmbedding = [];
+  }
+
+  // FAQ semantic search — find relevant chunk IDs from pre-generated FAQs
+  const { matchedChunkIds } = await faqSemanticSearch(
+    searchQuery,
+    queryEmbedding,
+  );
 
   // Search with both original and rewritten query, merge results
   const sources = await hybridSearch(searchQuery, index, 10);
@@ -1380,7 +1467,8 @@ export async function searchContractSources(query: string): Promise<{
   // reescrita (typos/abreviaciones corregidos) para enganchar mejor.
   const tabuladorContext = buildTabuladorContext(trimmedQuery) || undefined;
   const prestacionesContext =
-    buildPrestacionesContext(`${trimmedQuery} ${searchQuery}`) || undefined;
+    buildPrestacionesContext(`${trimmedQuery} ${searchQuery}`, queryEmbedding) ||
+    undefined;
 
   // Merge structured contexts
   const structuredContext =
