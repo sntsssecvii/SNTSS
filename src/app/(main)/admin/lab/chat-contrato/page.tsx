@@ -79,21 +79,26 @@ interface SessionSummary {
 // ---------------------------------------------------------------------------
 
 const SUGGESTED_QUESTIONS = [
+  { label: "Vacaciones", question: "¿Cuántos días de vacaciones me tocan?" },
   {
-    label: "Vacaciones",
-    question: "¿Qué dice el contrato colectivo sobre vacaciones?",
+    label: "Salarios",
+    question: "¿Cuánto gana una enfermera según el tabulador?",
   },
   {
-    label: "Permisos",
-    question: "Resume lo más relevante sobre permisos y licencias.",
+    label: "Prestaciones",
+    question: "¿Qué prestaciones tengo como trabajador de base?",
   },
   {
     label: "Jubilación",
-    question: "¿Cuáles son los requisitos para jubilación?",
+    question: "¿Cuáles son los requisitos para jubilarme?",
   },
   {
-    label: "Escalafón",
-    question: "Busca referencias a escalafón o promociones.",
+    label: "Guarderías",
+    question: "¿Qué dice sobre el servicio de guarderías?",
+  },
+  {
+    label: "Créditos",
+    question: "¿Qué créditos hipotecarios ofrece el contrato?",
   },
 ];
 
@@ -143,6 +148,50 @@ function StreamingCursor() {
   );
 }
 
+function RichText({ text }: { text: string }) {
+  // Render **bold**, (Cláusula X, p. Y) as badges, and $amounts highlighted
+  const parts = text.split(
+    /(\*\*[^*]+\*\*|\(Cláusula\s+\d+[^)]*\)|\(Cl\.\s+\d+[^)]*\)|\$[\d,]+(?:\.\d{2})?)/g,
+  );
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return (
+            <strong
+              key={i}
+              className="font-semibold text-slate-900 dark:text-white"
+            >
+              {part.slice(2, -2)}
+            </strong>
+          );
+        }
+        if (/^\(Cl(á|a)usula/.test(part) || /^\(Cl\./.test(part)) {
+          return (
+            <span
+              key={i}
+              className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
+            >
+              {part}
+            </span>
+          );
+        }
+        if (part.startsWith("$")) {
+          return (
+            <span
+              key={i}
+              className="font-semibold text-emerald-700 dark:text-emerald-400"
+            >
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 function FormattedAnswer({
   content,
   isStreaming,
@@ -165,12 +214,25 @@ function FormattedAnswer({
         const bullet = line.match(/^[-•*]\s+(.+)/);
         const numbered = line.match(/^\d+[.)]\s+(.+)/);
         const isLast = i === lines.length - 1;
+        const pageRef = /^P[aá]ginas?\s+de\s+referencia/i.test(line);
+
+        if (pageRef) {
+          return (
+            <p
+              key={`${line}-${i}`}
+              className="mt-1 rounded-lg bg-slate-50 px-3 py-1.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+            >
+              <RichText text={line} />
+            </p>
+          );
+        }
+
         if (bullet || numbered) {
           return (
             <div key={`${line}-${i}`} className="flex gap-2 text-sm leading-6">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
               <p>
-                {bullet?.[1] ?? numbered?.[1]}
+                <RichText text={bullet?.[1] ?? numbered?.[1] ?? ""} />
                 {isLast && isStreaming && <StreamingCursor />}
               </p>
             </div>
@@ -178,7 +240,7 @@ function FormattedAnswer({
         }
         return (
           <p key={`${line}-${i}`} className="text-sm leading-6">
-            {line}
+            <RichText text={line} />
             {isLast && isStreaming && <StreamingCursor />}
           </p>
         );
@@ -723,7 +785,17 @@ export default function ChatContratoSandboxPage() {
                   <button
                     key={item.label}
                     type="button"
-                    onClick={() => setQuery(item.question)}
+                    onClick={() => {
+                      setQuery(item.question);
+                      // Auto-submit after a tick
+                      setTimeout(() => {
+                        const form =
+                          document.querySelector<HTMLFormElement>(
+                            "[data-chat-form]",
+                          );
+                        form?.requestSubmit();
+                      }, 50);
+                    }}
                     className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-primary/40 hover:bg-primary/5 hover:text-primary dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                   >
                     {item.label}
@@ -859,6 +931,7 @@ export default function ChatContratoSandboxPage() {
             </div>
 
             <form
+              data-chat-form
               onSubmit={handleSubmit}
               className="border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
             >
@@ -866,7 +939,16 @@ export default function ChatContratoSandboxPage() {
                 <Textarea
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Escribe tu pregunta..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (canSubmit) {
+                        const form = e.currentTarget.closest("form");
+                        form?.requestSubmit();
+                      }
+                    }
+                  }}
+                  placeholder="Escribe tu pregunta... (Enter para enviar, Shift+Enter para salto de línea)"
                   className="min-h-16 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 dark:bg-transparent"
                 />
                 <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-2 pt-2 dark:border-slate-800">

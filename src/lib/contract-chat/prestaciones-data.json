@@ -1,0 +1,262 @@
+{
+  "generatedAt": "2026-07-08",
+  "source": "Contrato Colectivo de Trabajo IMSS-SNTSS 2025-2027",
+  "prestaciones": [
+    {
+      "nombre": "Ayuda para Renta de Casa-Habitación",
+      "clausula": "63 Bis",
+      "pagina": 44,
+      "descripcion": "Compensación mensual de $500.00 (no repercute en otras prestaciones excepto Jubilaciones y Pensiones). Además, 82.15% del sueldo tabular que sí repercute en todas las prestaciones. Más una cantidad anual equivalente a días de sueldo según antigüedad (de 60 días con 5 años hasta 270 días con 40+ años).",
+      "montos": {
+        "compensacionMensualFija": 500.0,
+        "porcentajeSueldoTabular": 82.15,
+        "diasSueldoPorAntiguedad": [
+          { "anos": 5, "dias": 60 },
+          { "anos": 6, "dias": 63 },
+          { "anos": 7, "dias": 66 },
+          { "anos": 8, "dias": 69 },
+          { "anos": 9, "dias": 72 },
+          { "anos": 10, "dias": 75 },
+          { "anos": 11, "dias": 81 },
+          { "anos": 12, "dias": 87 },
+          { "anos": 13, "dias": 93 },
+          { "anos": 14, "dias": 99 },
+          { "anos": 15, "dias": 105 },
+          { "anos": 16, "dias": 114 },
+          { "anos": 17, "dias": 123 },
+          { "anos": 18, "dias": 132 },
+          { "anos": 19, "dias": 141 },
+          { "anos": 20, "dias": 150 },
+          { "anos": 21, "dias": 156 },
+          { "anos": 22, "dias": 162 },
+          { "anos": 23, "dias": 168 },
+          { "anos": 24, "dias": 174 },
+          { "anos": 25, "dias": 180 },
+          { "anos": 26, "dias": 186 },
+          { "anos": 27, "dias": 192 },
+          { "anos": 28, "dias": 198 },
+          { "anos": 29, "dias": 204 },
+          { "anos": 30, "dias": 210 },
+          { "anos": 31, "dias": 216 },
+          { "anos": 32, "dias": 222 },
+          { "anos": 33, "dias": 228 },
+          { "anos": 34, "dias": 234 },
+          { "anos": 35, "dias": 240 },
+          { "anos": 36, "dias": 246 },
+          { "anos": 37, "dias": 252 },
+          { "anos": 38, "dias": 258 },
+          { "anos": 39, "dias": 264 },
+          { "anos": 40, "dias": 270 }
+        ]
+      },
+      "aplica": "Todos los trabajadores",
+      "libreDeImpuesto": true
+    },
+    {
+      "nombre": "Vacaciones",
+      "clausula": "47",
+      "pagina": 37,
+      "descripcion": "16 días hábiles mínimo por año efectivo de servicio. Se incrementa 1 día por cada año adicional, hasta un máximo de 20 días hábiles. No se computan días de descanso obligatorio ni semanal.",
+      "montos": {
+        "diasMinimos": 16,
+        "diasMaximos": 20,
+        "incrementoPorAno": 1
+      },
+      "aplica": "Todos los trabajadores"
+    },
+    {
+      "nombre": "Prima Vacacional",
+      "clausula": "47",
+      "pagina": 39,
+      "descripcion": "25% sobre los salarios que correspondan durante el período vacacional.",
+      "montos": {
+        "porcentaje": 25
+      },
+      "aplica": "Todos los trabajadores"
+    },
+    {
+      "nombre": "Ayuda para Actividades Culturales y Recreativas",
+      "clausula": "47",
+      "pagina": 39,
+      "descripcion": "Días de salario pagados previo a vacaciones, según antigüedad efectiva.",
+      "montos": {
+        "diasPorAntiguedad": [
+          { "anos": 1, "dias": 23 },
+          { "anos": 2, "dias": 25 },
+          { "anos": 3, "dias": 27 },
+          { "anos": 4, "dias": 29 },
+          { "anos": 5, "dias": 31 }
+        ]
+      },
+      "aplica": "Todos los trabajadores"
+    },
+    {
+      "nombre": "Fondo de Ahorro",
+      "clausula": "144",
+      "pagina": 75,
+      "descripcion": "39 días de sueldo tabular en la segunda quincena de julio de cada año, más 5 días adicionales de sueldo tabular por cada mes del año que tengan más de 30 días, más 2 días adicionales de sueldo tabular. Libre de impuestos y proporcional al tiempo laborado.",
+      "montos": {
+        "diasSueldoTabular": 39,
+        "diasAdicionalesPorMes": 5,
+        "diasAdicionales": 2
+      },
+      "aplica": "Todos los trabajadores"
+    },
+    {
+      "nombre": "Seguro de Vida",
+      "clausula": "152",
+      "pagina": 78,
+      "descripcion": "Pago a beneficiarios del trabajador fallecido.",
+      "montos": {
+        "muerteNatural": 45000.0,
+        "muerteAccidental": 50000.0,
+        "muerteAccidentalColectiva": 65000.0
+      },
+      "aplica": "Beneficiarios del trabajador"
+    },
+    {
+      "nombre": "Sobresueldo Enfermería",
+      "clausula": "151",
+      "pagina": 78,
+      "descripcion": "Compensación del 31% sobre sueldo tabular por participación en actividades docentes, de enseñanza y de investigación.",
+      "montos": { "porcentaje": 31 },
+      "aplica": "Auxiliares de Enfermería, categorías escalafonarias de la Rama de Enfermería"
+    },
+    {
+      "nombre": "Sobresueldo Psicología Clínica",
+      "clausula": "153",
+      "pagina": 78,
+      "descripcion": "Compensación del 3% sobre sueldo tabular.",
+      "montos": { "porcentaje": 3 },
+      "aplica": "Psicólogo Clínico"
+    },
+    {
+      "nombre": "Sobresueldo Nutrición y Dietética",
+      "clausula": "153 Bis",
+      "pagina": 78,
+      "descripcion": "Compensación del 5% sobre sueldo tabular (20% si tienen título y cédula profesional).",
+      "montos": { "porcentaje": 5, "porcentajeConTitulo": 20 },
+      "aplica": "Nutricionista Dietista, Especialista en Nutrición, Nutriólogo Clínico Especializado"
+    },
+    {
+      "nombre": "Sobresueldo Trabajo Social",
+      "clausula": "155",
+      "pagina": 79,
+      "descripcion": "Compensación del 5% sobre sueldo tabular por participación en actividades docentes.",
+      "montos": { "porcentaje": 5 },
+      "aplica": "Auxiliar de Trabajo Social, Trabajador Social, Trabajador Social Clínico"
+    },
+    {
+      "nombre": "Sobresueldo Puericultura y Educadoras",
+      "clausula": "155",
+      "pagina": 79,
+      "descripcion": "Compensación del 20% sobre sueldo tabular.",
+      "montos": { "porcentaje": 20 },
+      "aplica": "Oficial de Puericultura, Técnico en Puericultura y Educadora"
+    },
+    {
+      "nombre": "Asistencia Médica, Dental y Farmacéutica",
+      "clausula": "74",
+      "pagina": 49,
+      "descripcion": "Para el trabajador, su esposa/o, concubina/o, hijos menores de 18 años (25 si estudian), y padres. Incluye implantes mamarios y cocleares gratuitos para hijos y padres.",
+      "montos": {},
+      "aplica": "Trabajador y familiares"
+    },
+    {
+      "nombre": "Anteojos",
+      "clausula": "75",
+      "pagina": 50,
+      "descripcion": "Lentes gratuitos (hasta 2 veces durante la vigencia del contrato) para trabajadores e hijos hasta 18 años (25 si estudian). Incluye lentes de contacto e intraoculares.",
+      "montos": { "vecesEnVigencia": 2 },
+      "aplica": "Trabajador e hijos"
+    },
+    {
+      "nombre": "Guarderías Infantiles",
+      "clausula": "76",
+      "pagina": 50,
+      "descripcion": "Servicio de guardería para hijos de 45 días hasta 6 años. Si no hay cupo, el Instituto paga $1,000.00 mensuales por hijo.",
+      "montos": { "sinCupoMensual": 1000.0 },
+      "aplica": "Trabajadores con hijos menores de 6 años"
+    },
+    {
+      "nombre": "Ropa de Trabajo y Uniformes",
+      "clausula": "69",
+      "pagina": 47,
+      "descripcion": "El Instituto proporciona ropa especial, uniformes y calzado de buena calidad. Si no puede dar servicio de lavandería, paga compensación equivalente.",
+      "montos": {},
+      "aplica": "Todos los trabajadores"
+    },
+    {
+      "nombre": "Prima Dominical",
+      "clausula": "46",
+      "pagina": 37,
+      "descripcion": "25% adicional sobre el salario de un día ordinario por trabajar en domingo.",
+      "montos": { "porcentaje": 25 },
+      "aplica": "Trabajadores que laboren en domingo"
+    },
+    {
+      "nombre": "Descuento Balnearios y Campamentos",
+      "clausula": "147",
+      "pagina": 77,
+      "descripcion": "50% de descuento en balnearios y campamentos para trabajadores, cónyuge e hijos menores de 21 años. 25% en hospedaje de Centros Vacacionales. 50% en Centro Vacacional La Malinche.",
+      "montos": {
+        "descuentoServicios": 50,
+        "descuentoHospedaje": 25,
+        "descuentoMalinche": 50
+      },
+      "aplica": "Trabajadores y familia"
+    },
+    {
+      "nombre": "Adquisición de Vehículos Automotores",
+      "clausula": "146",
+      "pagina": 75,
+      "descripcion": "12,000 créditos para financiamiento de vehículos automotores durante la vigencia del contrato. Para trabajadores de base con antigüedad mínima de 5 años.",
+      "montos": { "creditosTotales": 12000 },
+      "aplica": "Trabajadores de base con 5+ años de antigüedad"
+    },
+    {
+      "nombre": "Préstamos para Fomento a la Habitación",
+      "clausula": "81",
+      "pagina": 53,
+      "descripcion": "7,500 créditos hipotecarios durante la vigencia del contrato. Para trabajadores de base con 3+ años de antigüedad. Incluye 2,000 créditos para enganche y 3,750 créditos personales a mediano plazo.",
+      "montos": {
+        "creditosHipotecarios": 7500,
+        "creditosEnganche": 2000,
+        "creditosPersonales": 3750
+      },
+      "aplica": "Trabajadores de base con 3+ años de antigüedad"
+    },
+    {
+      "nombre": "Programas Educativos",
+      "clausula": "149",
+      "pagina": 77,
+      "descripcion": "El Instituto entrega al Comité Ejecutivo Nacional del Sindicato $60,000,000.00 anuales para fines educativos.",
+      "montos": { "montoAnual": 60000000 },
+      "aplica": "A través del Sindicato"
+    },
+    {
+      "nombre": "Reconocimiento al Personal (Festivales por rama)",
+      "clausula": "77 Bis, 78, 78 Bis, 79, 79 Bis, 80",
+      "pagina": "51-52",
+      "descripcion": "Montos anuales entregados al Sindicato para festivales de reconocimiento por rama.",
+      "montos": {
+        "personalJubilado": 8100000,
+        "enfermeria": 24300000,
+        "medico": 24300000,
+        "tecnicoAdministrativo": 22680000,
+        "intendenciaLimpiezaTransportes": 15000000,
+        "personalNoNominado": 10800000,
+        "repartoJuguetes": 77760000
+      },
+      "aplica": "Por rama, a través del Sindicato"
+    },
+    {
+      "nombre": "Estacionamientos",
+      "clausula": "150",
+      "pagina": 78,
+      "descripcion": "El Instituto procurará construir estacionamientos suficientes para los trabajadores en sus unidades de nueva creación.",
+      "montos": {},
+      "aplica": "Todos los trabajadores"
+    }
+  ]
+}

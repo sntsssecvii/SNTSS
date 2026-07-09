@@ -35,6 +35,20 @@ const CONTRACT_INDEX_PATH = path.join(
   "contract-index-data.json",
 );
 
+const PRESTACIONES_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "contract-chat",
+  "prestaciones-data.json",
+);
+const FAQ_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "contract-chat",
+  "contract-faqs.json",
+);
 const TABULADOR_PATH = path.join(
   process.cwd(),
   "src",
@@ -1079,6 +1093,177 @@ function buildTabuladorContext(query: string): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Prestaciones structured data
+// ---------------------------------------------------------------------------
+
+interface PrestacionEntry {
+  nombre: string;
+  clausula: string;
+  pagina: number | string;
+  descripcion: string;
+  montos: Record<string, unknown>;
+  aplica: string;
+}
+
+let prestacionesCache: PrestacionEntry[] | null = null;
+
+function loadPrestaciones(): PrestacionEntry[] {
+  if (prestacionesCache) return prestacionesCache;
+  if (!fs.existsSync(PRESTACIONES_PATH)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(PRESTACIONES_PATH, "utf8"));
+    prestacionesCache = data.prestaciones as PrestacionEntry[];
+    return prestacionesCache;
+  } catch {
+    return [];
+  }
+}
+
+const PRESTACIONES_PATTERNS = [
+  /\b(prestacion|prestaciones|beneficio|beneficios)\b/i,
+  /\b(que.*compone|que.*incluye|que.*recib[eo]|que.*dan|que.*otorg)\b/i,
+  /\b(ingreso.*total|ingreso.*real|cuanto.*realmente|ademas.*sueldo)\b/i,
+  /\b(aguinaldo|fondo.*ahorro|prima.*vacacion|seguro.*vida|guarderia)\b/i,
+  /\b(anteojos|lentes|ropa.*trabajo|uniforme|estacionamiento)\b/i,
+  /\b(renta|habitacion|vivienda|vehiculo|auto)\b/i,
+];
+
+function isPrestacionesQuery(query: string): boolean {
+  return PRESTACIONES_PATTERNS.some((p) => p.test(query));
+}
+
+function buildPrestacionesContext(query: string): string | null {
+  const prestaciones = loadPrestaciones();
+  if (prestaciones.length === 0) return null;
+  if (!isPrestacionesQuery(query)) return null;
+
+  const normalized = normalizeText(query);
+
+  // Check if asking about specific prestación
+  const queryStems = normalized
+    .split(" ")
+    .filter((w) => w.length >= 4)
+    .map((w) => w.slice(0, Math.max(5, w.length - 2)));
+
+  const matching = prestaciones.filter((p) => {
+    const combined = normalizeText(p.nombre + " " + p.descripcion);
+    return queryStems.some((stem) => combined.includes(stem));
+  });
+
+  if (matching.length > 0 && matching.length <= 5) {
+    return [
+      "DATOS ESTRUCTURADOS DE PRESTACIONES DEL CONTRATO:",
+      ...matching.map(
+        (p) =>
+          `- ${p.nombre} (Cláusula ${p.clausula}, p. ${p.pagina}): ${p.descripcion}. Aplica a: ${p.aplica}.`,
+      ),
+    ].join("\n");
+  }
+
+  // General prestaciones question — show summary
+  return [
+    "RESUMEN DE PRESTACIONES DEL CONTRATO (además del sueldo base tabular):",
+    ...prestaciones
+      .slice(0, 15)
+      .map(
+        (p) =>
+          `- ${p.nombre} (Cl. ${p.clausula}, p. ${p.pagina}): ${p.descripcion.slice(0, 120)}`,
+      ),
+    `Total: ${prestaciones.length} prestaciones documentadas.`,
+    "El sueldo real de un trabajador = sueldo base tabular + sobresueldos por rama + ayuda renta (82.15%) + fondo de ahorro + prima vacacional + demás prestaciones.",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// FAQ semantic index — accelerates retrieval, not direct answers
+// ---------------------------------------------------------------------------
+
+interface FaqEmbeddedEntry {
+  question: string;
+  answer: string;
+  chunkId: string;
+  pageNumber: number;
+  clauseNumber?: number;
+  embedding: number[];
+}
+
+interface FaqIndex {
+  totalFaqs: number;
+  entries: FaqEmbeddedEntry[];
+}
+
+let faqIndexCache: FaqIndex | null = null;
+const FAQ_EMBEDDINGS_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "contract-chat",
+  "contract-faqs-embeddings.json",
+);
+
+function loadFaqIndex(): FaqIndex | null {
+  if (faqIndexCache) return faqIndexCache;
+  if (!fs.existsSync(FAQ_EMBEDDINGS_PATH)) return null;
+  try {
+    const data = JSON.parse(fs.readFileSync(FAQ_EMBEDDINGS_PATH, "utf8"));
+    faqIndexCache = data as FaqIndex;
+    return faqIndexCache;
+  } catch {
+    return null;
+  }
+}
+
+async function faqSemanticSearch(query: string): Promise<{
+  matchedChunkIds: string[];
+  bestFaq: { question: string; answer: string; score: number } | null;
+}> {
+  const faqIndex = loadFaqIndex();
+  if (!faqIndex || faqIndex.entries.length === 0) {
+    return { matchedChunkIds: [], bestFaq: null };
+  }
+
+  let queryEmbedding: number[];
+  try {
+    queryEmbedding = await generateQueryEmbedding(query);
+  } catch {
+    return { matchedChunkIds: [], bestFaq: null };
+  }
+
+  if (queryEmbedding.length === 0) {
+    return { matchedChunkIds: [], bestFaq: null };
+  }
+
+  // Score all FAQ questions against user query
+  const scored = faqIndex.entries
+    .map((entry) => ({
+      ...entry,
+      score: entry.embedding?.length
+        ? cosineSimilarity(queryEmbedding, entry.embedding)
+        : 0,
+    }))
+    .filter((e) => e.score > 0.7)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) {
+    return { matchedChunkIds: [], bestFaq: null };
+  }
+
+  // Collect unique chunk IDs from top matching FAQs
+  const matchedChunkIds = Array.from(
+    new Set(scored.slice(0, 10).map((s) => s.chunkId)),
+  );
+
+  const best = scored[0];
+  return {
+    matchedChunkIds,
+    bestFaq:
+      best.score > 0.85
+        ? { question: best.question, answer: best.answer, score: best.score }
+        : null,
+  };
+}
+
 export async function searchContractSources(query: string): Promise<{
   sources: ContractSearchResult[];
   isConversational: boolean;
@@ -1094,6 +1279,9 @@ export async function searchContractSources(query: string): Promise<{
   if (isConversationalPrompt(normalizedQuery, tokens)) {
     return { sources: [], isConversational: true };
   }
+
+  // FAQ semantic search — find relevant chunk IDs from pre-generated FAQs
+  const { matchedChunkIds } = await faqSemanticSearch(trimmedQuery);
 
   // Query rewriting for better retrieval
   const rewrittenQuery = await rewriteQuery(trimmedQuery);
@@ -1112,6 +1300,31 @@ export async function searchContractSources(query: string): Promise<{
         sources.push(s);
       }
     }
+  }
+
+  // Boost chunks that FAQ matched — add them if not already in results
+  if (matchedChunkIds.length > 0) {
+    const existingIds = new Set(sources.map((s) => s.chunk.id));
+    for (const chunkId of matchedChunkIds) {
+      if (existingIds.has(chunkId)) {
+        // Boost existing source's score
+        const existing = sources.find((s) => s.chunk.id === chunkId);
+        if (existing) existing.score *= 1.3;
+      } else {
+        // Add the chunk directly from index
+        const chunk = index.chunks.find((c) => c.id === chunkId);
+        if (chunk) {
+          sources.push({
+            chunk,
+            score: 0.5,
+            semanticScore: 0.5,
+            keywordScore: 0,
+            matchedTerms: ["faq-match"],
+            excerpt: createExcerpt(chunk.text, tokenizeQuery(trimmedQuery)),
+          });
+        }
+      }
+    }
     sources.sort((a, b) => b.score - a.score);
   }
 
@@ -1119,13 +1332,20 @@ export async function searchContractSources(query: string): Promise<{
   const topSources = sources.slice(0, 8);
   const reranked = await rerankSources(trimmedQuery, topSources);
 
-  // Check if tabulador data is relevant
+  // Check if structured data is relevant
   const tabuladorContext = buildTabuladorContext(trimmedQuery) || undefined;
+  const prestacionesContext =
+    buildPrestacionesContext(trimmedQuery) || undefined;
+
+  // Merge structured contexts
+  const structuredContext =
+    [tabuladorContext, prestacionesContext].filter(Boolean).join("\n\n") ||
+    undefined;
 
   return {
     sources: reranked.slice(0, 8),
     isConversational: false,
-    tabuladorContext,
+    tabuladorContext: structuredContext,
   };
 }
 

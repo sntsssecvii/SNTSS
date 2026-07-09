@@ -10,6 +10,11 @@
 artifacts/contrato-*.pdf
 contrato-*.pdf
 
+# Contract chat generated files (large, regenerable)
+src/lib/contract-chat/contract-index-data.json
+src/lib/contract-chat/faq-generation-progress.json
+src/lib/contract-chat/contract-faqs-embeddings.json
+
 # dependencies
 /node_modules
 /.pnp
