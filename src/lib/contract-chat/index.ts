@@ -857,46 +857,63 @@ function buildGroqMessages(
   return messages;
 }
 
-async function rewriteQuery(query: string): Promise<string> {
-  const apiKey = getGroqApiKey();
-  if (!apiKey) return query;
+// Common IMSS abbreviations and typo corrections — no LLM call needed
+const ABBREVIATIONS: Record<string, string> = {
+  auo: "auxiliar universal de oficinas",
+  cst: "coordinador de servicios tecnicos",
+  jgst: "jefe de grupo de servicios tecnicos",
+  est: "especialista de servicios tecnicos",
+  ost: "oficial de servicios tecnicos",
+  egc: "enfermera general clinica",
+  ejp: "enfermera jefe de piso",
+  cct: "contrato colectivo de trabajo",
+  imss: "instituto mexicano del seguro social",
+  sntss: "sindicato nacional de trabajadores del seguro social",
+  rh: "recursos humanos",
+  umf: "unidad de medicina familiar",
+  hgz: "hospital general de zona",
+  umae: "unidad medica de alta especialidad",
+};
 
-  try {
-    const response = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
-          temperature: 0,
-          max_tokens: 100,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Reescribe la pregunta del usuario para buscar en un contrato colectivo de trabajo IMSS-SNTSS. " +
-                "Corrige errores ortográficos. Usa términos formales del contrato (cláusula, prestación, rescisión, etc). " +
-                "Responde SOLO con la pregunta reescrita, nada más. Si la pregunta ya es clara, repítela tal cual.",
-            },
-            { role: "user", content: query },
-          ],
-        }),
-      },
-    );
+const TYPO_CORRECTIONS: Record<string, string> = {
+  hipotecrio: "hipotecario",
+  hipotecria: "hipotecario",
+  hipotecarios: "hipotecario",
+  jubilacion: "jubilación",
+  vacasiones: "vacaciones",
+  bacaciones: "vacaciones",
+  bacacione: "vacaciones",
+  prestaiones: "prestaciones",
+  prestacioes: "prestaciones",
+  escalafn: "escalafón",
+  escalafo: "escalafón",
+  tabuladro: "tabulador",
+  profesiograma: "profesiograma",
+  profesiogram: "profesiograma",
+  incapaciad: "incapacidad",
+  aguinlado: "aguinaldo",
+  aguilnaldo: "aguinaldo",
+  guareria: "guardería",
+  guarderia: "guardería",
+  guarderias: "guarderías",
+};
 
-    if (!response.ok) return query;
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string | null } }>;
-    };
-    const rewritten = payload.choices?.[0]?.message?.content?.trim();
-    return rewritten && rewritten.length > 3 ? rewritten : query;
-  } catch {
-    return query;
+function rewriteQueryLocal(query: string): string {
+  let result = query.toLowerCase();
+
+  // Expand abbreviations
+  for (const [abbr, expansion] of Object.entries(ABBREVIATIONS)) {
+    const regex = new RegExp(`\\b${abbr}\\b`, "gi");
+    result = result.replace(regex, expansion);
   }
+
+  // Fix common typos
+  for (const [typo, correction] of Object.entries(TYPO_CORRECTIONS)) {
+    const regex = new RegExp(`\\b${typo}\\b`, "gi");
+    result = result.replace(regex, correction);
+  }
+
+  return result;
 }
 
 async function rerankSources(
@@ -1283,10 +1300,12 @@ export async function searchContractSources(query: string): Promise<{
   // FAQ semantic search — find relevant chunk IDs from pre-generated FAQs
   const { matchedChunkIds } = await faqSemanticSearch(trimmedQuery);
 
-  // Query rewriting for better retrieval
-  const rewrittenQuery = await rewriteQuery(trimmedQuery);
+  // Local query rewriting — typos, abbreviations (no LLM call, saves tokens)
+  const rewrittenQuery = rewriteQueryLocal(trimmedQuery);
   const searchQuery =
-    rewrittenQuery !== trimmedQuery ? rewrittenQuery : trimmedQuery;
+    rewrittenQuery !== trimmedQuery.toLowerCase()
+      ? rewrittenQuery
+      : trimmedQuery;
 
   // Search with both original and rewritten query, merge results
   const sources = await hybridSearch(searchQuery, index, 10);
@@ -1328,9 +1347,9 @@ export async function searchContractSources(query: string): Promise<{
     sources.sort((a, b) => b.score - a.score);
   }
 
-  // Rerank top results with LLM
-  const topSources = sources.slice(0, 8);
-  const reranked = await rerankSources(trimmedQuery, topSources);
+  // Sort by score (FAQ-boosted chunks will be higher)
+  sources.sort((a, b) => b.score - a.score);
+  const reranked = sources.slice(0, 8);
 
   // Check if structured data is relevant
   const tabuladorContext = buildTabuladorContext(trimmedQuery) || undefined;
