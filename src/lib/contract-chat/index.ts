@@ -1430,76 +1430,58 @@ export function createGroqStream(
   return new ReadableStream({
     async start(controller) {
       try {
-        // Find a working API key with a cheap pre-check
-        let workingKey: string | null = null;
-        for (const key of apiKeys) {
-          try {
-            const check = await fetch(
-              "https://api.groq.com/openai/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${key}`,
-                },
-                body: JSON.stringify({
-                  model,
-                  max_tokens: 1,
-                  messages: [{ role: "user", content: "ok" }],
-                }),
+        // Try each key directly with streaming
+        let response: Response | null = null;
+        for (let ki = 0; ki < apiKeys.length; ki++) {
+          const key = apiKeys[ki];
+          const attempt = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${key}`,
               },
+              body: JSON.stringify({
+                model,
+                temperature: 0.15,
+                max_tokens: 1024,
+                stream: true,
+                messages,
+              }),
+            },
+          );
+
+          if (attempt.ok && attempt.body) {
+            response = attempt;
+            break;
+          }
+
+          // Rate limited or error — try next key
+          lastFailedKeyIndex = allKeys.indexOf(key);
+          if (ki < apiKeys.length - 1) {
+            console.log(
+              "[chat] Key",
+              ki + 1,
+              "failed (status " + attempt.status + "), trying next...",
             );
-            if (check.ok) {
-              workingKey = key;
-              break;
-            }
-            if (check.status === 429) {
-              lastFailedKeyIndex = allKeys.indexOf(key);
-              console.log(
-                "[chat] Key",
-                allKeys.indexOf(key) + 1,
-                "rate limited, trying next...",
-              );
-              continue;
-            }
-          } catch {
             continue;
           }
-        }
 
-        if (!workingKey) {
+          const errorText = await attempt.text();
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: "Todas las API keys de Groq están en rate limit. Intenta en unos minutos." })}\n\n`,
+              `data: ${JSON.stringify({ error: errorText.slice(0, 200) })}\n\n`,
             ),
           );
           controller.close();
           return;
         }
 
-        const response = await fetch(
-          "https://api.groq.com/openai/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${workingKey}`,
-            },
-            body: JSON.stringify({
-              model,
-              temperature: 0.15,
-              max_tokens: 1024,
-              stream: true,
-              messages,
-            }),
-          },
-        );
-
-        if (!response.ok || !response.body) {
-          const errorText = await response.text();
+        if (!response || !response.body) {
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ error: errorText.slice(0, 200) })}\n\n`,
+              `data: ${JSON.stringify({ error: "Todas las API keys están en rate limit. Intenta en unos minutos." })}\n\n`,
             ),
           );
           controller.close();
