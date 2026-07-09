@@ -1321,6 +1321,27 @@ const GROQ_MIN_INTERVAL_MS = 4_000; // 4s between calls to stay under TPM
 // Round-robin key rotation: alternate keys proactively to spread TPM load
 let nextKeyIndex = 0;
 
+// When Groq is unavailable (rate limit u otro fallo), emitimos el fallback
+// extractivo con las referencias del contrato en vez de un error crudo.
+function enqueueExtractiveFallback(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  sources: ContractSearchResult[],
+) {
+  const note =
+    "⚠️ El asistente de IA está temporalmente saturado (límite de uso). " +
+    "Mientras tanto, aquí tienes las referencias directas del contrato:\n\n";
+  const body =
+    sources.length > 0
+      ? note + buildAnswerText(sources)
+      : "⚠️ El asistente de IA está temporalmente saturado (límite de uso). Intenta de nuevo en un minuto.";
+  controller.enqueue(
+    encoder.encode(`data: ${JSON.stringify({ text: body })}\n\n`),
+  );
+  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+  controller.close();
+}
+
 export function createGroqStream(
   query: string,
   sources: ContractSearchResult[],
@@ -1392,6 +1413,7 @@ export function createGroqStream(
                 temperature: 0.15,
                 max_tokens: 1024,
                 stream: true,
+                stream_options: { include_usage: true },
                 messages,
               }),
             },
@@ -1418,12 +1440,8 @@ export function createGroqStream(
                 );
                 continue;
               }
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ error: "Rate limit alcanzado. Intenta en unos minutos." })}\n\n`,
-                ),
-              );
-              controller.close();
+              console.error("[chat] Rate limit en body con la última key");
+              enqueueExtractiveFallback(controller, encoder, sources);
               return;
             }
 
@@ -1461,6 +1479,17 @@ export function createGroqStream(
           }
 
           const errorText = await attempt.text();
+          console.error(
+            "[chat] Groq falló con la última key:",
+            attempt.status,
+            errorText.slice(0, 200),
+          );
+          // Con sources disponibles preferimos el fallback extractivo antes que
+          // mostrar un error crudo al usuario.
+          if (sources.length > 0) {
+            enqueueExtractiveFallback(controller, encoder, sources);
+            return;
+          }
           const isRateLimit =
             attempt.status === 429 || errorText.includes("Rate limit");
           controller.enqueue(
@@ -1477,12 +1506,8 @@ export function createGroqStream(
         }
 
         if (!response || !response.body) {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ error: "Todas las API keys están en rate limit. Intenta en unos minutos." })}\n\n`,
-            ),
-          );
-          controller.close();
+          console.error("[chat] Todas las keys en rate limit");
+          enqueueExtractiveFallback(controller, encoder, sources);
           return;
         }
 
@@ -1510,6 +1535,19 @@ export function createGroqStream(
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({ text: delta })}\n\n`,
+                  ),
+                );
+              }
+              // Groq envía el usage en el chunk final (include_usage)
+              if (json.usage) {
+                const u = json.usage;
+                console.log(
+                  `[chat] Groq usage — modelo: ${model} | prompt: ${u.prompt_tokens} | completion: ${u.completion_tokens} | total: ${u.total_tokens} tokens`,
+                );
+                // Reenviar el usage al cliente para poder mostrarlo en la UI
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ usage: u })}\n\n`,
                   ),
                 );
               }

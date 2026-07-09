@@ -25,6 +25,39 @@ export interface ChatSession {
   updatedAt: admin.firestore.Timestamp;
 }
 
+// Firestore rechaza valores `undefined`. Los mensajes de usuario no traen
+// `sources`, y los sources del asistente pueden venir sin `clauseNumber` /
+// `clauseTitle`. Saneamos antes de escribir para no perder la conversación.
+function sanitizeMessages(
+  messages: ChatSessionMessage[],
+): ChatSessionMessage[] {
+  return messages.map((m) => {
+    const clean: ChatSessionMessage = {
+      role: m.role,
+      content: m.content ?? "",
+      createdAt: m.createdAt || new Date().toISOString(),
+    };
+
+    if (m.sources && m.sources.length > 0) {
+      clean.sources = m.sources.map((s) => {
+        const src: NonNullable<ChatSessionMessage["sources"]>[number] = {
+          pageNumber: s.pageNumber ?? 0,
+          excerpt: s.excerpt ?? "",
+        };
+        if (s.clauseNumber !== undefined && s.clauseNumber !== null) {
+          src.clauseNumber = s.clauseNumber;
+        }
+        if (s.clauseTitle !== undefined && s.clauseTitle !== null) {
+          src.clauseTitle = s.clauseTitle;
+        }
+        return src;
+      });
+    }
+
+    return clean;
+  });
+}
+
 export async function createChatSession(
   userId: string,
   title: string,
@@ -34,7 +67,7 @@ export async function createChatSession(
   const ref = await adminDb.collection(COLLECTION).add({
     userId,
     title,
-    messages,
+    messages: sanitizeMessages(messages),
     createdAt: now,
     updatedAt: now,
   });
@@ -54,7 +87,7 @@ export async function updateChatSession(
   }
 
   const update: Record<string, unknown> = {
-    messages,
+    messages: sanitizeMessages(messages),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
   if (title) update.title = title;
