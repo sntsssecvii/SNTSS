@@ -200,8 +200,10 @@ const QUERY_EXPANSIONS: Record<string, string[]> = {
 };
 
 const CONVERSATIONAL_PATTERNS = [
-  /\b(hola|buenos dias|buenas tardes|buenas noches|hey|ayuda)\b/,
-  /\b(que puedes hacer|como funcionas|como te uso|en que me ayudas)\b/,
+  /\b(hola|buenos dias|buenas tardes|buenas noches|hey)\b/,
+  // "ayuda" sola NO va aquí: es parte de prestaciones (ayuda de renta, etc.).
+  // Solo las formas de saludo/meta.
+  /\b(me puedes ayudar|puedes ayudarme|ayudame|necesito ayuda|que puedes hacer|como funcionas|como te uso|en que me ayudas)\b/,
   /\b(gracias|ok|vale|entendido|perfecto)\b/,
 ];
 
@@ -981,6 +983,10 @@ function buildTabuladorContext(query: string): string | null {
   const tabulador = loadTabulador();
   if (!tabulador) return null;
 
+  // Solo inyectar el tabulador si la pregunta es realmente de sueldos. Sin este
+  // filtro, el stem-matching contra 55 categorías engancha casi cualquier palabra.
+  if (!isSalaryQuery(query)) return null;
+
   const normalized = normalizeText(query);
   const entries = tabulador.categorias;
 
@@ -1211,8 +1217,12 @@ function loadPrestacionesEmbeddings(): PrestacionEmbeddingEntry[] | null {
   }
 }
 
-// Umbral de similitud coseno (Jina v3 asimétrico query/passage).
-const PRESTACION_SEMANTIC_THRESHOLD = 0.55;
+// Umbral mínimo de similitud coseno (Jina v3 asimétrico query/passage). Calibrado
+// con casos reales: el match correcto suele ser 0.40–0.57 y dominar al resto.
+const PRESTACION_SEMANTIC_THRESHOLD = 0.38;
+// Solo se añaden prestaciones adicionales si quedan MUY cerca del mejor match
+// (evita arrastrar prestaciones vagamente relacionadas).
+const PRESTACION_SEMANTIC_GAP = 0.06;
 
 function matchPrestacionesSemantic(
   queryEmbedding: number[] | undefined,
@@ -1221,16 +1231,27 @@ function matchPrestacionesSemantic(
   const embeddings = loadPrestacionesEmbeddings();
   if (!embeddings) return [];
 
-  const byName = new Map(loadPrestaciones().map((p) => [p.nombre, p]));
-  return embeddings
+  const scored = embeddings
     .map((e) => ({
       nombre: e.nombre,
       score: e.embedding?.length
         ? cosineSimilarity(queryEmbedding, e.embedding)
         : 0,
     }))
-    .filter((e) => e.score >= PRESTACION_SEMANTIC_THRESHOLD)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0 || scored[0].score < PRESTACION_SEMANTIC_THRESHOLD) {
+    return [];
+  }
+
+  const topScore = scored[0].score;
+  const byName = new Map(loadPrestaciones().map((p) => [p.nombre, p]));
+  return scored
+    .filter(
+      (e) =>
+        e.score >= PRESTACION_SEMANTIC_THRESHOLD &&
+        topScore - e.score <= PRESTACION_SEMANTIC_GAP,
+    )
     .slice(0, 3)
     .map((e) => byName.get(e.nombre))
     .filter((p): p is PrestacionEntry => Boolean(p));
