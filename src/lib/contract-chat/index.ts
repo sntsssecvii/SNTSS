@@ -69,6 +69,79 @@ const SEMANTIC_WEIGHT = 0.8;
 const KEYWORD_WEIGHT = 0.2;
 
 // ---------------------------------------------------------------------------
+// 7 secciones principales del CCT (tabla de contenido oficial)
+// ---------------------------------------------------------------------------
+
+const CONTRACT_SECTIONS = [
+  {
+    number: 1,
+    title: "Contrato Colectivo de Trabajo",
+    startPage: 9,
+    endPage: 88,
+    description:
+      "157 cláusulas que regulan la relación laboral entre el IMSS y el SNTSS: contratación, jornadas, permisos, salarios, prestaciones, jubilaciones, escalafón y más.",
+  },
+  {
+    number: 2,
+    title: "Tabulador de Sueldos Base",
+    startPage: 89,
+    endPage: 104,
+    description:
+      "Tablas de sueldos por categoría, jornada y escalafón para todas las ramas del Instituto.",
+  },
+  {
+    number: 3,
+    title: "Profesiogramas",
+    startPage: 105,
+    endPage: 262,
+    description:
+      "Perfil de cada categoría: funciones, requisitos, escolaridad y actividades específicas del puesto.",
+  },
+  {
+    number: 4,
+    title: "Catálogos",
+    startPage: 263,
+    endPage: 272,
+    description: "Catálogos de categorías, ramas y puestos del Instituto.",
+  },
+  {
+    number: 5,
+    title: "Reglamentos",
+    startPage: 273,
+    endPage: 542,
+    description:
+      "Reglamentos internos: becas, bolsas de trabajo, escalafón, fondo de retiro, guarderías, ropa de trabajo, capacitación, vehículos, viáticos y más.",
+  },
+  {
+    number: 6,
+    title:
+      "Convenio Adicional para las Jubilaciones y Pensiones de los Trabajadores de Base de Nuevo Ingreso",
+    startPage: 543,
+    endPage: 550,
+    description:
+      "Régimen especial de jubilación y pensión para trabajadores de base que ingresaron después de cierta fecha.",
+  },
+  {
+    number: 7,
+    title: "Índice",
+    startPage: 551,
+    endPage: 999,
+    description: "Índice general del contrato colectivo.",
+  },
+];
+
+function getSectionForPage(
+  pageNumber: number,
+): (typeof CONTRACT_SECTIONS)[number] | null {
+  for (const section of CONTRACT_SECTIONS) {
+    if (pageNumber >= section.startPage && pageNumber <= section.endPage) {
+      return section;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Stopwords & expansions
 // ---------------------------------------------------------------------------
 
@@ -151,17 +224,27 @@ const QUERY_EXPANSIONS: Record<string, string[]> = {
   becas: ["becas", "beca", "estudios", "capacitacion"],
   cambio: ["cambio", "cambios", "traslado", "adscripcion"],
   confianza: ["confianza", "trabajador", "base"],
+  // Coloquialismos para despido/separación
+  correr: ["despido", "rescision", "separacion", "cese", "baja"],
+  corran: ["despido", "rescision", "separacion", "cese", "baja"],
   descanso: ["vacaciones", "descanso", "descansos"],
   descansos: ["vacaciones", "descanso", "descansos"],
+  despedir: ["despido", "rescision", "separacion", "cese"],
   despido: ["despido", "rescision", "separacion", "cese"],
   economico: ["permisos", "economicos", "licencias"],
   economicos: ["permisos", "economicos", "licencias"],
   embarazo: ["maternidad", "embarazo", "lactancia", "guarderia"],
   enfermedad: ["enfermedad", "incapacidad", "medica", "profesional"],
   escalafon: ["escalafon", "promocion", "promociones", "puesto", "puestos"],
+  // Coloquialismos para extras/horas extra
+  extras: ["horas", "extraordinarias", "jornada", "tiempo"],
   guarderia: ["guarderia", "guarderias", "infantil", "hijos"],
   habitacion: ["habitacion", "vivienda", "prestamo", "hipotecario", "fomento"],
   horario: ["horario", "jornada", "turno", "turnos"],
+  // Coloquialismos para acoso
+  hostigamiento: ["acoso", "violencia", "laboral", "sexual"],
+  hostigar: ["acoso", "violencia", "laboral"],
+  hostigando: ["acoso", "violencia", "laboral"],
   incapacidades: ["incapacidad", "licencias", "medica"],
   incapacidad: ["incapacidad", "licencias", "medica"],
   jornada: ["jornada", "horario", "turno", "horas"],
@@ -672,6 +755,33 @@ function isConversationalPrompt(normalizedQuery: string, tokens: string[]) {
   return CONVERSATIONAL_PATTERNS.some((p) => p.test(normalizedQuery));
 }
 
+const STRUCTURE_PATTERNS = [
+  /\b(que (contiene|incluye|tiene|trae)|de que (trata|se compone|consta))\b.*\b(contrato|cct)\b/,
+  /\b(contrato|cct)\b.*\b(que (contiene|incluye|tiene|trae)|de que (trata|se compone|consta))\b/,
+  /\b(estructura|secciones|partes|indice|contenido|organizacion)\b.*\b(contrato|cct)\b/,
+  /\b(contrato|cct)\b.*\b(estructura|secciones|partes|indice|contenido|organizacion)\b/,
+  /\b(cuantas secciones|cuantas partes|como esta (dividido|organizado|estructurado))\b/,
+  /\b(que secciones|que partes)\b/,
+];
+
+function isStructureQuery(normalizedQuery: string): boolean {
+  return STRUCTURE_PATTERNS.some((p) => p.test(normalizedQuery));
+}
+
+function buildStructureAnswer(): string {
+  const lines = [
+    "El Contrato Colectivo de Trabajo IMSS-SNTSS 2025-2027 se divide en **7 secciones**:",
+    "",
+    ...CONTRACT_SECTIONS.map(
+      (s) =>
+        `**${s.number}. ${s.title}** (p. ${s.startPage}–${s.endPage === 999 ? "fin" : s.endPage})\n${s.description}`,
+    ),
+    "",
+    "Pregúntame sobre cualquier tema y te digo exactamente en qué sección y página encontrarlo.",
+  ];
+  return lines.join("\n");
+}
+
 function buildConversationalAnswer() {
   return [
     "Soy tu asistente del contrato colectivo IMSS-SNTSS 2025-2027.",
@@ -682,6 +792,7 @@ function buildConversationalAnswer() {
     "- ¿Cuáles son los requisitos para jubilación?",
     "- ¿Qué cláusula habla de guarderías?",
     "- ¿Qué prestamos de vivienda hay?",
+    "- ¿Cómo está organizado el contrato?",
     "",
     "Pregunta lo que necesites — te respondo directo con las páginas exactas del contrato.",
   ].join("\n");
@@ -742,6 +853,27 @@ function getGroqModel() {
 }
 
 const SYSTEM_PROMPT = `Eres el asistente virtual del contrato colectivo de trabajo IMSS-SNTSS 2025-2027. Tu rol es ayudar a trabajadores sindicalizados a entender sus derechos y prestaciones.
+
+ESTRUCTURA DEL CONTRATO (7 secciones):
+1. Contrato Colectivo (p.9-88) — 157 cláusulas: contratación, jornadas, permisos, salarios, prestaciones, jubilaciones.
+2. Tabulador de Sueldos Base (p.89-104) — sueldos por categoría, jornada y escalafón.
+3. Profesiogramas (p.105-262) — funciones y requisitos de cada categoría/puesto.
+4. Catálogos (p.263-272) — catálogos de categorías, ramas y puestos.
+5. Reglamentos (p.273-542) — reglamentos internos detallados:
+   - Becas (p.278) · Bolsas de Trabajo Administrativo (p.288) · Bolsas de Trabajo Médico (p.299)
+   - Selección Puestos de Confianza B (p.311) · Capacitación y Adiestramiento (p.320)
+   - Vehículos Automotores (p.333) · Escalafón (p.339) · Fondo de Retiro (p.357)
+   - Guarderías (p.364) · Ropa de Trabajo y Uniformes (p.374)
+   - Reglamento Interior de Trabajo (p.389) · Pasajes (p.434)
+   - Protección al Salario (p.440) · Fomento a la Habitación (p.446)
+   - Comedores (p.456) · Resguardo de Bienes (p.461) · Higiene y Seguridad (p.475)
+   - Uniformes dotación (p.483) · Transformación de Plazas (p.509)
+   - Selección Cambio de Rama (p.523) · Alimentación (p.530) · Tiendas (p.533) · Viáticos (p.538)
+6. Convenio Adicional Jubilaciones/Pensiones Nuevo Ingreso (p.543-550).
+7. Índice (p.551+).
+
+Usa esta estructura para orientar al trabajador: "Esto lo encuentras en la sección X del contrato, p. Y".
+Cuando las fuentes vengan de la sección 5 (Reglamentos), menciona el reglamento específico.
 
 REGLAS ABSOLUTAS — ROMPER CUALQUIERA ES INACEPTABLE:
 1. Responde ÚNICAMENTE con información que aparezca TEXTUALMENTE en las fuentes proporcionadas abajo. Si no está en las fuentes, di "No encontré esa información en las cláusulas que tengo disponibles."
@@ -816,6 +948,10 @@ function buildGroqMessages(
   const context = sources
     .slice(0, 4)
     .map((source, i) => {
+      const section = getSectionForPage(source.chunk.pageNumber);
+      const sectionInfo = section
+        ? `[${section.number}. ${section.title}]`
+        : "";
       const clauseInfo = source.chunk.clauseNumber
         ? `Cláusula ${source.chunk.clauseNumber}${source.chunk.clauseTitle ? ` - ${source.chunk.clauseTitle}` : ""}`
         : `Sección general`;
@@ -824,7 +960,7 @@ function buildGroqMessages(
         : "";
       return [
         `--- Fuente ${i + 1} ---`,
-        `Ubicación: ${clauseInfo}${chapterInfo} | Página ${source.chunk.pageNumber}`,
+        `Ubicación: ${sectionInfo} ${clauseInfo}${chapterInfo} | Página ${source.chunk.pageNumber}`,
         `Texto: ${source.chunk.text.slice(0, 600)}`,
       ].join("\n");
     })
@@ -1164,9 +1300,7 @@ function isGeneralPrestacionesQuery(query: string): boolean {
 
 function matchPrestaciones(query: string): PrestacionEntry[] {
   const normalized = normalizeText(query);
-  const qTokens = normalized
-    .split(/[^a-z0-9]+/i)
-    .filter((w) => w.length >= 4);
+  const qTokens = normalized.split(/[^a-z0-9]+/i).filter((w) => w.length >= 4);
 
   // Enlaza si el keyword aparece literal, o comparte raíz con un token de la
   // consulta (tolera plural/singular: "estacionamiento" ~ "estacionamientos").
@@ -1177,9 +1311,7 @@ function matchPrestaciones(query: string): PrestacionEntry[] {
       return short.length >= 5 && long.startsWith(short);
     });
 
-  return loadPrestaciones().filter((p) =>
-    prestacionKeywords(p).some(matches),
-  );
+  return loadPrestaciones().filter((p) => prestacionKeywords(p).some(matches));
 }
 
 function formatMontos(montos: Record<string, unknown>): string {
@@ -1405,6 +1537,7 @@ async function faqSemanticSearch(
 export async function searchContractSources(query: string): Promise<{
   sources: ContractSearchResult[];
   isConversational: boolean;
+  structureAnswer?: string;
   tabuladorContext?: string;
 }> {
   const trimmedQuery = query.trim();
@@ -1413,6 +1546,15 @@ export async function searchContractSources(query: string): Promise<{
   const index = await getContractIndex();
   const tokens = tokenizeQuery(trimmedQuery);
   const normalizedQuery = normalizeText(trimmedQuery);
+
+  // Preguntas sobre la estructura/organización del contrato
+  if (isStructureQuery(normalizedQuery)) {
+    return {
+      sources: [],
+      isConversational: false,
+      structureAnswer: buildStructureAnswer(),
+    };
+  }
 
   if (isConversationalPrompt(normalizedQuery, tokens)) {
     return { sources: [], isConversational: true };
@@ -1488,8 +1630,10 @@ export async function searchContractSources(query: string): Promise<{
   // reescrita (typos/abreviaciones corregidos) para enganchar mejor.
   const tabuladorContext = buildTabuladorContext(trimmedQuery) || undefined;
   const prestacionesContext =
-    buildPrestacionesContext(`${trimmedQuery} ${searchQuery}`, queryEmbedding) ||
-    undefined;
+    buildPrestacionesContext(
+      `${trimmedQuery} ${searchQuery}`,
+      queryEmbedding,
+    ) || undefined;
 
   // Merge structured contexts
   const structuredContext =
@@ -1735,9 +1879,7 @@ export function createGroqStream(
                 );
                 // Reenviar el usage al cliente para poder mostrarlo en la UI
                 controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({ usage: u })}\n\n`,
-                  ),
+                  encoder.encode(`data: ${JSON.stringify({ usage: u })}\n\n`),
                 );
               }
             } catch {

@@ -70,8 +70,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Search for sources
-    const { sources, isConversational, tabuladorContext } =
+    const { sources, isConversational, structureAnswer, tabuladorContext } =
       await searchContractSources(query);
+
+    // Respuesta directa sobre estructura del contrato (sin LLM)
+    if (structureAnswer) {
+      const encoder = new TextEncoder();
+      const structStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ sources: [] })}\n\n`),
+          );
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ text: structureAnswer })}\n\n`,
+            ),
+          );
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+
+      return new Response(structStream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
 
     if (isConversational) {
       // Use LLM for conversational responses too — feels natural

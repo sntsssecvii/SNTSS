@@ -14,6 +14,7 @@ export interface ChatSessionMessage {
     excerpt: string;
   }>;
   createdAt: string;
+  rating?: 1 | -1;
 }
 
 export interface ChatSession {
@@ -52,6 +53,10 @@ function sanitizeMessages(
         }
         return src;
       });
+    }
+
+    if (m.rating === 1 || m.rating === -1) {
+      clean.rating = m.rating;
     }
 
     return clean;

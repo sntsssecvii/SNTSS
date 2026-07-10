@@ -285,6 +285,21 @@ export default function ChatContratoSandboxPage() {
   );
   const [streamingId, setStreamingId] = useState<string | null>(null);
 
+  // Refs para acceder a los valores más recientes dentro de callbacks memoizados
+  const sessionIdRef = useRef<string | null>(null);
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  const feedbackGivenRef = useRef<Record<string, 1 | -1>>({});
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  useEffect(() => {
+    feedbackGivenRef.current = feedbackGiven;
+  }, [feedbackGiven]);
+
   const sendFeedback = useCallback(
     async (
       messageId: string,
@@ -295,6 +310,7 @@ export default function ChatContratoSandboxPage() {
       setFeedbackGiven((prev) => ({ ...prev, [messageId]: rating }));
       try {
         const idToken = await auth.currentUser!.getIdToken();
+        // Guardar feedback en la colección de ratings (para métricas)
         await fetch("/api/admin/lab/chat-contrato/feedback", {
           method: "POST",
           headers: {
@@ -303,6 +319,43 @@ export default function ChatContratoSandboxPage() {
           },
           body: JSON.stringify({ query, answer, rating }),
         });
+        // Persistir el rating en la sesión activa para recuperarlo al recargar
+        const currentSessionId = sessionIdRef.current;
+        if (currentSessionId) {
+          const currentMessages = messagesRef.current;
+          const realMessages = currentMessages.filter(
+            (m) => m.id !== "welcome",
+          );
+          const updatedFeedback = {
+            ...feedbackGivenRef.current,
+            [messageId]: rating,
+          };
+          const body = {
+            messages: realMessages.map((m) => ({
+              role: m.role,
+              content: m.content,
+              sources: m.sources?.map((s) => ({
+                pageNumber: s.chunk.pageNumber,
+                excerpt: s.excerpt,
+              })),
+              createdAt: new Date().toISOString(),
+              ...(updatedFeedback[m.id] !== undefined
+                ? { rating: updatedFeedback[m.id] }
+                : {}),
+            })),
+          };
+          await fetch(
+            `/api/admin/lab/chat-contrato/sessions/${currentSessionId}`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${idToken}`,
+              },
+              body: JSON.stringify(body),
+            },
+          );
+        }
       } catch (e) {
         console.error(e);
       }
@@ -373,6 +426,9 @@ export default function ChatContratoSandboxPage() {
             excerpt: s.excerpt,
           })),
           createdAt: new Date().toISOString(),
+          ...(feedbackGiven[m.id] !== undefined
+            ? { rating: feedbackGiven[m.id] }
+            : {}),
         })),
       };
 
@@ -419,21 +475,33 @@ export default function ChatContratoSandboxPage() {
       const payload = await res.json();
       if (!res.ok || !payload?.data) return;
 
+      const restoredFeedback: Record<string, 1 | -1> = {};
       const loaded: ChatMessage[] = [
         { id: "welcome", role: "assistant", content: INITIAL_MESSAGE },
-        ...payload.data.messages.map((m: any, i: number) => ({
-          id: `loaded-${i}`,
-          role: m.role,
-          content: m.content,
-          sources: m.sources?.map((s: any, j: number) => ({
-            chunk: { id: `src-${i}-${j}`, pageNumber: s.pageNumber, text: "" },
-            score: 0,
-            matchedTerms: [],
-            excerpt: s.excerpt || "",
-          })),
-        })),
+        ...payload.data.messages.map((m: any, i: number) => {
+          const msgId = `loaded-${i}`;
+          if (m.rating === 1 || m.rating === -1) {
+            restoredFeedback[msgId] = m.rating;
+          }
+          return {
+            id: msgId,
+            role: m.role,
+            content: m.content,
+            sources: m.sources?.map((s: any, j: number) => ({
+              chunk: {
+                id: `src-${i}-${j}`,
+                pageNumber: s.pageNumber,
+                text: "",
+              },
+              score: 0,
+              matchedTerms: [],
+              excerpt: s.excerpt || "",
+            })),
+          };
+        }),
       ];
       setMessages(loaded);
+      setFeedbackGiven(restoredFeedback);
       setSessionId(id);
     } catch (e) {
       console.error(e);
@@ -489,6 +557,7 @@ export default function ChatContratoSandboxPage() {
     setMessages([
       { id: "welcome", role: "assistant", content: INITIAL_MESSAGE },
     ]);
+    setFeedbackGiven({});
     setQuery("");
     closeSidebarOnMobile();
   }, [closeSidebarOnMobile]);
@@ -859,7 +928,9 @@ export default function ChatContratoSandboxPage() {
                             isStreaming={streamingId === message.id}
                           />
                           {streamingId !== message.id && (
-                            <SourcesDisclosure sources={message.sources ?? []} />
+                            <SourcesDisclosure
+                              sources={message.sources ?? []}
+                            />
                           )}
                           {!message.id.startsWith("err-") &&
                             streamingId !== message.id && (
