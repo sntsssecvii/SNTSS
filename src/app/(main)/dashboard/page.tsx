@@ -8,8 +8,10 @@ import {
   getMisTramitesCliente,
   getMiTramiteDetalleCliente,
   getMiEscalafonCliente,
+  getMisCambiosEscalafonCliente,
   type EscalafonPosicionResult,
 } from "@/lib/firebase/trabajador-portal";
+import type { CambiosPosicionResult } from "@/types/cambios-escalafon";
 import {
   NOMBRES_TIPOS,
   type TipoBolsaDeTrabajo,
@@ -133,6 +135,9 @@ export default function DashboardPage() {
 
   const [convenios, setConvenios] = useState<ConvenioPublico[]>([]);
   const [escalafon, setEscalafon] = useState<EscalafonPosicionResult[]>([]);
+  const [cambiosEscalafon, setCambiosEscalafon] = useState<
+    CambiosPosicionResult[]
+  >([]);
 
   // Modal State (bolsa)
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -149,6 +154,11 @@ export default function DashboardPage() {
   const [isEscalafonModalOpen, setIsEscalafonModalOpen] = useState(false);
   const [escalafonDetalle, setEscalafonDetalle] =
     useState<EscalafonPosicionResult | null>(null);
+
+  // Modal State (cambios escalafón)
+  const [isCambiosModalOpen, setIsCambiosModalOpen] = useState(false);
+  const [cambiosDetalle, setCambiosDetalle] =
+    useState<CambiosPosicionResult | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -255,6 +265,22 @@ export default function DashboardPage() {
         }
       };
       fetchEscalafon();
+    }
+  }, [user, userData]);
+
+  useEffect(() => {
+    if (!user || userData?.role?.toUpperCase() !== "USER") return;
+    if (!userData?.matricula?.trim()) return;
+    if (ESCALAFON_HABILITADO) {
+      const fetchCambios = async () => {
+        try {
+          const result = await getMisCambiosEscalafonCliente();
+          setCambiosEscalafon(result.data || []);
+        } catch {
+          // silencioso — cambios puede no estar disponible
+        }
+      };
+      fetchCambios();
     }
   }, [user, userData]);
 
@@ -644,128 +670,215 @@ export default function DashboardPage() {
         </AnimatePresence>
 
         {/* SECCIÓN ESCALAFÓN */}
-        {ESCALAFON_HABILITADO && escalafon.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.25 }}
-            className="space-y-6"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
-              <div>
-                <h2 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white flex items-center gap-3">
-                  Mi Escalafón
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-primary text-white text-base font-black shadow-lg shadow-primary/20">
-                    {escalafon.length}
-                  </span>
-                </h2>
-              </div>
-            </div>
+        {ESCALAFON_HABILITADO &&
+          escalafon.length + cambiosEscalafon.length > 0 &&
+          (() => {
+            const totalEscalafon = escalafon.length + cambiosEscalafon.length;
+            return (
+              <motion.section
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.25 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
+                  <div>
+                    <h2 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white flex items-center gap-3">
+                      Mi Escalafón
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-primary text-white text-base font-black shadow-lg shadow-primary/20">
+                        {totalEscalafon}
+                      </span>
+                    </h2>
+                  </div>
+                </div>
 
-            <div
-              className={cn(
-                "grid gap-6",
-                escalafon.length === 1
-                  ? "grid-cols-1 max-w-3xl mx-auto"
-                  : escalafon.length === 2
-                    ? "lg:grid-cols-2 max-w-5xl mx-auto"
-                    : "lg:grid-cols-3",
-              )}
-            >
-              {escalafon.map((item, index) => {
-                const zonasRank =
-                  item.estatus === "Activo"
-                    ? item.posicionesActivoPorZona
-                    : item.posicionesPeiPorZona;
-                const zonasOrdenadas = Object.entries(zonasRank).sort(
-                  (a, b) => a[1] - b[1],
-                );
-                const mejorZona = zonasOrdenadas[0];
+                <div
+                  className={cn(
+                    "grid gap-6",
+                    totalEscalafon === 1
+                      ? "grid-cols-1 max-w-3xl mx-auto"
+                      : totalEscalafon === 2
+                        ? "lg:grid-cols-2 max-w-5xl mx-auto"
+                        : "lg:grid-cols-3",
+                  )}
+                >
+                  {escalafon.map((item, index) => {
+                    const zonasRank =
+                      item.estatus === "Activo"
+                        ? item.posicionesActivoPorZona
+                        : item.posicionesPeiPorZona;
+                    const zonasOrdenadas = Object.entries(zonasRank).sort(
+                      (a, b) => a[1] - b[1],
+                    );
+                    const mejorZona = zonasOrdenadas[0];
 
-                return (
-                  <motion.div
-                    key={item.listadoId}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 * index }}
-                    whileHover={{ y: -5 }}
-                    className="group relative"
-                  >
-                    <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm group-hover:shadow-2xl group-hover:shadow-primary/5 transition-all duration-500 border relative overflow-visible h-full flex flex-col">
-                      <div className="p-6 lg:p-7 space-y-6 flex-1 flex flex-col">
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="space-y-2 min-w-0 flex-1">
-                            <div className="inline-block px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">
-                              Escalafón
+                    return (
+                      <motion.div
+                        key={item.listadoId}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 * index }}
+                        whileHover={{ y: -5 }}
+                        className="group relative"
+                      >
+                        <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm group-hover:shadow-2xl group-hover:shadow-primary/5 transition-all duration-500 border relative overflow-visible h-full flex flex-col">
+                          <div className="p-6 lg:p-7 space-y-6 flex-1 flex flex-col">
+                            {/* Header */}
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="space-y-2 min-w-0 flex-1">
+                                <div className="inline-block px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">
+                                  Promoción
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
+                                  {item.categoriaDesc}
+                                </h3>
+                              </div>
+
+                              <div className="flex flex-col gap-2 shrink-0">
+                                <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500">
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-0.5 truncate max-w-[80px] mx-auto">
+                                    {mejorZona
+                                      ? mejorZona[0].replace(/^\d+\s+/, "")
+                                      : "ZONA"}
+                                  </p>
+                                  <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
+                                    {mejorZona ? mejorZona[1] : item.lugar}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
-                              {item.categoriaDesc}
-                            </h3>
+
+                            {/* Info Row */}
+                            <div className="flex flex-col gap-3 py-4 border-y border-slate-50 dark:border-slate-800/50 mt-auto">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                  <Briefcase className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                                </div>
+                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                                  {item.areaDesc ||
+                                    item.areaCode ||
+                                    item.estatus}
+                                </span>
+                              </div>
+                              {zonasOrdenadas.length > 0
+                                ? zonasOrdenadas.map(([zona, rank]) => (
+                                    <div
+                                      key={zona}
+                                      className="flex items-center gap-3 min-w-0"
+                                    >
+                                      <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                        <MapPin className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                                      </div>
+                                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                                        Pos. {rank} ·{" "}
+                                        {zona.replace(/^\d+\s+/, "")}
+                                      </span>
+                                    </div>
+                                  ))
+                                : null}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="pt-2">
+                              <Button
+                                onClick={() => {
+                                  setEscalafonDetalle(item);
+                                  setIsEscalafonModalOpen(true);
+                                }}
+                                className="w-full rounded-2xl h-12 px-6 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-all group/btn shadow-md hover:shadow-primary/20 text-xs uppercase tracking-widest border-none"
+                              >
+                                VER DETALLES
+                                <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+
+                  {cambiosEscalafon.map((item, index) => (
+                    <motion.div
+                      key={`cambio-${item.listadoId}-${item.tipo}`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 * (escalafon.length + index) }}
+                      whileHover={{ y: -5 }}
+                      className="group relative"
+                    >
+                      <Card className="border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm group-hover:shadow-2xl group-hover:shadow-amber-500/5 transition-all duration-500 border relative overflow-visible h-full flex flex-col">
+                        <div className="p-6 lg:p-7 space-y-6 flex-1 flex flex-col">
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-2 min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="inline-block px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/20 text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest group-hover:text-amber-500 transition-colors">
+                                  Cambio
+                                </div>
+                                {item.concepto && (
+                                  <div className="inline-block px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                    C-{item.concepto}
+                                  </div>
+                                )}
+                              </div>
+                              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-tight line-clamp-2">
+                                {item.categoriaDesc}
+                              </h3>
+                            </div>
+
+                            <div className="flex flex-col gap-2 shrink-0">
+                              <div className="rounded-3xl bg-gradient-to-br from-amber-500/5 to-amber-500/[0.02] border border-amber-500/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-amber-500 group-hover:to-amber-500/90 transition-all duration-500">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 group-hover:text-white/80 transition-colors mb-0.5">
+                                  Lugar
+                                </p>
+                                <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
+                                  {item.lugar}
+                                </span>
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="flex flex-col gap-2 shrink-0">
-                            <div className="rounded-3xl bg-gradient-to-br from-primary/5 to-primary/[0.02] border border-primary/10 p-4 text-center min-w-[90px] shadow-inner relative group-hover:from-primary group-hover:to-primary/90 transition-all duration-500">
-                              <p className="text-[9px] font-black uppercase tracking-widest text-primary group-hover:text-white/80 transition-colors mb-0.5 truncate max-w-[80px] mx-auto">
-                                {mejorZona
-                                  ? mejorZona[0].replace(/^\d+\s+/, "")
-                                  : "ZONA"}
-                              </p>
-                              <span className="text-3xl font-black text-slate-900 dark:text-white group-hover:text-white transition-colors">
-                                {mejorZona ? mejorZona[1] : item.lugar}
+                          {/* Info Row */}
+                          <div className="flex flex-col gap-3 py-4 border-y border-slate-50 dark:border-slate-800/50 mt-auto">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                <Briefcase className="h-3.5 w-3.5 text-amber-500/70 shrink-0" />
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                                {item.tipo}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                <MapPin className="h-3.5 w-3.5 text-amber-500/70 shrink-0" />
+                              </div>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
+                                {item.grupoUnidad} · {item.grupoTurno}
                               </span>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Info Row */}
-                        <div className="flex flex-col gap-3 py-4 border-y border-slate-50 dark:border-slate-800/50 mt-auto">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
-                              <Briefcase className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
-                              {item.areaDesc || item.areaCode || item.estatus}
-                            </span>
+                          {/* Footer */}
+                          <div className="pt-2">
+                            <Button
+                              onClick={() => {
+                                setCambiosDetalle(item);
+                                setIsCambiosModalOpen(true);
+                              }}
+                              className="w-full rounded-2xl h-12 px-6 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 dark:hover:text-white transition-all group/btn shadow-md hover:shadow-amber-500/20 text-xs uppercase tracking-widest border-none"
+                            >
+                              VER DETALLES
+                              <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                            </Button>
                           </div>
-                          {zonasOrdenadas.length > 0
-                            ? zonasOrdenadas.map(([zona, rank]) => (
-                                <div
-                                  key={zona}
-                                  className="flex items-center gap-3 min-w-0"
-                                >
-                                  <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800">
-                                    <MapPin className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-                                  </div>
-                                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight truncate">
-                                    Pos. {rank} · {zona.replace(/^\d+\s+/, "")}
-                                  </span>
-                                </div>
-                              ))
-                            : null}
                         </div>
-
-                        {/* Footer */}
-                        <div className="pt-2">
-                          <Button
-                            onClick={() => {
-                              setEscalafonDetalle(item);
-                              setIsEscalafonModalOpen(true);
-                            }}
-                            className="w-full rounded-2xl h-12 px-6 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-primary hover:text-white dark:hover:bg-primary dark:hover:text-white transition-all group/btn shadow-md hover:shadow-primary/20 text-xs uppercase tracking-widest border-none"
-                          >
-                            VER DETALLES
-                            <ArrowRight className="ml-2 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.section>
-        )}
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.section>
+            );
+          })()}
 
         {/* MODAL ESCALAFÓN */}
         {ESCALAFON_HABILITADO && (
@@ -890,6 +1003,144 @@ export default function DashboardPage() {
 
                         <Button
                           onClick={() => setIsEscalafonModalOpen(false)}
+                          className="w-full rounded-2xl h-11 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-lg"
+                        >
+                          CERRAR
+                        </Button>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* MODAL CAMBIOS ESCALAFÓN */}
+        {ESCALAFON_HABILITADO && (
+          <Dialog
+            open={isCambiosModalOpen}
+            onOpenChange={(open) => {
+              setIsCambiosModalOpen(open);
+              if (!open) setCambiosDetalle(null);
+            }}
+          >
+            <DialogContent className="max-w-lg w-[calc(100%-2rem)] max-h-[88vh] bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-slate-200/50 dark:border-slate-800/50 rounded-[2rem] p-0 overflow-hidden shadow-2xl">
+              <div className="overflow-y-auto max-h-[88vh]">
+                <div className="relative p-5 sm:p-7">
+                  <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent opacity-50 pointer-events-none" />
+                  <div className="relative">
+                    <DialogHeader className="flex flex-row items-center justify-between mb-4">
+                      <div className="space-y-0.5 text-left min-w-0 flex-1 mr-3">
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1">
+                          <ShieldCheck className="h-3 w-3" />
+                          Cambio de Escalafón
+                        </div>
+                        {cambiosDetalle && (
+                          <DialogTitle className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white leading-tight">
+                            {cambiosDetalle.categoriaDesc}
+                          </DialogTitle>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsCambiosModalOpen(false)}
+                        className="rounded-full h-9 w-9 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </DialogHeader>
+
+                    {cambiosDetalle && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-3"
+                      >
+                        {/* Hero */}
+                        <div className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-amber-600 to-amber-700 dark:from-amber-700 dark:to-amber-900 py-6 px-5 text-center shadow-lg">
+                          <div className="absolute top-0 right-0 p-5 opacity-5">
+                            <TrendingUp className="w-20 h-20" />
+                          </div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-amber-200 mb-0.5">
+                            Tu lugar en
+                          </p>
+                          <p className="text-sm font-black uppercase tracking-widest text-white/80 mb-2">
+                            {cambiosDetalle.grupoUnidad} ·{" "}
+                            {cambiosDetalle.grupoTurno}
+                          </p>
+                          <span className="text-6xl sm:text-7xl font-black text-white tracking-tighter leading-none">
+                            {cambiosDetalle.lugar}
+                          </span>
+                          <div className="mt-3">
+                            <span className="text-[9px] font-bold text-amber-200 uppercase tracking-widest">
+                              de {cambiosDetalle.totalEnGrupo}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-0.5">
+                            Detalles
+                          </p>
+                          <div className="grid gap-2">
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-20 shrink-0">
+                                Tipo
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                {cambiosDetalle.tipo}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-20 shrink-0">
+                                Zona
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                {cambiosDetalle.zona}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-20 shrink-0">
+                                Unidad
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                {cambiosDetalle.adscripcionSolicitada}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-20 shrink-0">
+                                Turno
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                {cambiosDetalle.turnoSolicitado}
+                              </span>
+                            </div>
+                            {cambiosDetalle.concepto && (
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-20 shrink-0">
+                                  Concepto
+                                </span>
+                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                  C-{cambiosDetalle.concepto}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 w-20 shrink-0">
+                                Emisión
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                                {cambiosDetalle.fechaEmision}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => setIsCambiosModalOpen(false)}
                           className="w-full rounded-2xl h-11 font-black bg-slate-900 dark:bg-white dark:text-slate-900 hover:opacity-90 transition-all text-xs uppercase tracking-widest shadow-lg"
                         >
                           CERRAR
