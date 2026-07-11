@@ -53,3 +53,19 @@ export interface CambiosLote {
   creadoEn: string;
   actualizadoEn: string;
 }
+
+export interface CambiosPosicionResult {
+  listadoId: string;
+  categoriaCode: string;
+  categoriaDesc: string;
+  concepto: string;
+  fechaEmision: string;
+  tipo: string;
+  zona: string;
+  adscripcionSolicitada: string;
+  turnoSolicitado: string;
+  lugar: number;
+  totalEnGrupo: number;
+  grupoUnidad: string;
+  grupoTurno: string;
+}

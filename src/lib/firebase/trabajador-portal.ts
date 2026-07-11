@@ -1,6 +1,7 @@
 import { auth } from "@/lib/firebase/firebase-client";
 import type { TipoBolsaDeTrabajo } from "@/types/bolsa-de-trabajo";
 import type { EscalafonPreferencia } from "@/types/escalafon";
+import type { CambiosPosicionResult } from "@/types/cambios-escalafon";
 
 export interface EscalafonPosicionResult {
   listadoId: string;
@@ -136,5 +137,21 @@ export async function getMiEscalafonCliente(): Promise<{
   });
 
   const payload = await parseJsonResponse<EscalafonPosicionResponse>(response);
+  return { data: payload.data || [] };
+}
+
+export async function getMisCambiosEscalafonCliente(): Promise<{
+  data: CambiosPosicionResult[];
+}> {
+  const headers = await getAuthHeaders();
+  const response = await fetch("/api/trabajador/cambios-posicion", {
+    method: "GET",
+    headers,
+  });
+
+  const payload = await parseJsonResponse<{
+    success: boolean;
+    data: CambiosPosicionResult[];
+  }>(response);
   return { data: payload.data || [] };
 }
