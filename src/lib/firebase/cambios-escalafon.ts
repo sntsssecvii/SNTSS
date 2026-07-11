@@ -4,6 +4,10 @@ import type {
   CambiosListado,
   CambiosRegistro,
 } from "@/types/cambios-escalafon";
+import {
+  calcularPosicionesCambios,
+  claveRegistro,
+} from "@/lib/cambios-escalafon/position-engine";
 
 const COL_LISTADOS = "cambios_listados";
 const COL_REGISTROS = "cambios_registros";
@@ -84,6 +88,57 @@ export async function obtenerRegistros(
   return snap.docs.map(
     (doc) => ({ id: doc.id, ...doc.data() }) as CambiosRegistro,
   );
+}
+
+/**
+ * Corre el motor de posiciones sobre los registros de un listado y guarda
+ * lugar/totalEnGrupo/grupoUnidad/grupoTurno en cada doc de cambios_registros.
+ * Para incondicionales (multiples posiciones), guarda la mejor (lugar mas bajo).
+ */
+export async function materializarPosicionesCambios(
+  listadoId: string,
+): Promise<void> {
+  const registros = await obtenerRegistros(listadoId);
+  if (registros.length === 0) return;
+
+  const posiciones = calcularPosicionesCambios(registros);
+
+  // Para cada registro, tomar la mejor posicion (menor lugar).
+  // Un incondicional puede aparecer en multiples grupos.
+  const mejorPorRegistro = new Map<
+    string,
+    { lugar: number; totalEnGrupo: number; unidad: string; turno: string }
+  >();
+
+  for (const p of posiciones) {
+    const k = claveRegistro(p.registro);
+    const prev = mejorPorRegistro.get(k);
+    if (!prev || p.lugar < prev.lugar) {
+      mejorPorRegistro.set(k, {
+        lugar: p.lugar,
+        totalEnGrupo: p.totalEnGrupo,
+        unidad: p.unidad,
+        turno: p.turno,
+      });
+    }
+  }
+
+  // Actualizar docs en batches
+  const BATCH_SIZE = 400;
+  const docs = registros.filter((r) => mejorPorRegistro.has(claveRegistro(r)));
+  for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    for (const r of docs.slice(i, i + BATCH_SIZE)) {
+      const best = mejorPorRegistro.get(claveRegistro(r))!;
+      batch.update(adminDb.collection(COL_REGISTROS).doc(r.id!), {
+        lugar: best.lugar,
+        totalEnGrupo: best.totalEnGrupo,
+        grupoUnidad: best.unidad,
+        grupoTurno: best.turno,
+      });
+    }
+    await batch.commit();
+  }
 }
 
 export async function eliminarListadoCambios(listadoId: string): Promise<void> {
