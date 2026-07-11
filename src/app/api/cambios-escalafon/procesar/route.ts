@@ -8,6 +8,7 @@ import {
   obtenerListadoVigenteCambios,
   guardarListadoCambios,
   eliminarListadoCambios,
+  materializarPosicionesCambios,
 } from "@/lib/firebase/cambios-escalafon";
 import {
   obtenerLoteAbiertoCambios,
@@ -126,6 +127,9 @@ export async function POST(req: NextRequest) {
       },
       registros.map((r) => ({ ...r, listadoId: "" })),
     );
+
+    // Materializar posiciones para el portal del trabajador
+    await materializarPosicionesCambios(listadoId);
 
     if (loteIdFinal) {
       await incrementarTotalListadosCambios(loteIdFinal);
