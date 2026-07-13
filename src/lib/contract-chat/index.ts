@@ -762,6 +762,11 @@ const STRUCTURE_PATTERNS = [
   /\b(contrato|cct)\b.*\b(estructura|secciones|partes|indice|contenido|organizacion)\b/,
   /\b(cuantas secciones|cuantas partes|como esta (dividido|organizado|estructurado))\b/,
   /\b(que secciones|que partes)\b/,
+  // Preguntas cortas / follow-up que son claramente sobre el contrato
+  /^de que trata\??$/,
+  /^que (contiene|incluye|tiene|trae)\??$/,
+  /^que es el (contrato|cct)\??$/,
+  /^para que (sirve|es)\??$/,
 ];
 
 function isStructureQuery(normalizedQuery: string): boolean {
