@@ -32,7 +32,7 @@ import seccion7 from "@/assets/seccion7.png";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase/firebase-client";
 import { useToast } from "./ui/use-toast";
-import { getRoleLabel, isAdminRole } from "@/lib/auth/roles";
+import { getRoleLabel, isAdminRole, isSuperAdminRole } from "@/lib/auth/roles";
 
 interface NavItem {
   title: string;
@@ -41,11 +41,7 @@ interface NavItem {
   badge?: string;
 }
 
-const getNavItems = (
-  rol?: string,
-  pendingCount: number = 0,
-  isDeveloper?: boolean,
-): NavItem[] => {
+const getNavItems = (rol?: string, pendingCount: number = 0): NavItem[] => {
   const baseItems: NavItem[] = [];
 
   // Dashboard según rol
@@ -118,19 +114,20 @@ const getNavItems = (
     );
   }
 
-  if (isDeveloper) {
-    baseItems.push(
-      {
-        title: "Admin Global",
-        href: "/admin/global",
-        icon: Crown,
-      },
-      {
-        title: "Chatbot CCT",
-        href: "/admin/lab/chat-contrato",
-        icon: Bot,
-      },
-    );
+  if (isSuperAdminRole(roleUpper)) {
+    baseItems.push({
+      title: "Admin Global",
+      href: "/admin/global",
+      icon: Crown,
+    });
+  }
+
+  if (isAdminRole(roleUpper)) {
+    baseItems.push({
+      title: "Chat Contrato",
+      href: "/admin/lab/chat-contrato",
+      icon: Bot,
+    });
   }
 
   if (roleUpper === "BOLSA") {
@@ -372,11 +369,7 @@ export function Sidebar() {
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1.5 custom-scrollbar">
-            {getNavItems(
-              userData?.role,
-              pendingCount,
-              userData?.isDeveloper,
-            ).map((item) => {
+            {getNavItems(userData?.role, pendingCount).map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
               return (
