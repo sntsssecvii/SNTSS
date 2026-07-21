@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
+    const startMs = Date.now();
     assertSameOrigin(request);
     enforceRateLimit(request, {
       bucket: "api:admin:lab:chat-contrato:stream",
@@ -72,6 +73,18 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        console.log(
+          JSON.stringify({
+            event: "chat-contrato-query",
+            query: query.slice(0, 100),
+            totalMs: Date.now() - startMs,
+            retrievalMs: 0,
+            sourceCount: 0,
+            isConversational: false,
+            hasStructureAnswer: false,
+            cached: true,
+          }),
+        );
         return new Response(cacheStream, {
           headers: {
             "Content-Type": "text/event-stream",
@@ -85,6 +98,7 @@ export async function POST(request: NextRequest) {
     // Search for sources
     const { sources, isConversational, structureAnswer, tabuladorContext } =
       await searchContractSources(query, history);
+    const retrievalMs = Date.now() - startMs;
 
     // Respuesta directa sobre estructura del contrato (sin LLM)
     if (structureAnswer) {
@@ -104,6 +118,18 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      console.log(
+        JSON.stringify({
+          event: "chat-contrato-query",
+          query: query.slice(0, 100),
+          totalMs: Date.now() - startMs,
+          retrievalMs: 0,
+          sourceCount: 0,
+          isConversational: false,
+          hasStructureAnswer: true,
+          cached: false,
+        }),
+      );
       return new Response(structStream, {
         headers: {
           "Content-Type": "text/event-stream",
@@ -144,6 +170,18 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        console.log(
+          JSON.stringify({
+            event: "chat-contrato-query",
+            query: query.slice(0, 100),
+            totalMs: Date.now() - startMs,
+            retrievalMs,
+            sourceCount: 0,
+            isConversational: true,
+            hasStructureAnswer: false,
+            cached: false,
+          }),
+        );
         return new Response(wrappedStream, {
           headers: {
             "Content-Type": "text/event-stream",
@@ -228,6 +266,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log(
+      JSON.stringify({
+        event: "chat-contrato-query",
+        query: query.slice(0, 100),
+        totalMs: Date.now() - startMs,
+        retrievalMs,
+        sourceCount: sources?.length ?? 0,
+        isConversational,
+        hasStructureAnswer: false,
+        cached: false,
+      }),
+    );
     return new Response(combinedStream, {
       headers: {
         "Content-Type": "text/event-stream",
