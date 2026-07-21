@@ -340,11 +340,18 @@ export function countTokens(value: string) {
 // Conversational detection
 // ---------------------------------------------------------------------------
 
+// Si la query contiene cualquiera de estas keywords, NUNCA es conversacional,
+// aunque matchee un patrón de saludo (ej: "ok puedo faltar mañana").
+const LABOR_KEYWORDS =
+  /\b(faltar|falta|faltas|permiso|permisos|licencia|gano|gana|pagan|cobro|sueldo|salario|jubil|pension|retiro|beca|becas|vacacion|vacaciones|despido|despedir|incapacidad|guarderia|escalafon|contrato|clausula|articulo|prestacion|aguinaldo|prima|turno|adscripcion|antiguedad)\b/;
+
 export function isConversationalPrompt(
   normalizedQuery: string,
   tokens: string[],
 ) {
   if (tokens.length === 0) return true;
+  // Si tiene keywords laborales, NUNCA es conversacional
+  if (LABOR_KEYWORDS.test(normalizedQuery)) return false;
   return CONVERSATIONAL_PATTERNS.some((p) => p.test(normalizedQuery));
 }
 

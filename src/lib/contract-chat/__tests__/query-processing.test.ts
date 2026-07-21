@@ -44,6 +44,25 @@ describe("query-processing", () => {
       const tokens = tokenizeQuery("¿Cuánto gano?");
       expect(isConversationalPrompt(normalized, tokens)).toBe(false);
     });
+    it("preguntas con verbos laborales NUNCA son conversacionales", () => {
+      const cases = [
+        "¿Puedo faltar?",
+        "¿Me pueden despedir?",
+        "¿Cuánto gano?",
+        "quiero jubilarme",
+        "necesito una beca",
+        "mis vacaciones",
+        "permiso económico",
+      ];
+      for (const q of cases) {
+        const normalized = normalizeText(q);
+        const tokens = tokenizeQuery(q);
+        expect(
+          isConversationalPrompt(normalized, tokens),
+          `"${q}" fue clasificado como conversacional`,
+        ).toBe(false);
+      }
+    });
   });
 
   describe("isStructureQuery", () => {
