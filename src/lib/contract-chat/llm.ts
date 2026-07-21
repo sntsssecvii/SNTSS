@@ -10,6 +10,7 @@ import { normalizeText } from "@/lib/contract-chat/query-processing";
 import { orderSourcesForPrompt } from "@/lib/contract-chat/evidence";
 import { buildAnswerText } from "@/lib/contract-chat/evidence-pack";
 import { sanitizeConversationHistory } from "@/lib/contract-chat/contextualization";
+import { validateCitations } from "@/lib/contract-chat/citation-validator";
 import type {
   AnswerPlan,
   ChatMessage,
@@ -97,7 +98,9 @@ ESTILO:
 - Si es pregunta de seguimiento, usa el contexto previo. No repitas lo que ya dijiste.
 - Si ya existe historial de conversación, NO saludes otra vez. Continúa directo con la respuesta.
 - Máximo 8-10 líneas. Si pide más detalle, entonces sí amplía.
-- Al final: "Páginas de referencia: p. X, p. Y"`;
+- Al final: "Páginas de referencia: p. X, p. Y"
+
+REGLA ABSOLUTA: SOLO puedes citar cláusulas, artículos y páginas que aparezcan TEXTUALMENTE en el contexto proporcionado. Si no encuentras el dato en las fuentes, NO inventes una referencia — di "según el contrato" sin número específico.`;
 
 // ---------------------------------------------------------------------------
 // Helper: section lookup for page number
@@ -258,10 +261,18 @@ export async function generateGroqAnswer(
     choices?: Array<{ message?: { content?: string | null } }>;
   };
 
-  const content = payload.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error("GROQ_EMPTY_RESPONSE");
+  const rawContent = payload.choices?.[0]?.message?.content?.trim();
+  if (!rawContent) throw new Error("GROQ_EMPTY_RESPONSE");
 
-  return { model, content };
+  const { cleanedText, removedCitations } = validateCitations(
+    rawContent,
+    sources,
+  );
+  if (removedCitations.length > 0) {
+    console.warn("[chat-contrato] Citas eliminadas:", removedCitations);
+  }
+
+  return { model, content: cleanedText };
 }
 
 // ---------------------------------------------------------------------------
