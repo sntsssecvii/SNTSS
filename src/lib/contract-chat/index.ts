@@ -17,69 +17,33 @@ import type {
   DocumentType,
   EvidencePack,
 } from "@/lib/contract-chat/types";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const CONTRACT_FILENAME = "contrato-colectivo-de-trabajo-2025-2027.pdf";
-const CONTRACT_PATH = path.join(process.cwd(), "artifacts", CONTRACT_FILENAME);
-const LOCAL_PYTHON_PATH = path.join(
-  process.cwd(),
-  "src",
-  "lib",
-  "pdf",
-  "extractors",
-  "venv",
-  "bin",
-  "python3",
-);
-const CONTRACT_INDEX_PATH = path.join(
-  process.cwd(),
-  "src",
-  "lib",
-  "contract-chat",
-  "contract-index-data.json",
-);
-
-const PRESTACIONES_PATH = path.join(
-  process.cwd(),
-  "src",
-  "lib",
-  "contract-chat",
-  "prestaciones-data.json",
-);
-const FAQ_PATH = path.join(
-  process.cwd(),
-  "src",
-  "lib",
-  "contract-chat",
-  "contract-faqs.json",
-);
-const TABULADOR_PATH = path.join(
-  process.cwd(),
-  "src",
-  "lib",
-  "contract-chat",
-  "tabulador-sueldos.json",
-);
-
-const TARGET_CHUNK_SIZE = 800;
-const CHUNK_OVERLAP = 120;
-const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
-const JINA_EMBEDDING_MODEL = "jina-embeddings-v3";
-const JINA_BATCH_SIZE = 100;
-const MAX_CONVERSATION_HISTORY = 10;
-const MAX_CONTEXTUALIZATION_HISTORY = 6;
-const MAX_RETRIEVAL_TRACES = 50;
-const MAX_EVIDENCE_SOURCES = 8;
-const MAX_SELECTED_SOURCES = 12;
-const EVIDENCE_EXPANSION_ANCHORS = 5;
-const EVIDENCE_EXPANSION_RADIUS = 1;
-
-// Weights for hybrid search — semantic dominates to avoid keyword false positives
-const SEMANTIC_WEIGHT = 0.8;
-const KEYWORD_WEIGHT = 0.2;
+import {
+  CHUNK_OVERLAP,
+  CONTRACT_FILENAME,
+  CONTRACT_INDEX_PATH,
+  CONTRACT_PATH,
+  DEFAULT_GROQ_MODEL,
+  EVIDENCE_EXPANSION_ANCHORS,
+  EVIDENCE_EXPANSION_RADIUS,
+  FAQ_PATH,
+  GROQ_MIN_INTERVAL_MS,
+  JINA_BATCH_SIZE,
+  JINA_EMBEDDING_MODEL,
+  KEYWORD_WEIGHT,
+  LOCAL_PYTHON_PATH,
+  MAX_CONTEXTUALIZATION_HISTORY,
+  MAX_CONVERSATION_HISTORY,
+  MAX_EVIDENCE_SOURCES,
+  MAX_RETRIEVAL_TRACES,
+  MAX_SELECTED_SOURCES,
+  PRESTACIONES_EMB_PATH,
+  PRESTACIONES_PATH,
+  PRESTACION_SEMANTIC_GAP,
+  PRESTACION_SEMANTIC_THRESHOLD,
+  SEMANTIC_WEIGHT,
+  TABULADOR_PATH,
+  TARGET_CHUNK_SIZE,
+} from "@/lib/contract-chat/constants";
 
 // ---------------------------------------------------------------------------
 // 7 secciones principales del CCT (tabla de contenido oficial)
@@ -1983,13 +1947,6 @@ interface PrestacionEmbeddingEntry {
 }
 
 let prestacionesEmbCache: PrestacionEmbeddingEntry[] | null = null;
-const PRESTACIONES_EMB_PATH = path.join(
-  process.cwd(),
-  "src",
-  "lib",
-  "contract-chat",
-  "prestaciones-embeddings.json",
-);
 
 function loadPrestacionesEmbeddings(): PrestacionEmbeddingEntry[] | null {
   if (prestacionesEmbCache) return prestacionesEmbCache;
@@ -2002,13 +1959,6 @@ function loadPrestacionesEmbeddings(): PrestacionEmbeddingEntry[] | null {
     return null;
   }
 }
-
-// Umbral mínimo de similitud coseno (Jina v3 asimétrico query/passage). Calibrado
-// con casos reales: el match correcto suele ser 0.40–0.57 y dominar al resto.
-const PRESTACION_SEMANTIC_THRESHOLD = 0.38;
-// Solo se añaden prestaciones adicionales si quedan MUY cerca del mejor match
-// (evita arrastrar prestaciones vagamente relacionadas).
-const PRESTACION_SEMANTIC_GAP = 0.06;
 
 function matchPrestacionesSemantic(
   queryEmbedding: number[] | undefined,
@@ -2712,7 +2662,6 @@ export async function searchContractSources(
 
 // Simple throttle — Groq free tier has ~6000 TPM org-level limit
 let lastGroqCallMs = 0;
-const GROQ_MIN_INTERVAL_MS = 4_000; // 4s between calls to stay under TPM
 
 // Round-robin key rotation: alternate keys proactively to spread TPM load
 let nextKeyIndex = 0;
