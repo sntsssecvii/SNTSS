@@ -14,13 +14,9 @@ import {
   Bot,
   FileText,
   Loader2,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
   Send,
   ThumbsDown,
   ThumbsUp,
-  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,13 +42,6 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   sources?: SourceItem[];
-}
-
-interface SessionSummary {
-  id: string;
-  title: string;
-  messageCount: number;
-  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -272,11 +261,6 @@ export default function ChatContratoSandboxPage() {
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Session state
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: "welcome", role: "assistant", content: INITIAL_MESSAGE },
   ]);
@@ -286,13 +270,9 @@ export default function ChatContratoSandboxPage() {
   const [streamingId, setStreamingId] = useState<string | null>(null);
 
   // Refs para acceder a los valores más recientes dentro de callbacks memoizados
-  const sessionIdRef = useRef<string | null>(null);
   const messagesRef = useRef<ChatMessage[]>(messages);
   const feedbackGivenRef = useRef<Record<string, 1 | -1>>({});
 
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -310,7 +290,6 @@ export default function ChatContratoSandboxPage() {
       setFeedbackGiven((prev) => ({ ...prev, [messageId]: rating }));
       try {
         const idToken = await auth.currentUser!.getIdToken();
-        // Guardar feedback en la colección de ratings (para métricas)
         await fetch("/api/admin/lab/chat-contrato/feedback", {
           method: "POST",
           headers: {
@@ -319,43 +298,6 @@ export default function ChatContratoSandboxPage() {
           },
           body: JSON.stringify({ query, answer, rating }),
         });
-        // Persistir el rating en la sesión activa para recuperarlo al recargar
-        const currentSessionId = sessionIdRef.current;
-        if (currentSessionId) {
-          const currentMessages = messagesRef.current;
-          const realMessages = currentMessages.filter(
-            (m) => m.id !== "welcome",
-          );
-          const updatedFeedback = {
-            ...feedbackGivenRef.current,
-            [messageId]: rating,
-          };
-          const body = {
-            messages: realMessages.map((m) => ({
-              role: m.role,
-              content: m.content,
-              sources: m.sources?.map((s) => ({
-                pageNumber: s.chunk.pageNumber,
-                excerpt: s.excerpt,
-              })),
-              createdAt: new Date().toISOString(),
-              ...(updatedFeedback[m.id] !== undefined
-                ? { rating: updatedFeedback[m.id] }
-                : {}),
-            })),
-          };
-          await fetch(
-            `/api/admin/lab/chat-contrato/sessions/${currentSessionId}`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${idToken}`,
-              },
-              body: JSON.stringify(body),
-            },
-          );
-        }
       } catch (e) {
         console.error(e);
       }
@@ -384,183 +326,14 @@ export default function ChatContratoSandboxPage() {
   const isAdmin =
     userData && (isAdminRole(userData.role) || isSuperAdminRole(userData.role));
 
-  // Load sessions list
-  const loadSessions = useCallback(async () => {
-    if (!auth.currentUser) return;
-    setSessionsLoading(true);
-    try {
-      const idToken = await auth.currentUser.getIdToken();
-      const res = await fetch("/api/admin/lab/chat-contrato/sessions", {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      const payload = await res.json();
-      if (res.ok && payload?.data) setSessions(payload.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSessionsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!loading && user && isAdmin) loadSessions();
-  }, [loading, user, isAdmin, loadSessions]);
-
-  // Save session (create or update)
-  const saveSession = useCallback(
-    async (allMessages: ChatMessage[], currentSessionId: string | null) => {
-      const realMessages = allMessages.filter((m) => m.id !== "welcome");
-      if (realMessages.length < 2) return currentSessionId;
-
-      const idToken = await auth.currentUser!.getIdToken();
-      const title =
-        realMessages.find((m) => m.role === "user")?.content.slice(0, 80) ||
-        "Chat";
-      const body = {
-        title,
-        messages: realMessages.map((m) => ({
-          role: m.role,
-          content: m.content,
-          sources: m.sources?.map((s) => ({
-            pageNumber: s.chunk.pageNumber,
-            excerpt: s.excerpt,
-          })),
-          createdAt: new Date().toISOString(),
-          ...(feedbackGiven[m.id] !== undefined
-            ? { rating: feedbackGiven[m.id] }
-            : {}),
-        })),
-      };
-
-      if (currentSessionId) {
-        await fetch(
-          `/api/admin/lab/chat-contrato/sessions/${currentSessionId}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${idToken}`,
-            },
-            body: JSON.stringify(body),
-          },
-        );
-        return currentSessionId;
-      }
-
-      const res = await fetch("/api/admin/lab/chat-contrato/sessions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify(body),
-      });
-      const payload = await res.json();
-      if (res.ok && payload?.data?.id) {
-        loadSessions();
-        return payload.data.id as string;
-      }
-      return null;
-    },
-    [loadSessions],
-  );
-
-  // Load a session
-  const loadSession = useCallback(async (id: string) => {
-    try {
-      const idToken = await auth.currentUser!.getIdToken();
-      const res = await fetch(`/api/admin/lab/chat-contrato/sessions/${id}`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload?.data) return;
-
-      const restoredFeedback: Record<string, 1 | -1> = {};
-      const loaded: ChatMessage[] = [
-        { id: "welcome", role: "assistant", content: INITIAL_MESSAGE },
-        ...payload.data.messages.map((m: any, i: number) => {
-          const msgId = `loaded-${i}`;
-          if (m.rating === 1 || m.rating === -1) {
-            restoredFeedback[msgId] = m.rating;
-          }
-          return {
-            id: msgId,
-            role: m.role,
-            content: m.content,
-            sources: m.sources?.map((s: any, j: number) => ({
-              chunk: {
-                id: `src-${i}-${j}`,
-                pageNumber: s.pageNumber,
-                text: "",
-              },
-              score: 0,
-              matchedTerms: [],
-              excerpt: s.excerpt || "",
-            })),
-          };
-        }),
-      ];
-      setMessages(loaded);
-      setFeedbackGiven(restoredFeedback);
-      setSessionId(id);
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
-  // Delete session
-  const deleteSession = useCallback(
-    async (id: string) => {
-      try {
-        const idToken = await auth.currentUser!.getIdToken();
-        await fetch(`/api/admin/lab/chat-contrato/sessions/${id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${idToken}` },
-        });
-        if (sessionId === id) {
-          setSessionId(null);
-          setMessages([
-            { id: "welcome", role: "assistant", content: INITIAL_MESSAGE },
-          ]);
-        }
-        setSessions((prev) => prev.filter((s) => s.id !== id));
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    [sessionId],
-  );
-
-  // El panel arranca abierto en escritorio y cerrado en móvil
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(min-width: 768px)").matches
-    ) {
-      setShowSidebar(true);
-    }
-  }, []);
-
-  // Cerrar el panel al navegar solo en móvil (en escritorio se mantiene)
-  const closeSidebarOnMobile = useCallback(() => {
-    if (
-      typeof window !== "undefined" &&
-      !window.matchMedia("(min-width: 768px)").matches
-    ) {
-      setShowSidebar(false);
-    }
-  }, []);
-
   // New chat
   const startNewChat = useCallback(() => {
-    setSessionId(null);
     setMessages([
       { id: "welcome", role: "assistant", content: INITIAL_MESSAGE },
     ]);
     setFeedbackGiven({});
     setQuery("");
-    closeSidebarOnMobile();
-  }, [closeSidebarOnMobile]);
+  }, []);
 
   // Enviar una pregunta sugerida
   const submitSuggestion = useCallback((question: string) => {
@@ -690,16 +463,6 @@ export default function ChatContratoSandboxPage() {
       }
 
       setStreamingId(null);
-
-      // Auto-save after stream completes
-      const finalMessages = updatedMessages.concat({
-        id: assistantId,
-        role: "assistant",
-        content: streamedContent,
-        sources: streamedSources,
-      });
-      const newId = await saveSession(finalMessages, sessionId);
-      if (newId) setSessionId(newId);
     } catch (error) {
       const message =
         error instanceof Error
@@ -760,106 +523,23 @@ export default function ChatContratoSandboxPage() {
 
   return (
     <div className="relative flex h-[calc(100vh-6.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      {/* Panel de conversaciones */}
-      <aside
-        className={`absolute inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-slate-200 bg-slate-50 transition-transform dark:border-slate-800 dark:bg-slate-950 md:static md:z-0 md:transition-[width,opacity] md:duration-300 ${
-          showSidebar
-            ? "translate-x-0 md:w-64 md:opacity-100"
-            : "-translate-x-full md:w-0 md:min-w-0 md:overflow-hidden md:border-r-0 md:opacity-0"
-        }`}
-      >
-        <div className="flex items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={startNewChat}
-            className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva conversación
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowSidebar(false)}
-            className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            aria-label="Ocultar panel de conversaciones"
-          >
-            <PanelLeftClose className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 space-y-1 overflow-y-auto p-2">
-          {sessionsLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-            </div>
-          ) : sessions.length > 0 ? (
-            sessions.map((s) => (
-              <div
-                key={s.id}
-                className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
-                  sessionId === s.id
-                    ? "bg-primary/10 text-primary"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    loadSession(s.id);
-                    closeSidebarOnMobile();
-                  }}
-                  className="min-w-0 flex-1 truncate text-left font-medium"
-                >
-                  {s.title}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteSession(s.id);
-                  }}
-                  className="shrink-0 opacity-0 transition group-hover:opacity-100"
-                  aria-label="Eliminar conversación"
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-slate-400 hover:text-red-500" />
-                </button>
-              </div>
-            ))
-          ) : (
-            <p className="px-3 py-6 text-center text-xs text-slate-400">
-              No hay conversaciones guardadas todavía.
-            </p>
-          )}
-        </div>
-      </aside>
-
-      {/* Overlay móvil */}
-      {showSidebar && (
-        <div
-          className="absolute inset-0 z-20 bg-black/30 md:hidden"
-          onClick={() => setShowSidebar(false)}
-        />
-      )}
-
       {/* Chat principal */}
       <section className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
         <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-2.5 dark:border-slate-800">
-          {!showSidebar && (
-            <button
-              type="button"
-              onClick={() => setShowSidebar(true)}
-              className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-              aria-label="Mostrar conversaciones"
-            >
-              <PanelLeftOpen className="h-5 w-5" />
-            </button>
-          )}
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Bot className="h-5 w-5" />
           </div>
           <h1 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
             Asistente del Contrato Colectivo
           </h1>
+          <button
+            type="button"
+            onClick={startNewChat}
+            className="ml-auto rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-primary/40 hover:text-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            Nueva conversación
+          </button>
         </div>
 
         {/* Mensajes */}
