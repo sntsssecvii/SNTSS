@@ -258,8 +258,9 @@ export default function ChatContratoSandboxPage() {
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  type LoadingPhase = "idle" | "searching" | "generating" | "done";
   const [query, setQuery] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>("idle");
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: "welcome", role: "assistant", content: INITIAL_MESSAGE },
@@ -267,6 +268,9 @@ export default function ChatContratoSandboxPage() {
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 1 | -1>>(
     {},
   );
+  const [feedbackComments, setFeedbackComments] = useState<
+    Record<string, string>
+  >({});
   const [streamingId, setStreamingId] = useState<string | null>(null);
 
   // Refs para acceder a los valores más recientes dentro de callbacks memoizados
@@ -286,6 +290,7 @@ export default function ChatContratoSandboxPage() {
       query: string,
       answer: string,
       rating: 1 | -1,
+      comment?: string,
     ) => {
       setFeedbackGiven((prev) => ({ ...prev, [messageId]: rating }));
       try {
@@ -296,7 +301,12 @@ export default function ChatContratoSandboxPage() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${idToken}`,
           },
-          body: JSON.stringify({ query, answer, rating }),
+          body: JSON.stringify({
+            query,
+            answer,
+            rating,
+            ...(comment ? { comment } : {}),
+          }),
         });
       } catch (e) {
         console.error(e);
@@ -308,7 +318,7 @@ export default function ChatContratoSandboxPage() {
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, submitting]);
+  }, [messages, loadingPhase]);
 
   // Auth guard
   useEffect(() => {
@@ -349,9 +359,9 @@ export default function ChatContratoSandboxPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedQuery = query.trim();
-    if (!trimmedQuery || submitting) return;
+    if (!trimmedQuery || loadingPhase !== "idle") return;
 
-    setSubmitting(true);
+    setLoadingPhase("searching");
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -394,7 +404,7 @@ export default function ChatContratoSandboxPage() {
         { id: assistantId, role: "assistant", content: "", sources: [] },
       ]);
       setStreamingId(assistantId);
-      setSubmitting(false);
+      // Phase stays "searching" until first SSE event with sources arrives
 
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
@@ -418,6 +428,7 @@ export default function ChatContratoSandboxPage() {
 
             // Sources metadata
             if (json.sources) {
+              setLoadingPhase("generating");
               streamedSources = json.sources.map((s: any, i: number) => ({
                 chunk: {
                   id: `stream-${i}`,
@@ -463,6 +474,7 @@ export default function ChatContratoSandboxPage() {
       }
 
       setStreamingId(null);
+      setLoadingPhase("idle");
     } catch (error) {
       const message =
         error instanceof Error
@@ -488,19 +500,19 @@ export default function ChatContratoSandboxPage() {
         ];
       });
       setStreamingId(null);
-      setSubmitting(false);
+      setLoadingPhase("idle");
     }
   }
 
   const canSubmit = useMemo(
-    () => query.trim().length > 0 && !submitting,
-    [query, submitting],
+    () => query.trim().length > 0 && loadingPhase === "idle",
+    [query, loadingPhase],
   );
   const visibleMessages = useMemo(
     () => messages.filter((m) => m.id !== "welcome"),
     [messages],
   );
-  const isEmptyChat = visibleMessages.length === 0 && !submitting;
+  const isEmptyChat = visibleMessages.length === 0 && loadingPhase === "idle";
 
   if (loading) {
     return (
@@ -614,62 +626,101 @@ export default function ChatContratoSandboxPage() {
                           )}
                           {!message.id.startsWith("err-") &&
                             streamingId !== message.id && (
-                              <div className="mt-2 flex items-center gap-1">
-                                {feedbackGiven[message.id] && (
-                                  <span className="mr-1 text-xs text-slate-400">
-                                    {feedbackGiven[message.id] === 1
-                                      ? "Gracias"
-                                      : "Anotado"}
-                                  </span>
+                              <div className="mt-2">
+                                <div className="flex items-center gap-1">
+                                  {feedbackGiven[message.id] && (
+                                    <span className="mr-1 text-xs text-slate-400">
+                                      {feedbackGiven[message.id] === 1
+                                        ? "Gracias"
+                                        : "Anotado"}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const prevUser = messages
+                                        .slice(0, messages.indexOf(message))
+                                        .reverse()
+                                        .find((m) => m.role === "user");
+                                      sendFeedback(
+                                        message.id,
+                                        prevUser?.content || "",
+                                        message.content,
+                                        1,
+                                      );
+                                    }}
+                                    disabled={!!feedbackGiven[message.id]}
+                                    className={`rounded p-1 transition ${
+                                      feedbackGiven[message.id] === 1
+                                        ? "text-emerald-600"
+                                        : "text-slate-300 hover:text-emerald-600 dark:text-slate-600"
+                                    }`}
+                                    aria-label="Respuesta útil"
+                                  >
+                                    <ThumbsUp className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const prevUser = messages
+                                        .slice(0, messages.indexOf(message))
+                                        .reverse()
+                                        .find((m) => m.role === "user");
+                                      sendFeedback(
+                                        message.id,
+                                        prevUser?.content || "",
+                                        message.content,
+                                        -1,
+                                      );
+                                    }}
+                                    disabled={!!feedbackGiven[message.id]}
+                                    className={`rounded p-1 transition ${
+                                      feedbackGiven[message.id] === -1
+                                        ? "text-red-500"
+                                        : "text-slate-300 hover:text-red-500 dark:text-slate-600"
+                                    }`}
+                                    aria-label="Respuesta no útil"
+                                  >
+                                    <ThumbsDown className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                {feedbackGiven[message.id] === -1 && (
+                                  <div className="mt-2">
+                                    <input
+                                      type="text"
+                                      placeholder="¿Qué estuvo mal? (opcional, Enter para enviar)"
+                                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                                      defaultValue={
+                                        feedbackComments[message.id] ?? ""
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (
+                                          e.key === "Enter" &&
+                                          e.currentTarget.value.trim()
+                                        ) {
+                                          const comment =
+                                            e.currentTarget.value.trim();
+                                          e.currentTarget.value = "";
+                                          setFeedbackComments((prev) => ({
+                                            ...prev,
+                                            [message.id]: comment,
+                                          }));
+                                          const prevUser = messages
+                                            .slice(0, messages.indexOf(message))
+                                            .reverse()
+                                            .find((m) => m.role === "user");
+                                          sendFeedback(
+                                            message.id,
+                                            prevUser?.content || "",
+                                            message.content,
+                                            -1,
+                                            comment,
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </div>
                                 )}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const prevUser = messages
-                                      .slice(0, messages.indexOf(message))
-                                      .reverse()
-                                      .find((m) => m.role === "user");
-                                    sendFeedback(
-                                      message.id,
-                                      prevUser?.content || "",
-                                      message.content,
-                                      1,
-                                    );
-                                  }}
-                                  disabled={!!feedbackGiven[message.id]}
-                                  className={`rounded p-1 transition ${
-                                    feedbackGiven[message.id] === 1
-                                      ? "text-emerald-600"
-                                      : "text-slate-300 hover:text-emerald-600 dark:text-slate-600"
-                                  }`}
-                                  aria-label="Respuesta útil"
-                                >
-                                  <ThumbsUp className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const prevUser = messages
-                                      .slice(0, messages.indexOf(message))
-                                      .reverse()
-                                      .find((m) => m.role === "user");
-                                    sendFeedback(
-                                      message.id,
-                                      prevUser?.content || "",
-                                      message.content,
-                                      -1,
-                                    );
-                                  }}
-                                  disabled={!!feedbackGiven[message.id]}
-                                  className={`rounded p-1 transition ${
-                                    feedbackGiven[message.id] === -1
-                                      ? "text-red-500"
-                                      : "text-slate-300 hover:text-red-500 dark:text-slate-600"
-                                  }`}
-                                  aria-label="Respuesta no útil"
-                                >
-                                  <ThumbsDown className="h-3.5 w-3.5" />
-                                </button>
                               </div>
                             )}
                         </>
@@ -681,7 +732,7 @@ export default function ChatContratoSandboxPage() {
                 ))}
               </AnimatePresence>
               <AnimatePresence>
-                {submitting && (
+                {loadingPhase === "searching" && (
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -691,11 +742,25 @@ export default function ChatContratoSandboxPage() {
                     <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Bot className="h-5 w-5" />
                     </div>
-                    <div className="flex items-center gap-3 pt-1">
-                      <TypingDots />
-                      <span className="text-xs text-slate-400">
-                        Buscando en el contrato...
-                      </span>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Buscando en el contrato...
+                    </div>
+                  </motion.div>
+                )}
+                {loadingPhase === "generating" && streamingId === null && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex justify-start gap-3"
+                  >
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Bot className="h-5 w-5" />
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generando respuesta...
                     </div>
                   </motion.div>
                 )}
@@ -735,7 +800,7 @@ export default function ChatContratoSandboxPage() {
                 className="h-10 w-10 shrink-0 rounded-xl"
                 aria-label="Enviar"
               >
-                {submitting ? (
+                {loadingPhase !== "idle" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />
