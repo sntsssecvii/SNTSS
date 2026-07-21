@@ -25,6 +25,13 @@ export function assertSameOrigin(request: NextRequest): void {
   // CORS es una protección exclusiva del browser
   if (!origin) return;
 
+  if (
+    process.env.NODE_ENV !== "production" &&
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+  ) {
+    return;
+  }
+
   if (!getAllowedOrigins().includes(origin)) {
     throw new Error("CORS_FORBIDDEN");
   }

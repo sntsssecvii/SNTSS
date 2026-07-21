@@ -600,7 +600,7 @@ export default function ChatContratoSandboxPage() {
         },
         body: JSON.stringify({
           query: trimmedQuery,
-          history: updatedMessages
+          history: messages
             .filter((m) => m.id !== "welcome")
             .slice(-10)
             .map((m) => ({ role: m.role, content: m.content })),

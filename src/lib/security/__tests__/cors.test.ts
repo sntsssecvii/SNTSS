@@ -50,6 +50,12 @@ describe("assertSameOrigin", () => {
     expect(() => assertSameOrigin(request)).not.toThrow();
   });
 
+  it("permite otros puertos locales en desarrollo", async () => {
+    const { assertSameOrigin } = await import("@/lib/security/cors");
+    const request = makeMockRequest("http://localhost:3002");
+    expect(() => assertSameOrigin(request)).not.toThrow();
+  });
+
   it("lanza CORS_FORBIDDEN para un origen externo desconocido", async () => {
     const { assertSameOrigin } = await import("@/lib/security/cors");
     const request = makeMockRequest("https://evil.com");
@@ -67,7 +73,7 @@ describe("assertSameOrigin", () => {
     (process.env as any).NODE_ENV = "production";
     vi.resetModules();
     const { assertSameOrigin } = await import("@/lib/security/cors");
-    const request = makeMockRequest("http://localhost:3000");
+    const request = makeMockRequest("http://localhost:3002");
     expect(() => assertSameOrigin(request)).toThrow("CORS_FORBIDDEN");
     (process.env as any).NODE_ENV = originalNodeEnv;
   });
