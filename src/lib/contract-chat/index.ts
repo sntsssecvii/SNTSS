@@ -1,14 +1,21 @@
 import { spawn } from "child_process";
+import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 
 import type {
+  AnswerPlan,
   ChatMessage,
+  ContentType,
   ContractChatAnswer,
   ContractChatStatus,
   ContractChunk,
   ContractIndex,
+  ContractRetrievalTrace,
+  ContractRetrievalTraceItem,
   ContractSearchResult,
+  DocumentType,
+  EvidencePack,
 } from "@/lib/contract-chat/types";
 
 // ---------------------------------------------------------------------------
@@ -63,6 +70,12 @@ const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 const JINA_EMBEDDING_MODEL = "jina-embeddings-v3";
 const JINA_BATCH_SIZE = 100;
 const MAX_CONVERSATION_HISTORY = 10;
+const MAX_CONTEXTUALIZATION_HISTORY = 6;
+const MAX_RETRIEVAL_TRACES = 50;
+const MAX_EVIDENCE_SOURCES = 8;
+const MAX_SELECTED_SOURCES = 12;
+const EVIDENCE_EXPANSION_ANCHORS = 5;
+const EVIDENCE_EXPANSION_RADIUS = 1;
 
 // Weights for hybrid search — semantic dominates to avoid keyword false positives
 const SEMANTIC_WEIGHT = 0.8;
@@ -280,6 +293,24 @@ const QUERY_EXPANSIONS: Record<string, string[]> = {
   vacacional: ["vacaciones", "vacacionales"],
   vacacionales: ["vacaciones", "vacacionales"],
   vivienda: ["vivienda", "habitacion", "prestamo", "hipotecario"],
+  // Verbos laborales coloquiales → términos contractuales
+  faltar: ["falta", "faltas", "ausencia", "permiso", "permisos", "licencia"],
+  falte: ["falta", "faltas", "ausencia", "permiso", "licencia"],
+  faltas: ["falta", "faltas", "ausencia", "permiso", "licencia"],
+  descuenten: ["descuento", "descuentos", "goce", "sueldo", "pago"],
+  descuento: ["descuento", "descuentos", "deduccion"],
+  descuentos: ["descuento", "descuentos", "deduccion"],
+  gano: ["sueldo", "sueldos", "salario", "tabulador", "pago"],
+  gana: ["sueldo", "sueldos", "salario", "tabulador", "pago"],
+  pagan: ["sueldo", "salario", "pago", "remuneracion", "prestacion"],
+  cobro: ["sueldo", "salario", "pago", "tabulador"],
+  ausencia: ["falta", "faltas", "ausencia", "permiso", "licencia"],
+  muera: ["defuncion", "fallecimiento", "muerte", "licencia"],
+  murio: ["defuncion", "fallecimiento", "muerte", "licencia"],
+  muerte: ["defuncion", "fallecimiento", "muerte", "licencia"],
+  bebe: ["maternidad", "embarazo", "parto", "lactancia"],
+  hijo: ["hijo", "hijos", "guarderia", "maternidad"],
+  hijos: ["hijo", "hijos", "guarderia", "guarderias"],
 };
 
 const CONVERSATIONAL_PATTERNS = [
@@ -295,6 +326,7 @@ const CONVERSATIONAL_PATTERNS = [
 // ---------------------------------------------------------------------------
 
 let contractIndexPromise: Promise<ContractIndex> | null = null;
+const recentRetrievalTraces: ContractRetrievalTrace[] = [];
 
 interface ExtractedPage {
   pageNumber: number;
@@ -342,16 +374,336 @@ function countTokens(value: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Document structure — metadata by page ranges
+// ---------------------------------------------------------------------------
+
+interface DocumentSectionDef {
+  startPage: number;
+  endPage: number;
+  documentType: DocumentType;
+  sectionTitle: string;
+  sectionNumber: number;
+}
+
+const DOCUMENT_SECTIONS: DocumentSectionDef[] = [
+  {
+    startPage: 1,
+    endPage: 8,
+    documentType: "indice",
+    sectionTitle: "Índice General",
+    sectionNumber: 0,
+  },
+  {
+    startPage: 9,
+    endPage: 80,
+    documentType: "contrato",
+    sectionTitle: "Contrato Colectivo de Trabajo",
+    sectionNumber: 1,
+  },
+  {
+    startPage: 81,
+    endPage: 88,
+    documentType: "transitorias",
+    sectionTitle: "Cláusulas Transitorias",
+    sectionNumber: 2,
+  },
+  {
+    startPage: 89,
+    endPage: 110,
+    documentType: "tabulador",
+    sectionTitle: "Tabulador de Sueldos",
+    sectionNumber: 3,
+  },
+  {
+    startPage: 111,
+    endPage: 276,
+    documentType: "profesiograma",
+    sectionTitle: "Profesiogramas",
+    sectionNumber: 4,
+  },
+  {
+    startPage: 277,
+    endPage: 286,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Becas",
+    sectionNumber: 5,
+  },
+  {
+    startPage: 287,
+    endPage: 296,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Bolsa de Trabajo",
+    sectionNumber: 6,
+  },
+  {
+    startPage: 297,
+    endPage: 310,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Bolsa de Trabajo IMSS-Bienestar",
+    sectionNumber: 7,
+  },
+  {
+    startPage: 311,
+    endPage: 317,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento para Calificación de Puestos de Confianza B",
+    sectionNumber: 8,
+  },
+  {
+    startPage: 318,
+    endPage: 332,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Capacitación y Adiestramiento",
+    sectionNumber: 9,
+  },
+  {
+    startPage: 333,
+    endPage: 338,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Conductores de Vehículos",
+    sectionNumber: 10,
+  },
+  {
+    startPage: 339,
+    endPage: 356,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Escalafón",
+    sectionNumber: 11,
+  },
+  {
+    startPage: 357,
+    endPage: 363,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento del Fondo de Retiro",
+    sectionNumber: 12,
+  },
+  {
+    startPage: 364,
+    endPage: 372,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Guarderías",
+    sectionNumber: 13,
+  },
+  {
+    startPage: 373,
+    endPage: 388,
+    documentType: "reglamento",
+    sectionTitle:
+      "Reglamento de Infectocontagiosidad y Emanaciones Radiactivas",
+    sectionNumber: 14,
+  },
+  {
+    startPage: 389,
+    endPage: 414,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento Interior de Trabajo",
+    sectionNumber: 15,
+  },
+  {
+    startPage: 415,
+    endPage: 425,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Jubilaciones y Pensiones",
+    sectionNumber: 16,
+  },
+  {
+    startPage: 426,
+    endPage: 433,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Médicos Residentes",
+    sectionNumber: 17,
+  },
+  {
+    startPage: 434,
+    endPage: 439,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento para el Pago de Pasajes",
+    sectionNumber: 18,
+  },
+  {
+    startPage: 440,
+    endPage: 445,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Protección al Salario",
+    sectionNumber: 19,
+  },
+  {
+    startPage: 446,
+    endPage: 455,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Préstamos para la Habitación",
+    sectionNumber: 20,
+  },
+  {
+    startPage: 456,
+    endPage: 460,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento para Trabajadores IMSS-Bienestar",
+    sectionNumber: 21,
+  },
+  {
+    startPage: 461,
+    endPage: 474,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Resguardo Patrimonial",
+    sectionNumber: 22,
+  },
+  {
+    startPage: 475,
+    endPage: 481,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Revisión de Plantillas",
+    sectionNumber: 23,
+  },
+  {
+    startPage: 482,
+    endPage: 508,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Ropa de Trabajo y Uniformes",
+    sectionNumber: 24,
+  },
+  {
+    startPage: 509,
+    endPage: 511,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento del Fondo de Ahorro",
+    sectionNumber: 25,
+  },
+  {
+    startPage: 512,
+    endPage: 522,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Seguridad e Higiene",
+    sectionNumber: 26,
+  },
+  {
+    startPage: 523,
+    endPage: 528,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Cambio de Rama",
+    sectionNumber: 27,
+  },
+  {
+    startPage: 529,
+    endPage: 532,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Suministro de Alimentos",
+    sectionNumber: 28,
+  },
+  {
+    startPage: 533,
+    endPage: 537,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Tiendas para Empleados",
+    sectionNumber: 29,
+  },
+  {
+    startPage: 538,
+    endPage: 542,
+    documentType: "reglamento",
+    sectionTitle: "Reglamento de Viáticos para Chóferes",
+    sectionNumber: 30,
+  },
+  {
+    startPage: 543,
+    endPage: 550,
+    documentType: "convenio",
+    sectionTitle: "Convenio Adicional de Jubilaciones Nuevo Ingreso",
+    sectionNumber: 31,
+  },
+  {
+    startPage: 551,
+    endPage: 999,
+    documentType: "indice",
+    sectionTitle: "Índice Alfabético",
+    sectionNumber: 32,
+  },
+];
+
+function getDocumentSectionForPage(
+  pageNumber: number,
+): DocumentSectionDef | undefined {
+  return DOCUMENT_SECTIONS.find(
+    (s) => pageNumber >= s.startPage && pageNumber <= s.endPage,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Content type classification (deterministic heuristics)
+// ---------------------------------------------------------------------------
+
+const SIGNATURES_HEURISTICS = [
+  /\bse firma el presente\b/i,
+  /\bpor el instituto mexicano del seguro social\b/i,
+  /\bpor el sindicato nacional de trabajadores\b/i,
+  /\ben la ciudad de m[eé]xico\b.*\bd[ií]a\b/i,
+  /\bsecretario general\b.*\btestigo\b/i,
+  /\b(Lic|Dr|Mtro|Quím|C\.P)\.\s+[A-ZÁÉÍÓÚ][a-záéíóú]+\s+[A-ZÁÉÍÓÚ].*\b(Lic|Dr|Mtro|Quím|C\.P)\./,
+];
+
+const DEFINITION_HEURISTICS = [/\bdefiniciones\b/i];
+
+const REQUIREMENT_HEURISTICS = [
+  /\b(requisitos?|deber[áa]n?\s+(presentar|cumplir|acreditar))\b/i,
+  /\b(condiciones?\s+(para|de)\s+(obtener|solicitar|acceder))\b/i,
+  /\b(documentos?\s+(que|necesarios|requeridos))\b/i,
+];
+
+const PROCEDURE_HEURISTICS = [
+  /\b(procedimiento|se proceder[áa]|pasos a seguir)\b/i,
+  /\b(proceso de (selección|calificación|evaluación))\b/i,
+];
+
+const TABLE_HEURISTICS = [
+  /tabulador de sueldos/i,
+  /sueldo\s+hora-mes/i,
+  /jor-?\s*nada\s+hora/i,
+  /mes-pesos/i,
+  /\bCATEGOR[IÍ]A\s+UNIFORMES\b/i,
+  /\bEquivalencia en Horas\b/i,
+];
+
+const INDEX_CONTENT_HEURISTICS = [
+  /^[IÍ]NDICE\b/,
+  /\bCl[áa]usula\s+P[áa]gina\b/i,
+  /\b[IÍ]NDICE ALFAB[EÉ]TICO\b/i,
+];
+
+function classifyContentType(text: string, pageNumber: number): ContentType {
+  const docSection = getDocumentSectionForPage(pageNumber);
+  if (docSection?.documentType === "indice") return "index";
+  if (INDEX_CONTENT_HEURISTICS.some((p) => p.test(text))) return "index";
+  if (SIGNATURES_HEURISTICS.filter((p) => p.test(text)).length >= 2)
+    return "signatures";
+  if (TABLE_HEURISTICS.some((p) => p.test(text))) return "table";
+  if (docSection?.documentType === "profesiograma") return "table";
+  if (
+    DEFINITION_HEURISTICS.some((p) => p.test(text)) &&
+    /:\s+(Es|Son|Se entiende|Trato|Forma|Conjunto)/m.test(text)
+  )
+    return "definition";
+  if (REQUIREMENT_HEURISTICS.some((p) => p.test(text))) return "requirement";
+  if (PROCEDURE_HEURISTICS.some((p) => p.test(text))) return "procedure";
+  return "normative";
+}
+
+// ---------------------------------------------------------------------------
 // Smart chunking — split by clause/article boundaries
 // ---------------------------------------------------------------------------
 
 const CLAUSE_REGEX = /^Cláusula\s+(\d+(?:\s*Bis)?)\s*[\.\-–]\s*(.+)/im;
+const ARTICLE_REGEX = /^Art[ií]culo\s+(\d+)\b\.?\s*(.*)/im;
 const CHAPTER_REGEX = /^Capítulo\s+([IVXLC]+(?:\.\d+)?)\s*[\.\-–]\s*(.+)/im;
 
 interface RawSection {
   clauseNumber?: number;
   clauseTitle?: string;
   chapterTitle?: string;
+  articleNumber?: number;
+  articleTitle?: string;
+  sectionTitle?: string;
+  sectionNumber?: number;
+  documentType?: DocumentType;
   pageNumber: number;
   text: string;
 }
@@ -360,16 +712,23 @@ function splitPagesIntoSections(pages: ExtractedPage[]): RawSection[] {
   const sections: RawSection[] = [];
   let currentChapter = "";
   let currentClause: { number?: number; title?: string } = {};
+  let currentArticle: { number?: number; title?: string } = {};
   let currentText = "";
   let currentPage = 1;
 
   function flushSection() {
     const trimmed = currentText.trim();
     if (trimmed.length > 30) {
+      const docSection = getDocumentSectionForPage(currentPage);
       sections.push({
         clauseNumber: currentClause.number,
         clauseTitle: currentClause.title,
         chapterTitle: currentChapter || undefined,
+        articleNumber: currentArticle.number,
+        articleTitle: currentArticle.title,
+        sectionTitle: docSection?.sectionTitle,
+        sectionNumber: docSection?.sectionNumber,
+        documentType: docSection?.documentType,
         pageNumber: currentPage,
         text: trimmed,
       });
@@ -386,6 +745,8 @@ function splitPagesIntoSections(pages: ExtractedPage[]): RawSection[] {
 
       // Skip header/footer noise
       if (/^CONTRATO COLECTIVO DE TRABAJO$/i.test(trimmedLine)) continue;
+      if (/^REGLAMENTOS?$/i.test(trimmedLine)) continue;
+      if (/^PROFESIOGRAMAS?$/i.test(trimmedLine)) continue;
       if (/^(Índice|Contenido|A-Z)\s*$/i.test(trimmedLine)) continue;
       if (/^\d+$/.test(trimmedLine)) continue; // page numbers
 
@@ -405,13 +766,28 @@ function splitPagesIntoSections(pages: ExtractedPage[]): RawSection[] {
           number: Number.isFinite(num) ? num : undefined,
           title: clauseMatch[2].trim(),
         };
+        currentArticle = {};
+        currentPage = page.pageNumber;
+        currentText = trimmedLine + "\n";
+        continue;
+      }
+
+      const articleMatch = trimmedLine.match(ARTICLE_REGEX);
+      if (articleMatch) {
+        flushSection();
+        const num = parseInt(articleMatch[1], 10);
+        currentArticle = {
+          number: Number.isFinite(num) ? num : undefined,
+          title: articleMatch[2]?.trim() || undefined,
+        };
+        currentClause = {};
         currentPage = page.pageNumber;
         currentText = trimmedLine + "\n";
         continue;
       }
 
       currentText += trimmedLine + "\n";
-      if (!currentClause.number) {
+      if (!currentClause.number && !currentArticle.number) {
         currentPage = page.pageNumber;
       }
     }
@@ -433,6 +809,16 @@ function isTabularContent(text: string): boolean {
   return TABULAR_PATTERNS.some((p) => p.test(text));
 }
 
+function buildChunkId(section: RawSection, chunkIndex: number): string {
+  if (section.clauseNumber) {
+    return `clause-${section.clauseNumber}-chunk-${chunkIndex}`;
+  }
+  if (section.articleNumber && section.sectionNumber !== undefined) {
+    return `s${section.sectionNumber}-art-${section.articleNumber}-chunk-${chunkIndex}`;
+  }
+  return `page-${section.pageNumber}-chunk-${chunkIndex}`;
+}
+
 function splitSectionIntoChunks(
   section: RawSection,
 ): Omit<ContractChunk, "normalizedText" | "tokenCounts">[] {
@@ -441,16 +827,24 @@ function splitSectionIntoChunks(
   // Tabular content (tabuladores, profesiogramas index) — use larger chunks to avoid cutting tables
   const maxSize = isTabularContent(text) ? 2400 : TARGET_CHUNK_SIZE;
 
+  const baseMetadata = {
+    pageNumber: section.pageNumber,
+    clauseNumber: section.clauseNumber,
+    clauseTitle: section.clauseTitle,
+    chapterTitle: section.chapterTitle,
+    articleNumber: section.articleNumber,
+    articleTitle: section.articleTitle,
+    sectionTitle: section.sectionTitle,
+    sectionNumber: section.sectionNumber,
+    documentType: section.documentType,
+  };
+
   if (text.length <= maxSize) {
     return [
       {
-        id: section.clauseNumber
-          ? `clause-${section.clauseNumber}-chunk-1`
-          : `page-${section.pageNumber}-chunk-1`,
-        pageNumber: section.pageNumber,
-        clauseNumber: section.clauseNumber,
-        clauseTitle: section.clauseTitle,
-        chapterTitle: section.chapterTitle,
+        id: buildChunkId(section, 1),
+        ...baseMetadata,
+        contentType: classifyContentType(text, section.pageNumber),
         text,
       },
     ];
@@ -471,21 +865,19 @@ function splitSectionIntoChunks(
 
     const chunkText = text.slice(start, end).trim();
     if (chunkText.length > 20) {
-      // Prepend clause context to each chunk for better retrieval
+      // Prepend clause/article context to each chunk for better retrieval
       const prefix = section.clauseNumber
         ? `Cláusula ${section.clauseNumber}.- ${section.clauseTitle || ""}: `
-        : "";
+        : section.articleNumber
+          ? `Artículo ${section.articleNumber}. ${section.articleTitle || ""}: `
+          : "";
       const fullText =
         chunkIndex > 1 && prefix ? prefix + chunkText : chunkText;
 
       chunks.push({
-        id: section.clauseNumber
-          ? `clause-${section.clauseNumber}-chunk-${chunkIndex}`
-          : `page-${section.pageNumber}-chunk-${chunkIndex}`,
-        pageNumber: section.pageNumber,
-        clauseNumber: section.clauseNumber,
-        clauseTitle: section.clauseTitle,
-        chapterTitle: section.chapterTitle,
+        id: buildChunkId(section, chunkIndex),
+        ...baseMetadata,
+        contentType: classifyContentType(fullText, section.pageNumber),
         text: fullText,
       });
       chunkIndex++;
@@ -670,6 +1062,13 @@ function scoreChunkKeywords(
     score = Math.max(0, score - 10);
   }
 
+  // Penalize by contentType metadata when available
+  if (chunk.contentType === "index" || chunk.contentType === "signatures") {
+    score *= 0.3;
+  } else if (chunk.contentType === "administrative") {
+    score *= 0.8;
+  }
+
   return { score, matchedTerms: Array.from(new Set(matchedTerms)) };
 }
 
@@ -726,9 +1125,19 @@ async function hybridSearch(
 
     const normalizedKeyword = kr.keywordScore / maxKeyword;
 
-    const combinedScore = hasEmbeddings
+    let combinedScore = hasEmbeddings
       ? SEMANTIC_WEIGHT * semanticScore + KEYWORD_WEIGHT * normalizedKeyword
       : normalizedKeyword;
+
+    // Apply contentType penalty to combined score
+    if (
+      kr.chunk.contentType === "index" ||
+      kr.chunk.contentType === "signatures"
+    ) {
+      combinedScore *= 0.3;
+    } else if (kr.chunk.contentType === "administrative") {
+      combinedScore *= 0.8;
+    }
 
     return {
       chunk: kr.chunk,
@@ -857,6 +1266,225 @@ function getGroqModel() {
   );
 }
 
+function sanitizeConversationHistory(
+  query: string,
+  conversationHistory: ChatMessage[],
+): ChatMessage[] {
+  const normalizedCurrent = normalizeText(query);
+  const cleaned = conversationHistory
+    .filter(
+      (message): message is ChatMessage =>
+        (message.role === "user" || message.role === "assistant") &&
+        typeof message.content === "string" &&
+        message.content.trim().length > 0,
+    )
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim().slice(0, 1_200),
+    }));
+
+  const last = cleaned.at(-1);
+  if (
+    last?.role === "user" &&
+    normalizeText(last.content) === normalizedCurrent
+  ) {
+    cleaned.pop();
+  }
+
+  return cleaned.slice(-MAX_CONTEXTUALIZATION_HISTORY);
+}
+
+function fallbackContextualQuery(
+  query: string,
+  history: ChatMessage[],
+): string {
+  const previousUserMessage = [...history]
+    .reverse()
+    .find((message) => message.role === "user")?.content;
+
+  if (!previousUserMessage) return query;
+  return `Tema previo: ${previousUserMessage}. Pregunta de seguimiento: ${query}`;
+}
+
+function buildLocalContextualQuery(
+  query: string,
+  history: ChatMessage[],
+): string | null {
+  if (history.length === 0) return null;
+
+  const normalizedQuery = normalizeText(query);
+  const historyText = normalizeText(
+    history.map((message) => message.content).join(" "),
+  );
+  const previousUserMessage = [...history]
+    .reverse()
+    .find((message) => message.role === "user")?.content;
+
+  const activeTopics = [
+    { pattern: /\b(beca|becas)\b/, label: "becas" },
+    {
+      pattern: /\b(jubil\w*|pension\w*|ley 73|ley 97|nuevo ingreso)\b/,
+      label: "jubilación y pensiones",
+    },
+    {
+      pattern: /\b(permiso|permisos|licencia|licencias)\b/,
+      label: "permisos y licencias",
+    },
+    { pattern: /\b(vacacion|vacaciones)\b/, label: "vacaciones" },
+    {
+      pattern: /\b(escalafon|promocion|cambio de rama)\b/,
+      label: "escalafón y promociones",
+    },
+  ]
+    .filter((topic) => topic.pattern.test(historyText))
+    .map((topic) => topic.label);
+
+  const queryHasActiveTopic = activeTopics.some((topic) =>
+    normalizeText(topic)
+      .split(/\s+/)
+      .some((token) => normalizedQuery.includes(token)),
+  );
+  const isFollowup =
+    /\b(eso|esa|ese|estos|estas|aplica|aplicar|puedo|entonces|y si|en mi caso|extranjero|republica|requisitos|cuanto|cuantos|cuales|como|ley 73|ley 97)\b/.test(
+      normalizedQuery,
+    );
+
+  if (activeTopics.length > 0 && (isFollowup || !queryHasActiveTopic)) {
+    return `Tema activo: ${activeTopics.slice(0, 2).join(" y ")}. ${previousUserMessage ? `Contexto previo: ${previousUserMessage}. ` : ""}Pregunta actual: ${query}`;
+  }
+
+  if (isFollowup && previousUserMessage) {
+    return fallbackContextualQuery(query, history);
+  }
+
+  return null;
+}
+
+async function generateStandaloneQuery(
+  query: string,
+  history: ChatMessage[],
+): Promise<string | null> {
+  const apiKeys = getGroqApiKeys();
+  if (apiKeys.length === 0 || history.length === 0) return null;
+
+  const transcript = history
+    .map(
+      (message) =>
+        `${message.role === "user" ? "Usuario" : "Asistente"}: ${message.content}`,
+    )
+    .join("\n");
+
+  for (const apiKey of apiKeys) {
+    try {
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: getGroqModel(),
+            temperature: 0,
+            max_tokens: 140,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "Convierte la última pregunta en una pregunta autónoma para buscar en el CCT IMSS-SNTSS 2025-2027. " +
+                  "Resuelve referencias como 'eso', 'y en mi caso' o 'ley 73 o 97' usando el historial. " +
+                  "Formula qué establece o distingue el CCT sobre el tema; no conviertas la consulta en una pregunta jurídica general. " +
+                  "No respondas la pregunta, no agregues hechos del asistente y no inventes datos. " +
+                  "Devuelve únicamente la pregunta autónoma en una sola línea. Si el historial no aporta contexto, conserva la pregunta original.",
+              },
+              {
+                role: "user",
+                content: `Historial reciente:\n${transcript}\n\nPregunta actual: ${query}`,
+              },
+            ],
+          }),
+        },
+      );
+
+      if (!response.ok) continue;
+      const payload = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string | null } }>;
+      };
+      const standalone = payload.choices?.[0]?.message?.content
+        ?.trim()
+        .replace(/^['"]|['"]$/g, "")
+        .replace(/^pregunta aut[oó]noma:\s*/i, "")
+        .trim();
+      const refused = standalone
+        ? /\b(no puedo|no es posible|lo siento|no puedo ayudarte)\b/i.test(
+            standalone,
+          )
+        : false;
+      if (standalone && standalone.length >= 3 && !refused) {
+        return standalone.slice(0, 500);
+      }
+    } catch {
+      // Try the next configured key, then use the local fallback.
+    }
+  }
+
+  return null;
+}
+
+async function contextualizeQuery(
+  query: string,
+  conversationHistory: ChatMessage[],
+): Promise<{
+  query: string;
+  mode: ContractRetrievalTrace["contextualizationMode"];
+  history: ChatMessage[];
+}> {
+  const history = sanitizeConversationHistory(query, conversationHistory);
+  if (history.length === 0) return { query, mode: "none", history };
+
+  const localQuery = buildLocalContextualQuery(query, history);
+  if (localQuery) return { query: localQuery, mode: "fallback", history };
+
+  if (process.env.CONTRACT_CHAT_LLM_CONTEXTUALIZATION !== "1") {
+    return { query, mode: "none", history };
+  }
+
+  const standalone = await generateStandaloneQuery(query, history);
+  if (standalone) return { query: standalone, mode: "llm", history };
+
+  return {
+    query: fallbackContextualQuery(query, history),
+    mode: "fallback",
+    history,
+  };
+}
+
+function reinforceContextualTopic(
+  query: string,
+  contextualizedQuery: string,
+  history: ChatMessage[],
+): string {
+  if (history.length === 0) return contextualizedQuery;
+
+  const normalizedHistory = normalizeText(
+    history.map((message) => message.content).join(" "),
+  );
+  const normalizedCurrent = normalizeText(`${query} ${contextualizedQuery}`);
+  const hasScholarshipTopic = /\b(beca|becas)\b/.test(normalizedHistory);
+  const lostScholarshipTopic = !/\b(beca|becas)\b/.test(normalizedCurrent);
+  const isStudyFollowup =
+    /\b(estudiar|estudio|estudios|extranjero|republica|curso|cursos|maestria|doctorado|postgrado|posgrado|especializacion)\b/.test(
+      normalizedCurrent,
+    );
+
+  if (hasScholarshipTopic && lostScholarshipTopic && isStudyFollowup) {
+    return `${contextualizedQuery}. Tema activo: becas del Reglamento de Becas para la Capacitación de los Trabajadores del Seguro Social.`;
+  }
+
+  return contextualizedQuery;
+}
+
 const SYSTEM_PROMPT = `Eres un asesor sindical experimentado del SNTSS que conoce a fondo el contrato colectivo IMSS-SNTSS 2025-2027. Hablas como compañero de trabajo — claro, directo, con confianza. Tu objetivo es que el trabajador ENTIENDA sus derechos, no solo que sepa la cláusula.
 
 CÓMO RESPONDER:
@@ -864,6 +1492,7 @@ CÓMO RESPONDER:
 2. Luego da el detalle concreto (montos, plazos, requisitos) que esté en las fuentes.
 3. Al final menciona dónde encontrarlo: sección, cláusula y página.
 4. Si las fuentes no cubren todo, dilo: "De lo que tengo a la mano solo me aparece X, pero el detalle completo lo encuentras en tal sección."
+5. Si el usuario pide opciones, tipos, requisitos o aplicabilidad, responde en formato de decisión: "puedes revisar/aplicar a", "depende de", "no aplica si", y "dato que falta". No sustituyas la respuesta con una frase genérica como "consulta los requisitos específicos".
 
 ESTRUCTURA DEL CONTRATO (para orientar al trabajador):
 1. Contrato Colectivo (p.9-88) — las 157 cláusulas principales: derechos, obligaciones, prestaciones.
@@ -878,12 +1507,17 @@ REGLAS:
 - Solo usa datos que estén en las fuentes proporcionadas. No inventes cláusulas, páginas ni montos.
 - Las citas de cláusula y página SOLO sácalas del campo "Ubicación" de cada fuente.
 - Si mencionas sueldos, aclara que es "sueldo base tabular" y que hay prestaciones adicionales.
+- Antes de redactar, comprueba que cada conclusión esté explícitamente respaldada por una fuente. No completes huecos con conocimiento general.
+- Si falta un dato personal decisivo, como fecha de ingreso, antigüedad o tipo de contratación, explica las opciones respaldadas y pide ese dato. No afirmes qué régimen aplica todavía.
+- Si la pregunta compara leyes o reglas que las fuentes no nombran, dilo claramente en vez de deducir una equivalencia.
+- Si hay artículos consecutivos del mismo reglamento en las fuentes, intégralos: definición, clases, derechos, requisitos, autoridad que decide y límites. No trates cada fuente como una respuesta aislada.
 
 ESTILO:
 - Español coloquial mexicano. Nada de "cabe mencionar", "es importante señalar" ni frases de abogado.
 - Ve al grano. Frases cortas. Usa bullets para listas.
 - NO empieces con "Según el contrato..." — di directo lo que pasa.
 - Si es pregunta de seguimiento, usa el contexto previo. No repitas lo que ya dijiste.
+- Si ya existe historial de conversación, NO saludes otra vez. Continúa directo con la respuesta.
 - Máximo 8-10 líneas. Si pide más detalle, entonces sí amplía.
 - Al final: "Páginas de referencia: p. X, p. Y"`;
 
@@ -891,12 +1525,20 @@ async function generateGroqAnswer(
   query: string,
   sources: ContractSearchResult[],
   conversationHistory: ChatMessage[],
+  tabuladorContext?: string,
+  plan?: AnswerPlan,
 ) {
   const apiKey = getGroqApiKey();
   if (!apiKey || sources.length === 0) return null;
 
   const model = getGroqModel();
-  const messages = buildGroqMessages(query, sources, conversationHistory);
+  const messages = buildGroqMessages(
+    query,
+    sources,
+    conversationHistory,
+    tabuladorContext,
+    plan,
+  );
 
   const response = await fetch(
     "https://api.groq.com/openai/v1/chat/completions",
@@ -908,7 +1550,7 @@ async function generateGroqAnswer(
       },
       body: JSON.stringify({
         model,
-        temperature: 0.15,
+        temperature: 0,
         max_tokens: 1024,
         messages,
       }),
@@ -935,9 +1577,10 @@ function buildGroqMessages(
   sources: ContractSearchResult[],
   conversationHistory: ChatMessage[],
   tabuladorContext?: string,
+  plan?: AnswerPlan,
 ): Array<{ role: string; content: string }> {
-  const context = sources
-    .slice(0, 4)
+  const promptSources = orderSourcesForPrompt(sources);
+  const context = promptSources
     .map((source, i) => {
       const section = getSectionForPage(source.chunk.pageNumber);
       const sectionInfo = section
@@ -949,10 +1592,11 @@ function buildGroqMessages(
       const chapterInfo = source.chunk.chapterTitle
         ? ` | ${source.chunk.chapterTitle}`
         : "";
+      const textLimit = i < 4 ? 1_400 : 700;
       return [
         `--- Fuente ${i + 1} ---`,
         `Ubicación: ${sectionInfo} ${clauseInfo}${chapterInfo} | Página ${source.chunk.pageNumber}`,
-        `Texto: ${source.chunk.text.slice(0, 600)}`,
+        `Texto: ${source.chunk.text.slice(0, textLimit)}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -961,25 +1605,35 @@ function buildGroqMessages(
     { role: "system", content: SYSTEM_PROMPT },
   ];
 
-  const recentHistory = conversationHistory.slice(-MAX_CONVERSATION_HISTORY);
+  const recentHistory = sanitizeConversationHistory(
+    query,
+    conversationHistory,
+  ).slice(-MAX_CONVERSATION_HISTORY);
   for (const msg of recentHistory) {
     messages.push({ role: msg.role, content: msg.content });
   }
 
   const validPages = Array.from(
-    new Set(sources.slice(0, 4).map((s) => s.chunk.pageNumber)),
+    new Set(promptSources.map((s) => s.chunk.pageNumber)),
   ).sort((a, b) => a - b);
-  const validClauses = sources
-    .slice(0, 4)
+  const validClauses = promptSources
     .filter((s) => s.chunk.clauseNumber)
     .map((s) => `Cláusula ${s.chunk.clauseNumber} (p. ${s.chunk.pageNumber})`)
     .filter((v, i, a) => a.indexOf(v) === i);
+  const hasRelativeReference = /\b(antes|despues|eso|esa|ese|mi caso)\b/.test(
+    normalizeText(query),
+  );
+  const hasHistory = recentHistory.length > 0;
 
   messages.push({
     role: "user",
     content: [
       `Pregunta: ${query}`,
       "",
+      hasHistory
+        ? "Esta es una continuación de una conversación activa: no saludes ni reinicies la conversación; responde directo usando el contexto previo."
+        : null,
+      hasHistory ? "" : null,
       tabuladorContext ? tabuladorContext : null,
       tabuladorContext ? "" : null,
       context ? "Contexto recuperado del contrato:" : null,
@@ -990,6 +1644,15 @@ function buildGroqMessages(
         : null,
       validClauses.length > 0
         ? `CLÁUSULAS VÁLIDAS: ${validClauses.join(", ")}`
+        : null,
+      hasRelativeReference
+        ? "La pregunta contiene una referencia relativa. No supongas una fecha, condición personal o régimen: presenta únicamente las alternativas explícitas en las fuentes y pide el dato que falte."
+        : null,
+      plan?.dataThatMustBeRequested && plan.dataThatMustBeRequested.length > 0
+        ? `DATOS FALTANTES: El usuario no proporcionó: ${plan.dataThatMustBeRequested.join(", ")}. Presenta las opciones disponibles y pide esos datos al final.`
+        : null,
+      plan?.needsCombiningSources
+        ? "Las fuentes provienen de secciones distintas del contrato. Integra la información de forma coherente — no trates cada fuente como una respuesta aislada."
         : null,
       "IMPORTANTE: NO cites ninguna página o cláusula que no esté en las listas anteriores. Los datos del tabulador de sueldos son EXACTOS — cítalos textualmente.",
     ]
@@ -1525,11 +2188,337 @@ async function faqSemanticSearch(
   };
 }
 
-export async function searchContractSources(query: string): Promise<{
+function toTraceItem(source: ContractSearchResult): ContractRetrievalTraceItem {
+  return {
+    chunkId: source.chunk.id,
+    pageNumber: source.chunk.pageNumber,
+    clauseNumber: source.chunk.clauseNumber,
+    score: Number(source.score.toFixed(4)),
+    semanticScore: Number(source.semanticScore.toFixed(4)),
+    keywordScore: Number(source.keywordScore.toFixed(4)),
+    matchedTerms: source.matchedTerms,
+    excerpt: source.excerpt.slice(0, 500),
+  };
+}
+
+/**
+ * Thematic compatibility check: detects when evidence matches lexically
+ * but the query intent is clearly outside the CCT domain.
+ *
+ * Returns a negative signal string if incompatible, null otherwise.
+ */
+function checkThematicCompatibility(
+  originalQuery: string,
+  evidence: ContractSearchResult[],
+): { compatible: boolean; reason: string } {
+  if (evidence.length === 0) return { compatible: true, reason: "" };
+
+  const nq = normalizeText(originalQuery);
+
+  // Detect external entity references that indicate out-of-scope queries.
+  // The check is: query mentions an external institution/concept AND
+  // the evidence sections don't match that concept.
+  const externalSignals = [
+    {
+      pattern:
+        /\b(sat|servicio de administracion tributaria|situacion fiscal|rfc|declaracion anual)\b/,
+      domain: "fiscal/SAT",
+    },
+    {
+      pattern: /\b(infonavit|credito infonavit|puntos infonavit)\b/,
+      domain: "Infonavit",
+    },
+    {
+      pattern:
+        /\b(imss como (paciente|derechohabiente)|clinica|consultorio|cita medica)\b/,
+      domain: "servicios médicos IMSS",
+    },
+    { pattern: /\b(issste|fovissste)\b/, domain: "ISSSTE" },
+    {
+      pattern:
+        /\b(clima|temperatura|lluvia|llover|llovera|pronostico|nublado|soleado)\b/,
+      domain: "meteorología",
+    },
+    { pattern: /\b(receta|cocinar|ingredientes|platillo)\b/, domain: "cocina" },
+  ];
+
+  const matchedExternal = externalSignals.find((s) => s.pattern.test(nq));
+  if (!matchedExternal) return { compatible: true, reason: "" };
+
+  // If evidence is mostly from the contract/regulations and query is about
+  // an external domain, flag incompatibility
+  const evidenceText = normalizeText(
+    evidence
+      .slice(0, 4)
+      .map((s) => s.chunk.text)
+      .join(" "),
+  );
+
+  // Check if the external domain's key concept actually appears in evidence
+  const domainInEvidence = matchedExternal.pattern.test(evidenceText);
+  if (domainInEvidence) return { compatible: true, reason: "" };
+
+  return {
+    compatible: false,
+    reason: `La consulta refiere a "${matchedExternal.domain}" pero la evidencia es del CCT sin relación directa.`,
+  };
+}
+
+function buildRetrievalTrace(
+  originalQuery: string,
+  contextualizedQuery: string,
+  contextualizationMode: ContractRetrievalTrace["contextualizationMode"],
+  retrievalQueries: string[],
+  candidates: ContractSearchResult[],
+  selected: ContractSearchResult[],
+): ContractRetrievalTrace {
+  const evidence = selected.slice(0, MAX_EVIDENCE_SOURCES);
+  const topScore = evidence[0]?.score || 0;
+  const evidenceText = normalizeText(
+    evidence.map((source) => source.chunk.text).join(" "),
+  );
+  const queryTokens = tokenizeQuery(contextualizedQuery);
+  const coveredTokens = queryTokens.filter((token) =>
+    evidenceText.includes(normalizeText(token)),
+  );
+  const tokenCoverage =
+    queryTokens.length > 0 ? coveredTokens.length / queryTokens.length : 0;
+  const strongEvidence = evidence.filter(
+    (source) => source.score >= Math.max(0.42, topScore * 0.72),
+  );
+
+  // Base sufficiency
+  let sufficient =
+    topScore >= 0.55 && strongEvidence.length >= 2 && tokenCoverage >= 0.5;
+
+  // Thematic compatibility override
+  const thematic = checkThematicCompatibility(originalQuery, evidence);
+  if (sufficient && !thematic.compatible) {
+    sufficient = false;
+  }
+
+  const reason =
+    !sufficient && !thematic.compatible
+      ? thematic.reason
+      : sufficient
+        ? `${strongEvidence.length} fragmentos superaron el umbral relativo y cubren ${coveredTokens.length}/${queryTokens.length} términos de la consulta.`
+        : evidence.length === 0
+          ? "La recuperación no encontró fragmentos candidatos."
+          : `La evidencia fue débil, aislada o incompleta: mejor puntuación ${topScore.toFixed(3)}, ${strongEvidence.length} fragmentos sobre el umbral y cobertura ${coveredTokens.length}/${queryTokens.length}.`;
+
+  return {
+    traceId: randomUUID(),
+    createdAt: new Date().toISOString(),
+    originalQuery,
+    contextualizedQuery,
+    contextualizationMode,
+    retrievalQueries,
+    candidates: candidates.slice(0, 20).map(toTraceItem),
+    selected: selected.map(toTraceItem),
+    evidence: evidence.map(toTraceItem),
+    sufficiency: {
+      status: sufficient ? "sufficient" : "insufficient",
+      reason,
+      topScore: Number(topScore.toFixed(4)),
+      evidenceCount: evidence.length,
+    },
+  };
+}
+
+function recordRetrievalTrace(trace: ContractRetrievalTrace) {
+  recentRetrievalTraces.unshift(trace);
+  if (recentRetrievalTraces.length > MAX_RETRIEVAL_TRACES) {
+    recentRetrievalTraces.length = MAX_RETRIEVAL_TRACES;
+  }
+
+  if (process.env.CONTRACT_CHAT_TRACE === "1") {
+    console.info("[contract-chat:retrieval]", JSON.stringify(trace));
+  }
+}
+
+export function getRecentContractRetrievalTraces(): ContractRetrievalTrace[] {
+  return recentRetrievalTraces.map((trace) => structuredClone(trace));
+}
+
+function expandEvidenceSources(
+  candidates: ContractSearchResult[],
+  index: ContractIndex,
+  query: string,
+): ContractSearchResult[] {
+  const expanded = new Map<string, ContractSearchResult>();
+  const tokens = tokenizeQuery(query);
+
+  for (const candidate of candidates) {
+    expanded.set(candidate.chunk.id, candidate);
+  }
+
+  for (const anchor of candidates.slice(0, EVIDENCE_EXPANSION_ANCHORS)) {
+    const anchorSection = getSectionForPage(anchor.chunk.pageNumber);
+    const minPage = anchor.chunk.pageNumber - EVIDENCE_EXPANSION_RADIUS;
+    const maxPage = anchor.chunk.pageNumber + EVIDENCE_EXPANSION_RADIUS;
+
+    for (const chunk of index.chunks) {
+      if (chunk.pageNumber < minPage || chunk.pageNumber > maxPage) continue;
+      if (chunk.pageNumber >= 551) continue;
+      if (expanded.has(chunk.id)) continue;
+
+      const chunkSection = getSectionForPage(chunk.pageNumber);
+      if (anchorSection?.number !== chunkSection?.number) continue;
+
+      const distance = Math.abs(chunk.pageNumber - anchor.chunk.pageNumber);
+      const relation =
+        distance === 0 ? "same-page-context" : "neighbor-page-context";
+      const scoreMultiplier = distance === 0 ? 0.94 : 0.82;
+
+      expanded.set(chunk.id, {
+        chunk,
+        score: anchor.score * scoreMultiplier,
+        semanticScore: anchor.semanticScore * scoreMultiplier,
+        keywordScore: 0,
+        matchedTerms: Array.from(new Set([...anchor.matchedTerms, relation])),
+        excerpt: createExcerpt(chunk.text, tokens),
+      });
+    }
+  }
+
+  return Array.from(expanded.values()).sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.chunk.pageNumber - b.chunk.pageNumber;
+  });
+}
+
+function rerankEvidenceByQuestionIntent(
+  sources: ContractSearchResult[],
+  query: string,
+): ContractSearchResult[] {
+  const normalizedQuery = normalizeText(query);
+  const asksForEligibility =
+    /\b(aplica|aplicar|puedo|solicitar|requisito|requisitos|elegible|obtener)\b/.test(
+      normalizedQuery,
+    );
+  const asksForTypes =
+    /\b(tipo|tipos|clase|clases|opcion|opciones|cuales|cuáles)\b/.test(
+      normalizedQuery,
+    );
+  const asksForStudies =
+    /\b(estudio|estudios|carrera|carreras|maestria|maestría|postgrado|posgrado|doctorado|especializacion|especialización|capacitacion|capacitación)\b/.test(
+      normalizedQuery,
+    );
+  const activeScholarshipRegulation =
+    /\b(reglamento de becas|beca|becas)\b/.test(normalizedQuery);
+  const explicitlyMedicalResident =
+    /\b(medico residente|médico residente|medicos residentes|médicos residentes|residencia|residentes)\b/.test(
+      normalizedQuery,
+    );
+
+  return sources
+    .map((source) => {
+      let boost = 0;
+      const text = source.chunk.normalizedText;
+
+      if (activeScholarshipRegulation) {
+        if (source.chunk.pageNumber >= 278 && source.chunk.pageNumber <= 286) {
+          boost += 0.2;
+          if (
+            /\b(se firma el presente reglamento|por el instituto mexicano del seguro social|por el sindicato nacional de trabajadores)\b/.test(
+              text,
+            )
+          ) {
+            boost -= 0.18;
+          }
+        } else if (
+          !explicitlyMedicalResident &&
+          /\bmedicos residentes|médicos residentes|residentes en periodo de adiestramiento|residentes en período de adiestramiento\b/.test(
+            text,
+          )
+        ) {
+          boost -= 0.25;
+        }
+      }
+
+      if (
+        asksForEligibility &&
+        /\b(requisitos|obtener|solicitud|solicitudes|interesados|deberan|deberán|documentos|dictaminar)\b/.test(
+          text,
+        )
+      ) {
+        boost += 0.14;
+      }
+
+      if (
+        asksForTypes &&
+        /\b(clases de becas|becas integras|becas íntegras|becas parciales|goce de salario|sin goce de salario|reduccion de jornada|reducción de jornada)\b/.test(
+          text,
+        )
+      ) {
+        boost += 0.12;
+      }
+
+      if (
+        asksForStudies &&
+        /\b(formacion tecnica|formación técnica|profesional|postgrado|posgrado|perfeccionamiento|universitarias|politecnico|politécnico|tecnicas|técnicas|especializacion|especialización|educacion media superior|educación media superior|interes particular|interés particular|necesidades del instituto|seguridad social)\b/.test(
+          text,
+        )
+      ) {
+        boost += 0.14;
+      }
+
+      if (boost === 0) return source;
+      return {
+        ...source,
+        score: source.score + boost,
+        matchedTerms: Array.from(
+          new Set([...source.matchedTerms, "intent-rerank"]),
+        ),
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.chunk.pageNumber - b.chunk.pageNumber;
+    });
+}
+
+function getChunkOrder(chunk: ContractChunk): number {
+  const match = chunk.id.match(/chunk-(\d+)$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function orderSourcesForPrompt(
+  sources: ContractSearchResult[],
+): ContractSearchResult[] {
+  const limited = sources.slice(0, MAX_EVIDENCE_SOURCES);
+  if (limited.length <= 1) return limited;
+
+  const sections = new Set(
+    limited
+      .map((source) => getSectionForPage(source.chunk.pageNumber)?.number)
+      .filter(Boolean),
+  );
+  const pages = limited.map((source) => source.chunk.pageNumber);
+  const pageSpan = Math.max(...pages) - Math.min(...pages);
+
+  if (sections.size === 1 && pageSpan <= 12) {
+    return limited.slice().sort((a, b) => {
+      if (a.chunk.pageNumber !== b.chunk.pageNumber) {
+        return a.chunk.pageNumber - b.chunk.pageNumber;
+      }
+      return getChunkOrder(a.chunk) - getChunkOrder(b.chunk);
+    });
+  }
+
+  return limited;
+}
+
+export async function searchContractSources(
+  query: string,
+  conversationHistory: ChatMessage[] = [],
+  options: { contextualize?: boolean } = {},
+): Promise<{
   sources: ContractSearchResult[];
   isConversational: boolean;
   structureAnswer?: string;
   tabuladorContext?: string;
+  trace?: ContractRetrievalTrace;
 }> {
   const trimmedQuery = query.trim();
   if (!trimmedQuery) throw new Error("QUERY_REQUIRED");
@@ -1551,12 +2540,81 @@ export async function searchContractSources(query: string): Promise<{
     return { sources: [], isConversational: true };
   }
 
+  // Direct clause/article resolution by metadata
+  const clauseMatch = normalizedQuery.match(/\bcl[aá]usula\s+(\d+)\b/);
+  const articleMatch = normalizedQuery.match(/\bart[ií]culo\s+(\d+)\b/);
+  if (clauseMatch || articleMatch) {
+    const targetNumber = Number(clauseMatch?.[1] || articleMatch?.[1]);
+    const isClause = Boolean(clauseMatch);
+    const directHits = index.chunks.filter((c) =>
+      isClause
+        ? c.clauseNumber === targetNumber
+        : c.articleNumber === targetNumber,
+    );
+    if (directHits.length > 0) {
+      // If article query mentions a specific reglamento, filter further
+      const sectionHint = normalizedQuery.match(
+        /\b(beca|bolsa|escalafon|retiro|guarderia|ropa|uniformes|pasajes|habitacion|capacitacion|conductores|infectocontagio|interior|jubilaci|residentes|salario|plantillas|higiene|rama|alimentos|tiendas|viaticos|ahorro|resguardo|bienestar)\b/,
+      );
+      let filteredHits = directHits;
+      if (sectionHint && !isClause) {
+        const keyword = sectionHint[1];
+        const matchingSection = DOCUMENT_SECTIONS.find((s) =>
+          normalizeText(s.sectionTitle).includes(keyword),
+        );
+        if (matchingSection) {
+          const sectionFiltered = directHits.filter(
+            (c) => c.sectionNumber === matchingSection.sectionNumber,
+          );
+          if (sectionFiltered.length > 0) filteredHits = sectionFiltered;
+        }
+      }
+      const directSources: ContractSearchResult[] = filteredHits
+        .slice(0, MAX_SELECTED_SOURCES)
+        .map((chunk) => ({
+          chunk,
+          score: 1.0,
+          semanticScore: 1.0,
+          keywordScore: 1.0,
+          matchedTerms: ["direct-metadata-match"],
+          excerpt: chunk.text.slice(0, 300),
+        }));
+      const trace = buildRetrievalTrace(
+        trimmedQuery,
+        trimmedQuery,
+        "none",
+        [trimmedQuery],
+        directSources,
+        directSources,
+      );
+      recordRetrievalTrace(trace);
+      return {
+        sources: directSources,
+        isConversational: false,
+        trace,
+      };
+    }
+  }
+
+  const contextualized =
+    options.contextualize === false
+      ? { query: trimmedQuery, mode: "none" as const, history: [] }
+      : await contextualizeQuery(trimmedQuery, conversationHistory);
+  const contextualizedQuery = reinforceContextualTopic(
+    trimmedQuery,
+    contextualized.query,
+    contextualized.history,
+  );
+
   // Local query rewriting — typos, abbreviations (no LLM call, saves tokens)
-  const rewrittenQuery = rewriteQueryLocal(trimmedQuery);
+  const rewrittenQuery = rewriteQueryLocal(contextualizedQuery);
   const searchQuery =
-    rewrittenQuery !== trimmedQuery.toLowerCase()
+    rewrittenQuery !== contextualizedQuery.toLowerCase()
       ? rewrittenQuery
-      : trimmedQuery;
+      : contextualizedQuery;
+  const retrievalQueries = Array.from(
+    new Set([searchQuery].map((value) => value.trim()).filter(Boolean)),
+  );
 
   // Genera el embedding de la consulta UNA vez y lo comparte entre el buscador
   // de FAQs y el enganche semántico de prestaciones (evita llamadas de más).
@@ -1575,17 +2633,6 @@ export async function searchContractSources(query: string): Promise<{
 
   // Search with both original and rewritten query, merge results
   const sources = await hybridSearch(searchQuery, index, 10);
-
-  // If rewritten, also search with original and merge
-  if (searchQuery !== trimmedQuery) {
-    const originalSources = await hybridSearch(trimmedQuery, index, 6);
-    const existingIds = new Set(sources.map((s) => s.chunk.id));
-    for (const s of originalSources) {
-      if (!existingIds.has(s.chunk.id)) {
-        sources.push(s);
-      }
-    }
-  }
 
   // Boost chunks that FAQ matched — add them if not already in results
   if (matchedChunkIds.length > 0) {
@@ -1615,14 +2662,28 @@ export async function searchContractSources(query: string): Promise<{
 
   // Sort by score (FAQ-boosted chunks will be higher)
   sources.sort((a, b) => b.score - a.score);
-  const reranked = sources.slice(0, 8);
+  const explicitIndexQuery = /\bindice\b/.test(normalizedQuery);
+  const evidenceSources = explicitIndexQuery
+    ? sources
+    : sources.filter(
+        (source) =>
+          source.chunk.contentType !== "index" &&
+          source.chunk.contentType !== "signatures" &&
+          source.chunk.pageNumber < 551,
+      );
+  const candidates = rerankEvidenceByQuestionIntent(
+    expandEvidenceSources(evidenceSources.slice(0, 20), index, searchQuery),
+    searchQuery,
+  ).slice(0, 20);
+  const reranked = candidates.slice(0, MAX_SELECTED_SOURCES);
 
   // Check if structured data is relevant. Prestaciones usa la consulta
   // reescrita (typos/abreviaciones corregidos) para enganchar mejor.
-  const tabuladorContext = buildTabuladorContext(trimmedQuery) || undefined;
+  const tabuladorContext =
+    buildTabuladorContext(contextualizedQuery) || undefined;
   const prestacionesContext =
     buildPrestacionesContext(
-      `${trimmedQuery} ${searchQuery}`,
+      `${contextualizedQuery} ${searchQuery}`,
       queryEmbedding,
     ) || undefined;
 
@@ -1631,10 +2692,21 @@ export async function searchContractSources(query: string): Promise<{
     [tabuladorContext, prestacionesContext].filter(Boolean).join("\n\n") ||
     undefined;
 
+  const trace = buildRetrievalTrace(
+    trimmedQuery,
+    contextualizedQuery,
+    contextualized.mode,
+    retrievalQueries,
+    candidates,
+    reranked,
+  );
+  recordRetrievalTrace(trace);
+
   return {
-    sources: reranked.slice(0, 8),
+    sources: reranked.slice(0, MAX_SELECTED_SOURCES),
     isConversational: false,
     tabuladorContext: structuredContext,
+    trace,
   };
 }
 
@@ -1652,13 +2724,13 @@ function enqueueExtractiveFallback(
   encoder: TextEncoder,
   sources: ContractSearchResult[],
 ) {
-  const note =
-    "⚠️ El asistente de IA está temporalmente saturado (límite de uso). " +
-    "Mientras tanto, aquí tienes las referencias directas del contrato:\n\n";
   const body =
     sources.length > 0
-      ? note + buildAnswerText(sources)
-      : "⚠️ El asistente de IA está temporalmente saturado (límite de uso). Intenta de nuevo en un minuto.";
+      ? buildAnswerText(sources, {
+          prefix:
+            "El LLM se saturó por límite de uso, pero sí recuperé evidencia del contrato. Te dejo la respuesta corta con respaldo:",
+        })
+      : "El LLM se saturó por límite de uso. Intenta de nuevo en un minuto.";
   controller.enqueue(
     encoder.encode(`data: ${JSON.stringify({ text: body })}\n\n`),
   );
@@ -1695,13 +2767,16 @@ export function createGroqStream(
             content:
               "Eres el asistente del contrato colectivo IMSS-SNTSS 2025-2027. " +
               "Responde de forma natural, amigable y breve. Puedes saludar, despedirte, o guiar al usuario. " +
+              "Si ya hay historial de conversación, no saludes otra vez: continúa directo. " +
               "Si te preguntan algo que no es del contrato, recuérdale amablemente que estás para consultas del contrato. " +
               "Responde en español, máximo 3-4 líneas.",
           },
-          ...conversationHistory.slice(-6).map((m) => ({
-            role: m.role as string,
-            content: m.content,
-          })),
+          ...sanitizeConversationHistory(query, conversationHistory)
+            .slice(-6)
+            .map((m) => ({
+              role: m.role as string,
+              content: m.content,
+            })),
           { role: "user" as const, content: query },
         ];
 
@@ -1734,7 +2809,7 @@ export function createGroqStream(
               },
               body: JSON.stringify({
                 model,
-                temperature: 0.15,
+                temperature: 0,
                 max_tokens: 1024,
                 stream: true,
                 stream_options: { include_usage: true },
@@ -1894,10 +2969,233 @@ export function createGroqStream(
 }
 
 // ---------------------------------------------------------------------------
+// EvidencePack & AnswerPlan — structured pre-generation layer
+// ---------------------------------------------------------------------------
+
+function detectQueryIntent(query: string): string {
+  const nq = normalizeText(query);
+  if (/\bcuanto (gano|gana|pagan|cobro|sueldo|salario)\b/.test(nq))
+    return "consulta-sueldo";
+  if (/\b(vacacion|dias libres|descanso)\b/.test(nq))
+    return "consulta-vacaciones";
+  if (/\b(jubil|pension|retiro|jubilarme)\b/.test(nq))
+    return "consulta-jubilacion";
+  if (/\b(beca|estudiar|maestria|postgrado)\b/.test(nq))
+    return "consulta-becas";
+  if (/\b(permiso|faltar|falta|ausencia|licencia)\b/.test(nq))
+    return "consulta-permisos";
+  if (/\b(acoso|hostigamiento|violencia|denuncia)\b/.test(nq))
+    return "consulta-procedimiento";
+  if (/\b(clausula|articulo)\s+\d+\b/.test(nq))
+    return "consulta-clausula-especifica";
+  if (/\b(diferencia|comparar|cambio entre|versus)\b/.test(nq))
+    return "consulta-comparacion";
+  if (/\b(que (prestaciones|beneficios|derechos))\b/.test(nq))
+    return "consulta-listado";
+  if (/\b(como|procedimiento|tramite|pasos|requisitos)\b/.test(nq))
+    return "consulta-procedimiento";
+  return "consulta-general";
+}
+
+function detectUserFacts(query: string, history: ChatMessage[]): string[] {
+  const facts: string[] = [];
+  const all = [
+    ...history.filter((m) => m.role === "user").map((m) => m.content),
+    query,
+  ].join(" ");
+  const nAll = normalizeText(all);
+
+  const yearMatch = nAll.match(
+    /\b(entre|ingrese|entre al imss|entro|entre en)\b.*?\b(19\d{2}|20[0-2]\d)\b/,
+  );
+  if (yearMatch) facts.push(`ingreso: ${yearMatch[2]}`);
+
+  const antiguedadMatch = nAll.match(
+    /\b(\d+)\s*(anos?|años?)\s*(de\s+)?(antiguedad|servicio|trabajando)\b/,
+  );
+  if (antiguedadMatch) facts.push(`antigüedad: ${antiguedadMatch[1]} años`);
+
+  const categoriaMatch = nAll.match(
+    /\b(soy|como)\s+(enfermera|medico|auxiliar|coordinador|chofer|laboratorista|trabajador social|jefe de grupo)/,
+  );
+  if (categoriaMatch) facts.push(`categoría: ${categoriaMatch[2]}`);
+
+  return facts;
+}
+
+function detectMissingFacts(intent: string, userFacts: string[]): string[] {
+  const missing: string[] = [];
+  const factsStr = userFacts.join(" ").toLowerCase();
+
+  if (intent === "consulta-sueldo" && !factsStr.includes("categoría")) {
+    missing.push("categoría/puesto");
+  }
+  if (intent === "consulta-vacaciones" && !factsStr.includes("antigüedad")) {
+    missing.push("antigüedad");
+  }
+  if (
+    intent === "consulta-jubilacion" &&
+    !factsStr.includes("ingreso") &&
+    !factsStr.includes("antigüedad")
+  ) {
+    missing.push("fecha de ingreso o antigüedad");
+  }
+  return missing;
+}
+
+function buildEvidencePack(
+  originalQuery: string,
+  contextualizedQuery: string,
+  sources: ContractSearchResult[],
+  conversationHistory: ChatMessage[],
+  trace?: ContractRetrievalTrace,
+): EvidencePack {
+  const intent = detectQueryIntent(originalQuery);
+  const userFacts = detectUserFacts(originalQuery, conversationHistory);
+  const missingFacts = detectMissingFacts(intent, userFacts);
+
+  const clauses = Array.from(
+    new Set(
+      sources
+        .filter((s) => s.chunk.clauseNumber)
+        .map((s) => s.chunk.clauseNumber!),
+    ),
+  ).sort((a, b) => a - b);
+
+  const articles: EvidencePack["articles"] = [];
+  const seenArticles = new Set<string>();
+  for (const s of sources) {
+    if (s.chunk.articleNumber && s.chunk.sectionTitle) {
+      const key = `${s.chunk.sectionNumber}-${s.chunk.articleNumber}`;
+      if (!seenArticles.has(key)) {
+        seenArticles.add(key);
+        articles.push({
+          number: s.chunk.articleNumber,
+          section: s.chunk.sectionTitle,
+        });
+      }
+    }
+  }
+
+  const tables = sources
+    .filter((s) => s.chunk.contentType === "table")
+    .map((s) => s.chunk.text.slice(0, 200));
+
+  const sufficiency =
+    trace?.sufficiency.status ||
+    (sources.length > 0 ? "sufficient" : "insufficient");
+  const topScore = trace?.sufficiency.topScore || 0;
+  const confidenceLevel: EvidencePack["confidenceLevel"] =
+    topScore >= 0.7 && sources.length >= 3
+      ? "high"
+      : topScore >= 0.4 && sources.length >= 1
+        ? "medium"
+        : "low";
+
+  return {
+    originalQuery,
+    contextualizedQuery,
+    intent,
+    userFacts,
+    missingFacts,
+    sources: sources.slice(0, MAX_EVIDENCE_SOURCES).map((s) => ({
+      text: s.chunk.text,
+      pageNumber: s.chunk.pageNumber,
+      clauseNumber: s.chunk.clauseNumber,
+      articleNumber: s.chunk.articleNumber,
+      sectionTitle: s.chunk.sectionTitle,
+      contentType: s.chunk.contentType,
+    })),
+    clauses,
+    articles,
+    tables,
+    exceptions: [],
+    contradictions: [],
+    sufficiency,
+    confidenceLevel,
+  };
+}
+
+function buildAnswerPlan(pack: EvidencePack): AnswerPlan {
+  // Abstention: only when no evidence at all.
+  // Thematic incompatibility (SAT, clima, etc.) is handled by checkThematicCompatibility
+  // in the retrieval trace — if it flagged insufficient there, the retrieval already
+  // returned sources but the trace records it. The AnswerPlan does NOT re-check;
+  // it trusts that sources.length > 0 means the retrieval decided to serve them.
+  if (pack.sources.length === 0) {
+    return {
+      directAnswerPossible: false,
+      dataThatMustBeRequested: [],
+      allowedClaims: [],
+      forbiddenClaims: [],
+      requiredSources: [],
+      needsCombiningSources: false,
+      needsAbstention: true,
+      abstentionReason:
+        "No encontré información relevante sobre eso en el contrato. Estoy para consultas del contrato colectivo IMSS-SNTSS.",
+      recommendedFormat: "abstention",
+    };
+  }
+
+  // Required sources
+  const requiredSources = pack.sources
+    .slice(0, MAX_EVIDENCE_SOURCES)
+    .map((s) => ({
+      page: s.pageNumber,
+      clause: s.clauseNumber,
+      article: s.articleNumber,
+    }));
+
+  // Allowed claims: only pages and clauses/articles in evidence
+  const allowedClaims = [
+    ...pack.clauses.map((c) => `Cláusula ${c}`),
+    ...pack.articles.map((a) => `Artículo ${a.number} (${a.section})`),
+  ];
+
+  // Forbidden: pages/clauses NOT in evidence
+  const forbiddenClaims: string[] = [];
+
+  // Data that must be requested
+  const dataThatMustBeRequested = [...pack.missingFacts];
+
+  // Format
+  let recommendedFormat: AnswerPlan["recommendedFormat"] = "direct";
+  if (pack.intent === "consulta-comparacion") recommendedFormat = "comparison";
+  if (pack.intent === "consulta-listado") recommendedFormat = "list";
+  if (dataThatMustBeRequested.length > 0 && pack.confidenceLevel !== "high") {
+    recommendedFormat = "decision-tree";
+  }
+
+  // Combining sources
+  const uniqueSections = new Set(
+    pack.sources.map((s) => s.sectionTitle).filter(Boolean),
+  );
+  const needsCombiningSources =
+    uniqueSections.size > 1 || pack.sources.length > 3;
+
+  const directAnswerPossible =
+    dataThatMustBeRequested.length === 0 && pack.confidenceLevel !== "low";
+
+  return {
+    directAnswerPossible,
+    dataThatMustBeRequested,
+    allowedClaims,
+    forbiddenClaims,
+    requiredSources,
+    needsCombiningSources,
+    needsAbstention: false,
+    recommendedFormat,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Extractive fallback answer
 // ---------------------------------------------------------------------------
 
-function buildAnswerText(sources: ContractSearchResult[]) {
+function buildAnswerText(
+  sources: ContractSearchResult[],
+  options: { prefix?: string } = {},
+) {
   if (sources.length === 0) {
     return "No encontré información relevante sobre eso en el contrato. Intenta reformular tu pregunta con términos más específicos — por ejemplo, mencionando la cláusula, prestación o tema concreto que buscas.";
   }
@@ -1907,16 +3205,73 @@ function buildAnswerText(sources: ContractSearchResult[]) {
     const label = s.chunk.clauseNumber
       ? `Cláusula ${s.chunk.clauseNumber}${s.chunk.clauseTitle ? ` (${s.chunk.clauseTitle})` : ""}`
       : `Página ${s.chunk.pageNumber}`;
-    return `- ${label}: ${s.excerpt}`;
+    const excerpt = s.excerpt.replace(/\s+/g, " ").trim().slice(0, 420);
+    return `- ${label}: ${excerpt}${s.excerpt.length > 420 ? "..." : ""}`;
   });
+  const pages = Array.from(
+    new Set(topSources.map((s) => s.chunk.pageNumber)),
+  ).join(", ");
 
   return [
-    "Encontré estas referencias relevantes en el contrato:",
+    options.prefix || "Encontré estas referencias relevantes en el contrato:",
     "",
     ...lines,
     "",
-    `Revisa las páginas ${topSources.map((s) => s.chunk.pageNumber).join(", ")} para el detalle completo.`,
+    `Páginas de referencia: p. ${pages.replace(/, /g, ", p. ")}`,
   ].join("\n");
+}
+
+/**
+ * Improved extractive fallback that uses AnswerPlan to select better excerpts.
+ */
+function buildPlannedAnswerText(
+  sources: ContractSearchResult[],
+  plan: AnswerPlan,
+  pack: EvidencePack,
+): string {
+  if (plan.needsAbstention) {
+    return (
+      plan.abstentionReason ||
+      "No encontré información relevante sobre eso en el contrato."
+    );
+  }
+
+  if (sources.length === 0) {
+    return "No encontré información relevante sobre eso en el contrato. Intenta reformular tu pregunta con términos más específicos.";
+  }
+
+  const topSources = sources.slice(0, 4);
+  const lines = topSources.map((s) => {
+    const label = s.chunk.clauseNumber
+      ? `Cláusula ${s.chunk.clauseNumber}${s.chunk.clauseTitle ? ` (${s.chunk.clauseTitle})` : ""}`
+      : s.chunk.articleNumber && s.chunk.sectionTitle
+        ? `Art. ${s.chunk.articleNumber} — ${s.chunk.sectionTitle}`
+        : `Página ${s.chunk.pageNumber}`;
+    // Use longer excerpts from the actual chunk text, not keyword-matched sentences
+    const excerpt = s.chunk.text.replace(/\s+/g, " ").trim().slice(0, 420);
+    return `- ${label}: ${excerpt}${s.chunk.text.length > 420 ? "..." : ""}`;
+  });
+
+  const pages = Array.from(
+    new Set(topSources.map((s) => s.chunk.pageNumber)),
+  ).join(", ");
+
+  const parts: string[] = [];
+  parts.push("Encontré estas referencias relevantes en el contrato:");
+  parts.push("");
+  parts.push(...lines);
+
+  if (plan.dataThatMustBeRequested.length > 0) {
+    parts.push("");
+    parts.push(
+      `Para darte una respuesta más precisa, necesito saber: ${plan.dataThatMustBeRequested.join(", ")}.`,
+    );
+  }
+
+  parts.push("");
+  parts.push(`Páginas de referencia: p. ${pages.replace(/, /g, ", p. ")}`);
+
+  return parts.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -2076,10 +3431,47 @@ async function loadPersistedContractIndex() {
   const rawIndex = await fs.promises.readFile(CONTRACT_INDEX_PATH, "utf8");
   const parsedIndex = JSON.parse(rawIndex) as ContractIndex;
 
+  // Basic integrity: chunk array must match declared count
+  if (
+    !parsedIndex.chunks ||
+    parsedIndex.chunks.length !== parsedIndex.chunkCount
+  ) {
+    console.error(
+      "[contract-chat] Index integrity error: chunk count mismatch",
+    );
+    return null;
+  }
+
+  // If index declares hasEmbeddings, verify actual coverage
+  if (parsedIndex.hasEmbeddings) {
+    const embCount = parsedIndex.chunks.filter(
+      (c) => c.embedding && c.embedding.length > 0,
+    ).length;
+    if (embCount < parsedIndex.chunkCount * 0.9) {
+      console.error(
+        `[contract-chat] Index integrity error: hasEmbeddings=true but only ${embCount}/${parsedIndex.chunkCount} have embeddings`,
+      );
+      return null;
+    }
+  }
+
   if (fs.existsSync(CONTRACT_PATH)) {
     const contractStats = await fs.promises.stat(CONTRACT_PATH);
     if (parsedIndex.sourceMtimeMs !== contractStats.mtimeMs) {
-      return null;
+      const relocatedSemanticIndex =
+        path.basename(parsedIndex.contractPath) === CONTRACT_FILENAME &&
+        path.resolve(parsedIndex.contractPath) !==
+          path.resolve(CONTRACT_PATH) &&
+        parsedIndex.hasEmbeddings &&
+        parsedIndex.chunks.filter((chunk) => chunk.embedding?.length).length >=
+          parsedIndex.chunkCount * 0.9;
+      if (!relocatedSemanticIndex) return null;
+
+      return {
+        ...parsedIndex,
+        contractPath: CONTRACT_PATH,
+        sourceMtimeMs: contractStats.mtimeMs,
+      };
     }
   }
 
@@ -2115,8 +3507,18 @@ export async function getContractChatStatus(): Promise<ContractChatStatus> {
   try {
     const rawIndex = await fs.promises.readFile(CONTRACT_INDEX_PATH, "utf8");
     const parsedIndex = JSON.parse(rawIndex) as ContractIndex;
+    const relocatedSemanticIndex = Boolean(
+      pdfStats &&
+      path.basename(parsedIndex.contractPath) === CONTRACT_FILENAME &&
+      path.resolve(parsedIndex.contractPath) !== path.resolve(CONTRACT_PATH) &&
+      parsedIndex.hasEmbeddings &&
+      parsedIndex.chunks.filter((chunk) => chunk.embedding?.length).length >=
+        parsedIndex.chunkCount * 0.9,
+    );
     const fresh = Boolean(
-      pdfStats && parsedIndex.sourceMtimeMs === pdfStats.mtimeMs,
+      pdfStats &&
+      (parsedIndex.sourceMtimeMs === pdfStats.mtimeMs ||
+        relocatedSemanticIndex),
     );
 
     status.index = {
@@ -2191,10 +3593,68 @@ export async function answerContractQuestion(
     };
   }
 
-  // Hybrid search
-  const rankedSources = await hybridSearch(trimmedQuery, index, 8);
+  const retrieval = await searchContractSources(
+    trimmedQuery,
+    conversationHistory,
+  );
+  const rankedSources = retrieval.sources;
 
-  let answer = buildAnswerText(rankedSources);
+  if (retrieval.structureAnswer) {
+    return {
+      answer: retrieval.structureAnswer,
+      query: trimmedQuery,
+      generatedAt: new Date().toISOString(),
+      sourceCount: 0,
+      answerMode: "extractive",
+      sources: [],
+      diagnostics: {
+        contractPath: index.contractPath,
+        pageCount: index.pageCount,
+        chunkCount: index.chunkCount,
+        usedGroq: false,
+        searchMode: index.hasEmbeddings ? "hybrid" : "keyword",
+      },
+    };
+  }
+
+  // Build structured evidence pack and answer plan
+  const evidencePack = buildEvidencePack(
+    trimmedQuery,
+    retrieval.trace?.contextualizedQuery || trimmedQuery,
+    rankedSources,
+    conversationHistory,
+    retrieval.trace,
+  );
+  const answerPlan = buildAnswerPlan(evidencePack);
+
+  // Thematic incompatibility: retrieval returned sources but they don't match the query domain
+  const thematicAbstain =
+    retrieval.trace?.sufficiency.status === "insufficient" &&
+    checkThematicCompatibility(trimmedQuery, rankedSources).compatible ===
+      false;
+
+  // If plan says abstain OR thematic check fails, return early
+  if (answerPlan.needsAbstention || thematicAbstain) {
+    return {
+      answer:
+        answerPlan.abstentionReason ||
+        "No encontré información relevante sobre eso en el contrato. Estoy para consultas del contrato colectivo IMSS-SNTSS.",
+      query: trimmedQuery,
+      generatedAt: new Date().toISOString(),
+      sourceCount: 0,
+      answerMode: "extractive",
+      sources: [],
+      diagnostics: {
+        contractPath: index.contractPath,
+        pageCount: index.pageCount,
+        chunkCount: index.chunkCount,
+        usedGroq: false,
+        searchMode: index.hasEmbeddings ? "hybrid" : "keyword",
+      },
+    };
+  }
+
+  let answer = buildPlannedAnswerText(rankedSources, answerPlan, evidencePack);
   let answerMode: ContractChatAnswer["answerMode"] = "extractive";
   let groqModel: string | undefined;
   let usedGroq = false;
@@ -2205,6 +3665,8 @@ export async function answerContractQuestion(
       trimmedQuery,
       rankedSources,
       conversationHistory,
+      retrieval.tabuladorContext,
+      answerPlan,
     );
     if (groqResponse) {
       answer = groqResponse.content;

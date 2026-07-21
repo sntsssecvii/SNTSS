@@ -1,9 +1,34 @@
+export type DocumentType =
+  | "contrato"
+  | "transitorias"
+  | "reglamento"
+  | "convenio"
+  | "tabulador"
+  | "profesiograma"
+  | "indice";
+
+export type ContentType =
+  | "normative"
+  | "definition"
+  | "requirement"
+  | "procedure"
+  | "table"
+  | "administrative"
+  | "signatures"
+  | "index";
+
 export interface ContractChunk {
   id: string;
   pageNumber: number;
   clauseNumber?: number;
   clauseTitle?: string;
   chapterTitle?: string;
+  articleNumber?: number;
+  articleTitle?: string;
+  sectionTitle?: string;
+  sectionNumber?: number;
+  documentType?: DocumentType;
+  contentType?: ContentType;
   text: string;
   normalizedText: string;
   tokenCounts: Record<string, number>;
@@ -20,6 +45,16 @@ export interface ContractIndex {
   documentFrequencies: Record<string, number>;
   chunks: ContractChunk[];
   hasEmbeddings: boolean;
+  // Manifest (schema v2+)
+  schemaVersion?: number;
+  documentVersion?: string;
+  sourceHash?: string;
+  embeddingProvider?: string;
+  embeddingModel?: string;
+  embeddingDimensions?: number;
+  chunksWithEmbeddings?: number;
+  metadataEnriched?: boolean;
+  status?: "candidate" | "validated" | "active" | "backup";
 }
 
 export interface ContractSearchResult {
@@ -34,6 +69,35 @@ export interface ContractSearchResult {
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+export interface ContractRetrievalTraceItem {
+  chunkId: string;
+  pageNumber: number;
+  clauseNumber?: number;
+  score: number;
+  semanticScore: number;
+  keywordScore: number;
+  matchedTerms: string[];
+  excerpt: string;
+}
+
+export interface ContractRetrievalTrace {
+  traceId: string;
+  createdAt: string;
+  originalQuery: string;
+  contextualizedQuery: string;
+  contextualizationMode: "none" | "llm" | "fallback";
+  retrievalQueries: string[];
+  candidates: ContractRetrievalTraceItem[];
+  selected: ContractRetrievalTraceItem[];
+  evidence: ContractRetrievalTraceItem[];
+  sufficiency: {
+    status: "sufficient" | "insufficient";
+    reason: string;
+    topScore: number;
+    evidenceCount: number;
+  };
 }
 
 export interface ContractChatAnswer {
@@ -51,6 +115,50 @@ export interface ContractChatAnswer {
     usedGroq: boolean;
     searchMode: "hybrid" | "keyword" | "semantic";
   };
+}
+
+// ---------------------------------------------------------------------------
+// EvidencePack — structured pre-generation context
+// ---------------------------------------------------------------------------
+
+export interface EvidencePack {
+  originalQuery: string;
+  contextualizedQuery: string;
+  intent: string;
+  userFacts: string[];
+  missingFacts: string[];
+  sources: Array<{
+    text: string;
+    pageNumber: number;
+    clauseNumber?: number;
+    articleNumber?: number;
+    sectionTitle?: string;
+    contentType?: ContentType;
+  }>;
+  clauses: number[];
+  articles: Array<{ number: number; section: string }>;
+  tables: string[];
+  exceptions: string[];
+  contradictions: string[];
+  sufficiency: "sufficient" | "insufficient";
+  confidenceLevel: "high" | "medium" | "low";
+}
+
+// ---------------------------------------------------------------------------
+// AnswerPlan — structured generation plan
+// ---------------------------------------------------------------------------
+
+export interface AnswerPlan {
+  directAnswerPossible: boolean;
+  dataThatMustBeRequested: string[];
+  allowedClaims: string[];
+  forbiddenClaims: string[];
+  requiredSources: Array<{ page: number; clause?: number; article?: number }>;
+  needsCombiningSources: boolean;
+  needsAbstention: boolean;
+  abstentionReason?: string;
+  recommendedFormat:
+    "direct" | "comparison" | "list" | "decision-tree" | "abstention";
 }
 
 export interface ContractChatStatus {

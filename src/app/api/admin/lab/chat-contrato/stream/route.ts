@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createGroqStream, searchContractSources } from "@/lib/contract-chat";
 import { getCachedAnswer, setCachedAnswer } from "@/lib/firebase/chat-cache";
-import { requireAdminRequest } from "@/lib/firebase/server-auth";
+import { requireSuperAdminRequest } from "@/lib/firebase/server-auth";
 import { assertSameOrigin } from "@/lib/security/cors";
 import { enforceRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       limit: 20,
       windowMs: 60_000,
     });
-    await requireAdminRequest(request);
+    await requireSuperAdminRequest(request);
 
     const body = (await request.json()) as {
       query?: string;
@@ -31,7 +31,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const history = body.history || [];
+    const history = (body.history || [])
+      .filter(
+        (message) =>
+          (message.role === "user" || message.role === "assistant") &&
+          typeof message.content === "string" &&
+          message.content.trim().length > 0,
+      )
+      .slice(-10);
+    if (
+      history.at(-1)?.role === "user" &&
+      history.at(-1)?.content.trim().toLowerCase() === query.toLowerCase()
+    ) {
+      history.pop();
+    }
 
     // Check cache for non-conversational queries
     if (history.length === 0 && query.length >= 5) {
@@ -71,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     // Search for sources
     const { sources, isConversational, structureAnswer, tabuladorContext } =
-      await searchContractSources(query);
+      await searchContractSources(query, history);
 
     // Respuesta directa sobre estructura del contrato (sin LLM)
     if (structureAnswer) {
