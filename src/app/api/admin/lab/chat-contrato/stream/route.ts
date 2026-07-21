@@ -14,10 +14,15 @@ export async function POST(request: NextRequest) {
     assertSameOrigin(request);
     enforceRateLimit(request, {
       bucket: "api:admin:lab:chat-contrato:stream",
-      limit: 20,
+      limit: 30,
       windowMs: 60_000,
     });
-    await requireSuperAdminRequest(request);
+    const ctx = await requireSuperAdminRequest(request);
+    enforceRateLimit(request, {
+      bucket: `api:chat-contrato:user:${ctx.uid}`,
+      limit: 10,
+      windowMs: 60_000,
+    });
 
     const body = (await request.json()) as {
       query?: string;
