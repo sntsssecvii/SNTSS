@@ -84,6 +84,30 @@ describe("evidence", () => {
       expect(result.reason).toContain("meteorología");
     });
 
+    it("marca insufficient cuando query no tiene relación temática con sources", () => {
+      const sources: ContractSearchResult[] = [
+        {
+          chunk: {
+            id: "noise-1",
+            pageNumber: 100,
+            text: "El tabulador establece categorías y sueldos base",
+            normalizedText: "el tabulador establece categorias y sueldos base",
+            tokenCounts: {},
+          },
+          score: 0.25,
+          semanticScore: 0.2,
+          keywordScore: 0.1,
+          matchedTerms: [],
+          excerpt: "tabulador...",
+        },
+      ];
+      const result = checkThematicCompatibility(
+        "¿Cómo saco mi constancia de situación fiscal del SAT?",
+        sources,
+      );
+      expect(result.compatible).toBe(false);
+    });
+
     it("incluye la razón cuando es incompatible", () => {
       const sources: ContractSearchResult[] = [
         {

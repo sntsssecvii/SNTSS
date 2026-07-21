@@ -109,6 +109,35 @@ export function checkThematicCompatibility(
   ];
 
   const matchedExternal = externalSignals.find((s) => s.pattern.test(nq));
+
+  // Low-score + no matched-terms heuristic: if the top source has a very low
+  // score and none of the matched terms overlap with query tokens, the evidence
+  // is noise regardless of domain signals.
+  const topScore = Math.max(...evidence.map((s) => s.score));
+  if (!matchedExternal && topScore < 0.35) {
+    const queryTokens = new Set(
+      nq
+        .split(/\s+/)
+        .map((t) => t.replace(/[^a-z0-9áéíóúüñ]/g, ""))
+        .filter((t) => t.length > 2),
+    );
+    const allMatchedTerms = evidence.flatMap((s) => s.matchedTerms);
+    const hasTermOverlap = allMatchedTerms.some(
+      (term) =>
+        queryTokens.has(term) ||
+        Array.from(queryTokens).some(
+          (qt) => term.includes(qt) || qt.includes(term),
+        ),
+    );
+    if (!hasTermOverlap) {
+      return {
+        compatible: false,
+        reason:
+          "La evidencia tiene puntuación muy baja y no comparte términos con la consulta — probable consulta fuera del ámbito del CCT.",
+      };
+    }
+  }
+
   if (!matchedExternal) return { compatible: true, reason: "" };
 
   // If evidence is mostly from the contract/regulations and query is about
