@@ -1,53 +1,10 @@
-import path from "path";
-
-import {
-  MAX_CONTEXTUALIZATION_HISTORY,
-  DEFAULT_GROQ_MODEL,
-} from "@/lib/contract-chat/constants";
-import { readLocalEnvValue } from "@/lib/contract-chat/embeddings";
+import { MAX_CONTEXTUALIZATION_HISTORY } from "@/lib/contract-chat/constants";
 import { normalizeText } from "@/lib/contract-chat/query-processing";
+import { getGroqApiKeys, getGroqModel } from "@/lib/contract-chat/llm";
 import type {
   ChatMessage,
   ContractRetrievalTrace,
 } from "@/lib/contract-chat/types";
-
-// ---------------------------------------------------------------------------
-// Groq helpers (needed for generateStandaloneQuery)
-// ---------------------------------------------------------------------------
-
-function getGroqApiKeys(): string[] {
-  const keys: string[] = [];
-  const primary =
-    process.env.GROQ_API_KEY ||
-    readLocalEnvValue(
-      path.join(process.cwd(), ".env.groq.local"),
-      "GROQ_API_KEY",
-    ) ||
-    readLocalEnvValue(path.join(process.cwd(), ".env.local"), "GROQ_API_KEY");
-  if (primary) keys.push(primary);
-
-  const fallback =
-    process.env.GROQ_API_KEY_FALLBACK ||
-    readLocalEnvValue(
-      path.join(process.cwd(), ".env.local"),
-      "GROQ_API_KEY_FALLBACK",
-    );
-  if (fallback) keys.push(fallback);
-
-  return keys;
-}
-
-function getGroqModel() {
-  return (
-    process.env.GROQ_MODEL ||
-    readLocalEnvValue(
-      path.join(process.cwd(), ".env.groq.local"),
-      "GROQ_MODEL",
-    ) ||
-    readLocalEnvValue(path.join(process.cwd(), ".env.local"), "GROQ_MODEL") ||
-    DEFAULT_GROQ_MODEL
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Conversation history sanitization
