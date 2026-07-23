@@ -21,6 +21,12 @@ export async function POST(request: NextRequest) {
       query?: string;
       answer?: string;
       rating?: number;
+      comment?: string;
+      sources?: Array<{
+        pageNumber: number;
+        clauseNumber?: number;
+        excerpt?: string;
+      }>;
     };
 
     if (!body.query || !body.answer || !body.rating) {
@@ -31,7 +37,14 @@ export async function POST(request: NextRequest) {
     }
 
     const rating = body.rating === 1 ? 1 : -1;
-    await submitFeedback(ctx.uid, body.query, body.answer, rating);
+    await submitFeedback(
+      ctx.uid,
+      body.query,
+      body.answer,
+      rating,
+      body.comment,
+      body.sources,
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

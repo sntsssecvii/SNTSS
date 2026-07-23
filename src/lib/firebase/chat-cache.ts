@@ -145,6 +145,12 @@ export async function submitFeedback(
   query: string,
   answer: string,
   rating: 1 | -1,
+  comment?: string,
+  sources?: Array<{
+    pageNumber: number;
+    clauseNumber?: number;
+    excerpt?: string;
+  }>,
 ) {
   const normalized = normalizeQueryForCache(query);
 
@@ -155,6 +161,8 @@ export async function submitFeedback(
     normalizedQuery: normalized,
     answer: answer.slice(0, 500),
     rating,
+    comment: comment?.slice(0, 500) || null,
+    sources: sources?.slice(0, 10) || null,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
