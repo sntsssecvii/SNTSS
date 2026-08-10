@@ -1,3 +1,10 @@
+/**
+ * SNTSS — Plataforma institucional
+ * © 2026 Zentry Tech Group S de RL de CV. Todos los derechos reservados.
+ * Software y código fuente propiedad intelectual de Zentry Tech Group.
+ * Licencia de uso institucional para el SNTSS. Prohibida su comercialización,
+ * reventa o sublicenciamiento a terceros. https://zentrymx.com
+ */
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -13,6 +20,10 @@ if (typeof window !== "undefined") {
 export const metadata = {
   title: "SNTSS",
   description: "Sistema de gestión SNTSS",
+  applicationName: "SNTSS",
+  authors: [{ name: "Zentry Tech Group", url: "https://zentrymx.com" }],
+  creator: "Zentry Tech Group S de RL de CV",
+  publisher: "Zentry Tech Group S de RL de CV",
   icons: {
     icon: [
       {
