@@ -63,6 +63,10 @@ const nextConfig = {
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
+          {
+            key: "X-Developed-By",
+            value: "Zentry Tech Group (https://zentrymx.com)",
+          },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
