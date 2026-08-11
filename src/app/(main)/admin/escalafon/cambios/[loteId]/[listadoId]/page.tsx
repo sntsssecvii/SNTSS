@@ -172,7 +172,8 @@ export default function DetalleListadoCambiosPage() {
     return mapa;
   }, [registros]);
 
-  // Grupos en los que compite el registro abierto en el modal (1 normal, varios si incondicional).
+  // Grupo en el que compite el registro abierto en el modal (siempre uno: su
+  // unidad concreta, o el grupo de incondicionales de su zona).
   const gruposDelModal = useMemo(() => {
     if (!registroModal) return [];
     const clave = claveRegistro(registroModal);
