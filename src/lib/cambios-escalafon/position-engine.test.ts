@@ -157,7 +157,7 @@ describe("calcularPosicionesCambios", () => {
     expect(porMat["ADS_NO"]).toBe(4); // adscripción que no percibe
   });
 
-  it("reparte un incondicional en cada unidad de la zona, tomando el turno solicitado en esa unidad", () => {
+  it("los incondicionales van en grupo separado por zona, NO mezclados con las unidades concretas", () => {
     const registros = [
       reg({
         matricula: "CONCRETA1",
@@ -179,54 +179,75 @@ describe("calcularPosicionesCambios", () => {
       }),
     ];
     const pos = calcularPosicionesCambios(registros);
+    // El incondicional cae en UN solo grupo (zona + INCONDICIONAL), no en las
+    // unidades concretas.
     const delIncond = pos.filter((p) => p.registro.matricula === "INCOND");
-    // Aparece en las dos unidades concretas, adoptando el turno de cada una
-    // (acepta cualquier turno), no un turno "INCONDICIONAL" aislado.
-    const grupos = new Set(delIncond.map((p) => `${p.unidad}/${p.turno}`));
-    expect(grupos).toEqual(new Set(["HGZ 08/NOCTURNO", "HGR 23/MATUTINO"]));
+    expect(delIncond).toHaveLength(1);
+    expect(delIncond[0].unidad).toBe("0-INCONDICIONAL");
+    expect(delIncond[0].turno).toBe("INCONDICIONAL");
+    expect(delIncond[0].lugar).toBe(1);
+    expect(delIncond[0].totalEnGrupo).toBe(1);
+    // Las concretas quedan solas (#1 de su grupo), sin el incondicional dentro.
+    const c1 = pos.find((p) => p.registro.matricula === "CONCRETA1")!;
+    expect(c1.totalEnGrupo).toBe(1);
+    const c2 = pos.find((p) => p.registro.matricula === "CONCRETA2")!;
+    expect(c2.totalEnGrupo).toBe(1);
   });
 
-  it("un incondicional compite contra las concretas de la unidad y rankea por antigüedad (caso EVODIA)", () => {
+  it("los incondicionales de una zona compiten SOLO entre ellos, por antigüedad (caso Tijuana)", () => {
     const registros = [
-      // Concreta vespertino en HGR 01, registrada al mediodía.
+      // Concretas ya en Tijuana pidiendo cambio interno: grupo aparte.
       reg({
-        matricula: "EVODIA",
-        adscripcionSolicitada: "HGR 01",
+        matricula: "INTERNA",
+        zona: "7-TIJUANA",
+        adscripcionSolicitada: "HGR 20",
         turnoSolicitado: "VESPERTINO",
-        tipo: "ADSCRIPCIÓN",
-        fechaRegistro: "10/03/2026",
-        horaRegistro: "12:03:00",
+        tipo: "ÁREA",
+        fechaRegistro: "29/10/2025",
       }),
-      // Incondicional registrada 5 días antes → debe quedar arriba.
+      // Incondicionales a Tijuana: rankean entre sí por fecha de registro.
       reg({
-        matricula: "TAPIA",
-        adscripcionSolicitada: "0-INCONDICIONAL",
-        turnoSolicitado: "INCONDICIONAL",
-        tipo: "ADSCRIPCIÓN",
-        fechaRegistro: "05/03/2026",
-        horaRegistro: "11:04:18",
-      }),
-      // Incondicional el mismo día pero más temprano → también arriba.
-      reg({
-        matricula: "LIZARRAGA",
+        matricula: "TIRADO",
+        zona: "7-TIJUANA",
         adscripcionSolicitada: "0-INCONDICIONAL",
         turnoSolicitado: "INCONDICIONAL",
         tipo: "ADSCRIPCIÓN",
         fechaRegistro: "10/03/2026",
-        horaRegistro: "09:09:31",
+        horaRegistro: "11:11:19",
+      }),
+      reg({
+        matricula: "PALAFOX",
+        zona: "7-TIJUANA",
+        adscripcionSolicitada: "0-INCONDICIONAL",
+        turnoSolicitado: "INCONDICIONAL",
+        tipo: "ADSCRIPCIÓN",
+        fechaRegistro: "17/07/2026",
+        horaRegistro: "14:19:10",
+      }),
+      reg({
+        matricula: "MENDOZA",
+        zona: "7-TIJUANA",
+        adscripcionSolicitada: "0-INCONDICIONAL",
+        turnoSolicitado: "INCONDICIONAL",
+        tipo: "ADSCRIPCIÓN",
+        fechaRegistro: "05/08/2026",
+        horaRegistro: "09:10:56",
       }),
     ];
     const pos = calcularPosicionesCambios(registros);
-    // Los incondicionales entran al grupo HGR 01 / VESPERTINO de EVODIA.
-    const grupo = pos.filter(
-      (p) => p.unidad === "HGR 01" && p.turno === "VESPERTINO",
+    const incond = pos.filter(
+      (p) => p.unidad === "0-INCONDICIONAL" && p.zona === "7-TIJUANA",
     );
     const porMat = Object.fromEntries(
-      grupo.map((p) => [p.registro.matricula, p.lugar]),
+      incond.map((p) => [p.registro.matricula, p.lugar]),
     );
-    expect(porMat["TAPIA"]).toBe(1); // más antiguo
-    expect(porMat["LIZARRAGA"]).toBe(2); // mismo día, más temprano
-    expect(porMat["EVODIA"]).toBe(3); // registrada al mediodía
-    expect(grupo.find((p) => p.registro.matricula === "EVODIA")!.totalEnGrupo).toBe(3);
+    expect(porMat["TIRADO"]).toBe(1);
+    expect(porMat["PALAFOX"]).toBe(2);
+    expect(porMat["MENDOZA"]).toBe(3);
+    expect(incond).toHaveLength(3); // la concreta NO entra a este grupo
+    // La concreta interna queda en su propio grupo, sin incondicionales.
+    const interna = pos.find((p) => p.registro.matricula === "INTERNA")!;
+    expect(interna.unidad).toBe("HGR 20");
+    expect(interna.totalEnGrupo).toBe(1);
   });
 });

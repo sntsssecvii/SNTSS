@@ -5,16 +5,19 @@ import type { CambiosRegistro } from "@/types/cambios-escalafon";
 // ---------------------------------------------------------------------------
 // Reglas (confirmadas con la Subcomisión):
 //  - Cada LISTADO es independiente (no se combinan 014 / 054 / sin concepto).
-//  - Una solicitud compite contra las que piden lo MISMO:
+//  - Una solicitud a UNIDAD CONCRETA compite contra las que piden lo MISMO:
 //      grupo = zona + unidad (adscripción) solicitada + turno solicitado.
-//  - Dentro del grupo, el orden (quién entra primero) es:
+//  - INCONDICIONAL (adscripción solicitada "0-INCONDICIONAL"): forma un grupo
+//    SEPARADO e independiente. Los puros incondicionales de una zona compiten
+//    SOLO entre ellos, sin mezclarse con las solicitudes a unidad concreta.
+//      grupo = zona + adscripción solicitada INCONDICIONAL (cualquier turno).
+//    Un incondicional pide "el municipio, la unidad que sea y el turno que sea",
+//    así que no se subdivide por unidad ni por turno: todos los incondicionales
+//    de la misma zona van juntos en una sola fila de competencia.
+//  - Dentro de cualquier grupo, el orden (quién entra primero) es:
 //      1) prelación por TIPO de cambio: TURNO → ÁREA → TIPO DE PLAZA →
 //         ADSCRIPCIÓN → RESIDENCIA
 //      2) a igual tipo, por fecha + hora de registro (más antiguo = lugar 1)
-//  - INCONDICIONAL (unidad "0-INCONDICIONAL"): acepta cualquier turno, así que
-//    compite en CADA unidad concreta de la zona y en CADA turno solicitado en
-//    esa unidad (no en un turno "INCONDICIONAL" aislado). Rankea por antigüedad
-//    contra las solicitudes concretas de cada turno.
 // ---------------------------------------------------------------------------
 
 export interface CambiosPosicion {
@@ -74,70 +77,61 @@ function claveAntiguedad(r: CambiosRegistro): string {
 
 const SEP = ":::";
 
+// Etiquetas canónicas para el grupo independiente de incondicionales.
+const UNIDAD_INCONDICIONAL = "0-INCONDICIONAL";
+const TURNO_INCONDICIONAL = "INCONDICIONAL";
+
 /**
  * Calcula el lugar de cada registro dentro de su grupo de competencia.
- * Un registro incondicional aparece en varias posiciones (una por unidad de la
- * zona), por eso el resultado es una lista de CambiosPosicion, no un map 1:1.
+ * Cada registro cae en UN solo grupo:
+ *   - unidad concreta → grupo (zona + unidad + turno) con las demás concretas.
+ *   - incondicional   → grupo (zona + INCONDICIONAL) con los demás incondicionales
+ *                       de esa zona, cualquier turno, separado de las concretas.
  */
 export function calcularPosicionesCambios(
   registros: CambiosRegistro[],
 ): CambiosPosicion[] {
   if (registros.length === 0) return [];
 
-  // 1. Unidades concretas (no incondicionales) por zona y turnos por unidad.
-  //    turnosPorUnidad guarda, para cada unidad concreta, los turnos realmente
-  //    solicitados ahí: un incondicional se replicará en todos ellos.
-  const unidadesPorZona = new Map<string, Set<string>>();
-  const turnosPorUnidad = new Map<string, Set<string>>(); // key: zona:::unidad
-  for (const r of registros) {
-    if (esUnidadIncondicional(r.adscripcionSolicitada)) continue;
-    if (!unidadesPorZona.has(r.zona)) unidadesPorZona.set(r.zona, new Set());
-    unidadesPorZona.get(r.zona)!.add(r.adscripcionSolicitada);
-    const ku = `${r.zona}${SEP}${r.adscripcionSolicitada}`;
-    if (!turnosPorUnidad.has(ku)) turnosPorUnidad.set(ku, new Set());
-    turnosPorUnidad.get(ku)!.add(r.turnoSolicitado);
-  }
-
-  // 2. Repartir cada registro en sus grupos de competencia.
+  // Repartir cada registro en su grupo de competencia.
   const grupos = new Map<
     string,
     { zona: string; unidad: string; turno: string; regs: CambiosRegistro[] }
   >();
   const agregar = (
+    key: string,
     zona: string,
     unidad: string,
     turno: string,
     r: CambiosRegistro,
   ) => {
-    const key = `${zona}${SEP}${unidad}${SEP}${turno}`;
     if (!grupos.has(key)) grupos.set(key, { zona, unidad, turno, regs: [] });
     grupos.get(key)!.regs.push(r);
   };
 
   for (const r of registros) {
     if (esUnidadIncondicional(r.adscripcionSolicitada)) {
-      const unidades = unidadesPorZona.get(r.zona);
-      if (unidades && unidades.size > 0) {
-        // Acepta cualquier turno: entra en cada unidad de la zona y en cada
-        // turno solicitado en esa unidad, para competir con las concretas.
-        for (const u of unidades) {
-          const turnos = turnosPorUnidad.get(`${r.zona}${SEP}${u}`);
-          if (turnos && turnos.size > 0) {
-            for (const t of turnos) agregar(r.zona, u, t, r);
-          } else {
-            agregar(r.zona, u, r.turnoSolicitado, r);
-          }
-        }
-      } else {
-        // Zona sin unidades concretas: el incondicional queda en su propia fila.
-        agregar(r.zona, r.adscripcionSolicitada, r.turnoSolicitado, r);
-      }
+      // Grupo separado por zona: todos los incondicionales de esa zona juntos,
+      // sin subdividir por unidad ni por turno (aceptan cualquiera).
+      agregar(
+        `${r.zona}${SEP}__INCONDICIONAL__`,
+        r.zona,
+        UNIDAD_INCONDICIONAL,
+        TURNO_INCONDICIONAL,
+        r,
+      );
     } else {
-      agregar(r.zona, r.adscripcionSolicitada, r.turnoSolicitado, r);
+      agregar(
+        `${r.zona}${SEP}${r.adscripcionSolicitada}${SEP}${r.turnoSolicitado}`,
+        r.zona,
+        r.adscripcionSolicitada,
+        r.turnoSolicitado,
+        r,
+      );
     }
   }
 
-  // 3. Ordenar cada grupo y asignar lugar.
+  // Ordenar cada grupo y asignar lugar.
   const resultado: CambiosPosicion[] = [];
   for (const g of grupos.values()) {
     const ordenados = g.regs.slice().sort((a, b) => {
@@ -173,8 +167,9 @@ export interface LugarDeRegistro {
 }
 
 /**
- * Devuelve un lugar representativo por registro (para mostrar en tabla).
- * Un incondicional aparece en varias unidades; se toma el grupo más competido.
+ * Devuelve el lugar por registro (para mostrar en tabla). Cada registro cae en
+ * un solo grupo; si por datos duplicados hubiera más de uno, se toma el más
+ * competido (mayor total, menor lugar).
  */
 export function calcularLugaresPorRegistro(
   registros: CambiosRegistro[],
