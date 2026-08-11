@@ -297,47 +297,51 @@ export function detectarTipoDocumentoPorNombre(
     }
   }
 
+  // Los cortes oficiales del SIAP llegan indistintamente en singular
+  // ("CAMBIO DE ÁREA") o plural ("CAMBIOS DE ÁREA"). Se busca la raíz
+  // singular ("CAMBIO"/"AMPLIACION"), que además es substring del plural,
+  // para cubrir ambas variantes.
   if (
-    nombreNormalizado.includes("AMPLIACIONES") &&
+    nombreNormalizado.includes("AMPLIACION") &&
     nombreNormalizado.includes("JORNADA")
   ) {
     return "AMPLIACIONES_JORNADA";
   }
   if (
-    nombreNormalizado.includes("CAMBIOS") &&
+    nombreNormalizado.includes("CAMBIO") &&
     nombreNormalizado.includes("AREA")
   ) {
     return "CAMBIOS_AREA";
   }
   if (
-    nombreNormalizado.includes("CAMBIOS") &&
+    nombreNormalizado.includes("CAMBIO") &&
     nombreNormalizado.includes("RAMA")
   ) {
     return "CAMBIOS_RAMA";
   }
   if (
-    nombreNormalizado.includes("CAMBIOS") &&
+    nombreNormalizado.includes("CAMBIO") &&
     nombreNormalizado.includes("RESIDENCIA") &&
     nombreNormalizado.includes("DESTINO")
   ) {
     return "CAMBIOS_RESIDENCIA_DESTINO";
   }
   if (
-    nombreNormalizado.includes("CAMBIOS") &&
+    nombreNormalizado.includes("CAMBIO") &&
     nombreNormalizado.includes("RESIDENCIA") &&
     nombreNormalizado.includes("ORIGEN")
   ) {
     return "CAMBIOS_RESIDENCIA_ORIGEN";
   }
   if (
-    nombreNormalizado.includes("CAMBIOS") &&
+    nombreNormalizado.includes("CAMBIO") &&
     nombreNormalizado.includes("TIPO") &&
     nombreNormalizado.includes("PLAZA")
   ) {
     return "CAMBIOS_TIPO_PLAZA";
   }
   if (
-    nombreNormalizado.includes("CAMBIOS") &&
+    nombreNormalizado.includes("CAMBIO") &&
     nombreNormalizado.includes("TURNO") &&
     nombreNormalizado.includes("ADSCRIPCION")
   ) {
