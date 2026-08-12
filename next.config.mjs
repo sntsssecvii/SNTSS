@@ -65,7 +65,7 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           {
             key: "X-Developed-By",
-            value: "Zentry Tech Group (https://zentrymx.com)",
+            value: "Zentry Tech Group",
           },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {

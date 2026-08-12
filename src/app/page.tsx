@@ -14,6 +14,7 @@ import {
 import logoSNTSS from "@/assets/logo-sntss.png";
 import seccion7 from "@/assets/seccion7.png";
 import { Button } from "@/components/ui/button";
+import { AtribucionZentry } from "@/components/AtribucionZentry";
 
 const accesos = [
   {
@@ -512,6 +513,7 @@ export default function PublicHomePage() {
             © {new Date().getFullYear()} Sindicato Nacional de Trabajadores del
             Seguro Social. Sección VII.
           </p>
+          <AtribucionZentry className="mt-1.5" />
         </div>
       </footer>
     </main>
