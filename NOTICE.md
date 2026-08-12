@@ -22,4 +22,4 @@ y los derechos de comercialización de la plataforma.
 
 ---
 
-Zentry Tech Group S de RL de CV · https://zentrymx.com · infra@zentrymx.com
+Zentry Tech Group S de RL de CV · infra@zentrymx.com

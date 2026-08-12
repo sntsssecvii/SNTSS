@@ -1,6 +1,7 @@
 "use client";
 
 import LoginForm from "@/components/LoginForm";
+import { AtribucionZentry } from "@/components/AtribucionZentry";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import logoSNTSS from "@/assets/logo-sntss.png";
@@ -169,17 +170,7 @@ export default function LoginPage() {
               Trabajadores del Seguro Social. <br className="lg:hidden" /> Todos
               los derechos reservados.
             </p>
-            <p className="mt-1.5 text-[11px] text-slate-400/80">
-              Plataforma desarrollada por{" "}
-              <a
-                href="https://zentrymx.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-slate-500 hover:text-red-500 transition-colors"
-              >
-                Zentry Tech Group
-              </a>
-            </p>
+            <AtribucionZentry className="mt-1.5" />
           </div>
         </motion.div>
       </div>
