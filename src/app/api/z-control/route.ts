@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
 import {
   getEstadoMantenimiento,
   setMantenimiento,
 } from "@/lib/firebase/mantenimiento";
+import { secretoMantenimientoValido } from "@/lib/mantenimiento-secreto";
 
 /**
  * Control privado del kill-switch de mantenimiento.
@@ -18,15 +18,6 @@ import {
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function secretoValido(provisto: string | null): boolean {
-  const esperado = process.env.MAINTENANCE_CONTROL_SECRET;
-  if (!esperado || !provisto) return false;
-  const a = Buffer.from(provisto);
-  const b = Buffer.from(esperado);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
 
 const noEncontrado = () =>
   new NextResponse("Not Found", {
@@ -86,7 +77,7 @@ function paginaControl(
 
 export async function GET(req: NextRequest) {
   const secreto = req.nextUrl.searchParams.get("k");
-  if (!secretoValido(secreto)) return noEncontrado();
+  if (!secretoMantenimientoValido(secreto)) return noEncontrado();
 
   const { activo, desde } = await getEstadoMantenimiento();
   return new NextResponse(paginaControl(activo, desde, secreto!), {
@@ -102,7 +93,7 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const secreto = form.get("k");
   const secretoStr = typeof secreto === "string" ? secreto : null;
-  if (!secretoValido(secretoStr)) return noEncontrado();
+  if (!secretoMantenimientoValido(secretoStr)) return noEncontrado();
 
   const accion = form.get("accion");
   if (accion === "suspender") {
