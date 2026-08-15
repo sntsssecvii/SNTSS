@@ -1,0 +1,66 @@
+<h2>¿Cómo reordenar los convenios en admin?</h2>
+<p class="subtitle">
+  Sin librería de drag & drop instalada — hay que elegir el enfoque
+</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Drag & drop + flechas ↑↓ en mobile</h3>
+      <p>
+        <strong>Desktop:</strong> arrastras la tarjeta donde quieras.<br />
+        <strong>Mobile:</strong> botones ↑ ↓ visibles en cada imagen.<br />
+        Requiere instalar <code>@dnd-kit/core</code> (~30kb). Es la UX más
+        limpia en desktop.
+      </p>
+      <div class="pros-cons" style="margin-top: 8px">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Mejor experiencia desktop</li>
+            <li>Flechas cubren mobile sin problemas</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Nueva dependencia</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Solo flechas ↑↓ en todos los dispositivos</h3>
+      <p>
+        Cada tarjeta de convenio tiene botones ↑ ↓ para mover arriba/abajo.
+        Funciona igual en desktop y mobile. Sin dependencias nuevas.
+      </p>
+      <div class="pros-cons" style="margin-top: 8px">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Sin dependencias</li>
+            <li>Consistente desktop/mobile</li>
+            <li>Más simple de implementar</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Menos intuitivo si hay muchos convenios</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top: 16px">
+  Mi recomendación: <strong>A</strong> — el admin probablemente lo usa en
+  desktop, y las flechas resuelven mobile sin fricciones.
+</p>

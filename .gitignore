@@ -15,6 +15,15 @@ src/lib/contract-chat/contract-index-data.json
 src/lib/contract-chat/faq-generation-progress.json
 src/lib/contract-chat/contract-faqs-embeddings.json
 
+# Outputs de debug/diagnóstico con datos reales de trabajadores (PII).
+# Regenerables localmente; NUNCA deben commitearse.
+/firestore-data.json
+/RESUMEN-DIAGNOSTICO.txt
+scripts/results.json
+scripts/results-*.json
+scripts/summary.txt
+scripts/summary-*.txt
+
 # dependencies
 /node_modules
 /.pnp
