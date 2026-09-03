@@ -6,6 +6,9 @@
 # Claude Code MCP config (paths locales)
 .mcp.json
 
+# Archivos temporales de sesiones de Claude Code (brainstorm, estado de servers locales)
+.claude/brainstorm/
+
 # PDFs fuente del chat de contrato (solo se necesitan localmente para regenerar el índice)
 artifacts/contrato-*.pdf
 contrato-*.pdf
@@ -14,6 +17,15 @@ contrato-*.pdf
 src/lib/contract-chat/contract-index-data.json
 src/lib/contract-chat/faq-generation-progress.json
 src/lib/contract-chat/contract-faqs-embeddings.json
+
+# Outputs de debug/diagnóstico con datos reales de trabajadores (PII).
+# Regenerables localmente; NUNCA deben commitearse.
+/firestore-data.json
+/RESUMEN-DIAGNOSTICO.txt
+scripts/results.json
+scripts/results-*.json
+scripts/summary.txt
+scripts/summary-*.txt
 
 # dependencies
 /node_modules
