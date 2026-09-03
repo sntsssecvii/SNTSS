@@ -6,8 +6,10 @@
 # Claude Code MCP config (paths locales)
 .mcp.json
 
-# Archivos temporales de sesiones de Claude Code (brainstorm, estado de servers locales)
+# Archivos temporales de sesiones de Claude Code / superpowers
+# (brainstorm, mockups HTML, estado de servers locales). Regenerables; nunca commitear.
 .claude/brainstorm/
+.superpowers/
 
 # PDFs fuente del chat de contrato (solo se necesitan localmente para regenerar el índice)
 artifacts/contrato-*.pdf

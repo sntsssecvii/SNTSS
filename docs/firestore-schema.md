@@ -268,3 +268,11 @@ Relación entre propuesta aprobada y partida de requerimiento.
 - `ultimoCaso` number — contador de numeroCaso, incrementa en transacción
 - `ultimoFolio` number — contador de folio oficial, incrementa en transacción
 - `anio` number — año vigente para reseteo de contadores
+
+### `config/plataforma` (documento especial)
+
+Estado del kill-switch de mantenimiento. Blindado por el catch-all de `firestore.rules` — solo el Admin SDK lo lee/escribe. Operación documentada en `docs/runbooks/kill-switch-mantenimiento.md`.
+
+- `mantenimientoActivo` boolean — si true, el gate del layout raíz (`MaintenanceGate`) suspende la plataforma para todos, salvo el operador con la cookie de bypass válida. Ausente/false = plataforma operativa (default seguro).
+- `mantenimientoMotivo` string|null — texto opcional del motivo
+- `mantenimientoDesde` string|null — ISO timestamp de cuándo se activó (null cuando está inactivo)
