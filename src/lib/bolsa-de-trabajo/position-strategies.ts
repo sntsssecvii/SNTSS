@@ -125,36 +125,6 @@ function buildSimpleZoneCategoryStrategy(tipo: TipoBolsaDeTrabajo, descripcion: 
   }
 }
 
-function buildSimpleZoneTurnStrategy(tipo: TipoBolsaDeTrabajo, descripcion: string): PositionStrategy {
-  return {
-    tipo,
-    buildGroupKey(record) {
-      return `${record.zona || ''}::${record.categoria || ''}::${record.subcategoria || ''}::${record.turnoNuevo || ''}`
-    },
-    buildGroupInfo(record) {
-      return {
-        zona: record.zona,
-        categoria: record.categoria,
-        subcategoria: record.subcategoria,
-        turnoNuevo: record.turnoNuevo,
-      }
-    },
-    getSortValue(record) {
-      return record.numeroProg
-    },
-    shouldDeduplicateByMatricula() {
-      return false
-    },
-    explain(_result, target) {
-      const scope = target.subcategoria
-        ? `${target.categoria || 'la categoria'} / ${target.subcategoria}`
-        : `${target.categoria || 'la categoria'}`
-
-      return `Posicion calculada por consecutivo oficial dentro de ${descripcion} para ${scope} en ${target.zona || 'la zona'} y turno ${target.turnoNuevo || 'sin turno'}.`
-    },
-  }
-}
-
 export const cambiosAreaStrategy = buildSimpleZoneCategoryStrategy(
   'CAMBIOS_AREA',
   'cambios de area'
@@ -165,12 +135,14 @@ export const cambiosTipoPlazaStrategy = buildSimpleZoneCategoryStrategy(
   'cambios de tipo de plaza'
 )
 
-export const cambiosResidenciaOrigenStrategy = buildSimpleZoneTurnStrategy(
+// Los cambios de residencia son incondicionales: el trabajador solo elige zona,
+// no turno. El consecutivo oficial corre por zona + categoria mezclando turnos.
+export const cambiosResidenciaOrigenStrategy = buildSimpleZoneCategoryStrategy(
   'CAMBIOS_RESIDENCIA_ORIGEN',
   'cambios de residencia origen'
 )
 
-export const cambiosResidenciaDestinoStrategy = buildSimpleZoneTurnStrategy(
+export const cambiosResidenciaDestinoStrategy = buildSimpleZoneCategoryStrategy(
   'CAMBIOS_RESIDENCIA_DESTINO',
   'cambios de residencia destino'
 )

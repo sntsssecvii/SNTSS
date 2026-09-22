@@ -309,10 +309,12 @@ function testCambiosTipoPlaza() {
 }
 
 function testCambiosResidenciaOrigen() {
+  // Los cambios de residencia son incondicionales: el trabajador solo elige zona,
+  // no turno. El turno NO parte el grupo comparable.
   const registros: BolsaDeTrabajoRegistro[] = [
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '8', matricula: 'R003', nombre: 'Tercero', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '8', matricula: 'R003', nombre: 'Tercero', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'NOC' }),
     registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '2', matricula: 'R001', nombre: 'Primero', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'MAT' }),
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '5', matricula: 'R002', nombre: 'Segundo', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'MAT' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_ORIGEN', numeroProg: '5', matricula: 'R002', nombre: 'Segundo', zona: 'Z5', categoria: 'ENF', turnoNuevo: 'VES' }),
   ]
 
   const segundo = calcularPosiciones(registros, 'R002', 'CAMBIOS_RESIDENCIA_ORIGEN')
@@ -321,15 +323,15 @@ function testCambiosResidenciaOrigen() {
   assert.equal(segundo.totalEnCategoria, 3)
   assert.equal(segundo.grupoComparable?.zona, 'Z5')
   assert.equal(segundo.grupoComparable?.categoria, 'ENF')
-  assert.equal(segundo.grupoComparable?.turnoNuevo, 'MAT')
+  assert.equal(segundo.grupoComparable?.turnoNuevo, undefined)
 
-  console.log('OK CAMBIOS_RESIDENCIA_ORIGEN usa zona + categoria + turno y ordena por consecutivo')
+  console.log('OK CAMBIOS_RESIDENCIA_ORIGEN usa zona + categoria sin turno y ordena por consecutivo')
 }
 
 function testCambiosResidenciaDestino() {
   const registros: BolsaDeTrabajoRegistro[] = [
     registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '6', matricula: 'D002', nombre: 'Segundo', zona: 'Z6', categoria: 'ENF', turnoNuevo: 'VES' }),
-    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '1', matricula: 'D001', nombre: 'Primero', zona: 'Z6', categoria: 'ENF', turnoNuevo: 'VES' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '1', matricula: 'D001', nombre: 'Primero', zona: 'Z6', categoria: 'ENF', turnoNuevo: 'MAT' }),
   ]
 
   const segundo = calcularPosiciones(registros, 'D002', 'CAMBIOS_RESIDENCIA_DESTINO')
@@ -338,9 +340,32 @@ function testCambiosResidenciaDestino() {
   assert.equal(segundo.totalEnCategoria, 2)
   assert.equal(segundo.grupoComparable?.zona, 'Z6')
   assert.equal(segundo.grupoComparable?.categoria, 'ENF')
-  assert.equal(segundo.grupoComparable?.turnoNuevo, 'VES')
+  assert.equal(segundo.grupoComparable?.turnoNuevo, undefined)
 
-  console.log('OK CAMBIOS_RESIDENCIA_DESTINO usa zona + categoria + turno y ordena por consecutivo')
+  console.log('OK CAMBIOS_RESIDENCIA_DESTINO usa zona + categoria sin turno y ordena por consecutivo')
+}
+
+function testCambiosResidenciaDestinoMezclaTurnos() {
+  // Caso real (sync 2026-09, 203602 MEDICO FAMILIAR zona Ensenada): el consecutivo
+  // oficial corre mezclando turnos; el Ves con prog 2 va detras de la Mat con prog 1.
+  const registros: BolsaDeTrabajoRegistro[] = [
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '1', matricula: '99012539', nombre: 'DEL ANGEL/MARTINEZ/ALIDA LETICIA', zona: '4-Ensenada B.C.', categoria: '203602 - MEDICO FAMILIAR', turnoNuevo: 'Mat' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '2', matricula: '96207966', nombre: 'OCHOA/MEZA/JUAN SEBASTIAN', zona: '4-Ensenada B.C.', categoria: '203602 - MEDICO FAMILIAR', turnoNuevo: 'Ves' }),
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '3', matricula: '97222034', nombre: 'LEY/SILVA/LIZA STEFANNY', zona: '4-Ensenada B.C.', categoria: '203602 - MEDICO FAMILIAR', turnoNuevo: 'Noc' }),
+    // Mismo consecutivo en otra zona: no debe mezclarse
+    registro({ tipoDocumento: 'CAMBIOS_RESIDENCIA_DESTINO', numeroProg: '1', matricula: '97020707', nombre: 'MONTOYA/ROMAN/HUIVER SAUL', zona: '2-Mexicali B.C.', categoria: '203602 - MEDICO FAMILIAR', turnoNuevo: 'Noc' }),
+  ]
+
+  const ochoa = calcularPosiciones(registros, '96207966', 'CAMBIOS_RESIDENCIA_DESTINO')
+  assert.ok(ochoa)
+  assert.equal(ochoa.posicionBase, 2)
+  assert.equal(ochoa.totalEnCategoria, 3)
+
+  const ley = calcularPosiciones(registros, '97222034', 'CAMBIOS_RESIDENCIA_DESTINO')
+  assert.ok(ley)
+  assert.equal(ley.posicionBase, 3)
+
+  console.log('OK CAMBIOS_RESIDENCIA_DESTINO mezcla turnos en un solo grupo por zona + categoria')
 }
 
 function testCambiosResidenciaFiltraPorSubcategoria() {
@@ -382,7 +407,6 @@ function testCambiosResidenciaFiltraPorSubcategoria() {
     zona: 'Z1',
     categoria: '203601 - MEDICO NO FAMILIAR',
     subcategoria: '11 ANGIOLOGIA Y CIRUGIA VASCULAR',
-    turnoNuevo: 'MAT',
   })
 
   console.log('OK CAMBIOS_RESIDENCIA separa por subcategoria cuando existe')
@@ -442,6 +466,7 @@ function main() {
   testCambiosTipoPlaza()
   testCambiosResidenciaOrigen()
   testCambiosResidenciaDestino()
+  testCambiosResidenciaDestinoMezclaTurnos()
   testCambiosResidenciaFiltraPorSubcategoria()
   testAmpliacionesJornada()
   testCambiosRamaCuentaPorZona()

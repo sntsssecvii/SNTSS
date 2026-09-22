@@ -19,8 +19,10 @@ function buildGroupKey(record: BolsaDeTrabajoRegistro, tipo: TipoBolsaDeTrabajo)
     return `${record.categoria || ''}-${record.subcategoria || ''}-${record.adscripcionNueva || ''}-${record.turnoNuevo || ''}`
   }
 
+  // Residencia es incondicional: el trabajador solo elige zona, el turno no
+  // parte el grupo comparable.
   if (tipo === 'CAMBIOS_RESIDENCIA_ORIGEN' || tipo === 'CAMBIOS_RESIDENCIA_DESTINO') {
-    return `${record.zona || ''}-${record.categoria || ''}-${record.subcategoria || ''}-${record.turnoNuevo || ''}`
+    return `${record.zona || ''}-${record.categoria || ''}-${record.subcategoria || ''}`
   }
 
   if (tipo === 'CAMBIOS_RAMA') {
