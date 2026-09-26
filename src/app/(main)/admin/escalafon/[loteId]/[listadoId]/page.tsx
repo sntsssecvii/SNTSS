@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { ListadoGeneralEscalafon } from "@/components/listados-generales/ListadoGeneralEscalafon";
 import type {
   EscalafonAspirante,
   EscalafonListado,
@@ -68,6 +70,9 @@ export default function DetalleListadoPage() {
   const router = useRouter();
 
   // ── Datos del servidor ──
+  const { userData } = useAuth();
+  const esDeveloper = userData?.isDeveloper === true;
+  const [vista, setVista] = useState<"registros" | "generales">("registros");
   const [listado, setListado] = useState<EscalafonListado | null>(null);
   const [aspirantes, setAspirantes] = useState<EscalafonAspirante[]>([]);
   const [lote, setLote] = useState<EscalafonLote | null>(null);
@@ -325,6 +330,22 @@ export default function DetalleListadoPage() {
 
             {/* Derecha: acciones */}
             <div className="flex items-center gap-2 shrink-0">
+              {esDeveloper && (
+                <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                  {(["registros", "generales"] as const).map((v) => (
+                    <Button
+                      key={v}
+                      type="button"
+                      size="sm"
+                      variant={vista === v ? "default" : "ghost"}
+                      onClick={() => setVista(v)}
+                      className="h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider"
+                    >
+                      {v === "registros" ? "Registros" : "Listados generales"}
+                    </Button>
+                  ))}
+                </div>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -354,6 +375,11 @@ export default function DetalleListadoPage() {
       </header>
 
       {/* ══ BODY ══ */}
+      {esDeveloper && vista === "generales" ? (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-6">
+          <ListadoGeneralEscalafon aspirantes={aspirantes} zonas={zonasDelListado} />
+        </div>
+      ) : (
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* ── SIDEBAR ── */}
         <aside className="hidden lg:flex w-72 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col">
@@ -732,6 +758,7 @@ export default function DetalleListadoPage() {
           </motion.div>
         </main>
       </div>
+      )}
 
       {/* Modal detalle aspirante */}
       <Dialog
