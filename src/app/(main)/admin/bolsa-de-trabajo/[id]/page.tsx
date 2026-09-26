@@ -42,6 +42,7 @@ import type {
 import { NOMBRES_TIPOS } from "@/types/bolsa-de-trabajo";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { ListadoGeneralBolsa } from "@/components/bolsa/ListadoGeneralBolsa";
 import { EstadoBadgeBolsaDeTrabajo } from "@/components/bolsa-de-trabajo/EstadoBadgeBolsaDeTrabajo";
 import {
   Table,
@@ -110,7 +111,9 @@ export default function DetalleBolsaDeTrabajoPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
+  const esDeveloper = userData?.isDeveloper === true;
+  const [vista, setVista] = useState<"registros" | "generales">("registros");
   const { toast } = useToast();
 
   const [documento, setDocumento] = useState<BolsaDeTrabajoDocumento | null>(
@@ -677,6 +680,22 @@ export default function DetalleBolsaDeTrabajoPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {esDeveloper && (
+                <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                  {(["registros", "generales"] as const).map((v) => (
+                    <Button
+                      key={v}
+                      type="button"
+                      size="sm"
+                      variant={vista === v ? "default" : "ghost"}
+                      onClick={() => setVista(v)}
+                      className="h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider"
+                    >
+                      {v === "registros" ? "Registros" : "Listados generales"}
+                    </Button>
+                  ))}
+                </div>
+              )}
               <Button
                 onClick={() => router.push(rutaReemplazo)}
                 variant="outline"
@@ -704,6 +723,11 @@ export default function DetalleBolsaDeTrabajoPage() {
         </div>
       </header>
 
+      {esDeveloper && vista === "generales" && documento ? (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-6">
+          <ListadoGeneralBolsa documentoId={params.id as string} />
+        </div>
+      ) : (
       <div className="flex flex-1 min-h-0 overflow-hidden lg:flex-row">
         {/* SIDEBAR CATEGORIAS */}
         <motion.aside
@@ -1590,6 +1614,7 @@ export default function DetalleBolsaDeTrabajoPage() {
           </div>
         </motion.main>
       </div>
+      )}
 
       {/* MODAL DETALLES PREMIUM */}
       <Dialog open={modalAbierto} onOpenChange={setModalAbierto}>

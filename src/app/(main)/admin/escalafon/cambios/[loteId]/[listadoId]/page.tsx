@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { ListadoGeneralCambios } from "@/components/listados-generales/ListadoGeneralCambios";
 import {
   calcularPosicionesCambios,
   claveRegistro,
@@ -90,6 +92,9 @@ export default function DetalleListadoCambiosPage() {
   const listadoId = String(params.listadoId ?? "");
   const router = useRouter();
 
+  const { userData } = useAuth();
+  const esDeveloper = userData?.isDeveloper === true;
+  const [vista, setVista] = useState<"registros" | "generales">("registros");
   const [listado, setListado] = useState<CambiosListado | null>(null);
   const [registros, setRegistros] = useState<RegistroConLugar[]>([]);
   const [lote, setLote] = useState<CambiosLote | null>(null);
@@ -313,6 +318,22 @@ export default function DetalleListadoCambiosPage() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {esDeveloper && (
+                <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                  {(["registros", "generales"] as const).map((v) => (
+                    <Button
+                      key={v}
+                      type="button"
+                      size="sm"
+                      variant={vista === v ? "default" : "ghost"}
+                      onClick={() => setVista(v)}
+                      className="h-8 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider"
+                    >
+                      {v === "registros" ? "Registros" : "Listados generales"}
+                    </Button>
+                  ))}
+                </div>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -328,6 +349,11 @@ export default function DetalleListadoCambiosPage() {
       </header>
 
       {/* BODY */}
+      {esDeveloper && vista === "generales" ? (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 lg:p-6">
+          <ListadoGeneralCambios registros={registros} />
+        </div>
+      ) : (
       <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#020617] h-full overflow-hidden">
         {/* Toolbar */}
         <motion.div
@@ -547,6 +573,7 @@ export default function DetalleListadoCambiosPage() {
           </div>
         </motion.div>
       </main>
+      )}
 
       {/* Modal detalle registro */}
       <Dialog
