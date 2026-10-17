@@ -122,6 +122,42 @@ function Kicker({
   );
 }
 
+/** Retraso escalonado para la entrada del hero (.gaceta-entrada). */
+const retraso = (paso: number) => ({ "--d": paso }) as React.CSSProperties;
+
+/** Barras de la "VII" en trazo fino detrás del hero, con paralaje leve. */
+function OrnamentoVII() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 right-[-8%] hidden w-[52%] md:block"
+    >
+      <svg
+        viewBox="0 0 600 700"
+        preserveAspectRatio="xMidYMid slice"
+        className="gaceta-paralaje h-full w-full"
+        fill="none"
+        stroke="#141414"
+        strokeOpacity="0.09"
+        strokeWidth="1.5"
+      >
+        <polygon points="300,0 420,0 230,700 110,700" />
+        <polygon points="470,0 590,0 400,700 280,700" />
+        <polygon
+          points="300,0 420,0 230,700 110,700"
+          transform="translate(18 0)"
+          strokeOpacity="0.05"
+        />
+        <polygon
+          points="470,0 590,0 400,700 280,700"
+          transform="translate(18 0)"
+          strokeOpacity="0.05"
+        />
+      </svg>
+    </div>
+  );
+}
+
 /** Sello circular de fuente oficial, al estilo de un sello documental. */
 function SelloOficial() {
   return (
@@ -129,7 +165,7 @@ function SelloOficial() {
       <svg
         viewBox="0 0 200 200"
         aria-hidden
-        className="absolute inset-0 h-full w-full"
+        className="gaceta-gira absolute inset-0 h-full w-full"
       >
         <defs>
           <path
@@ -207,8 +243,11 @@ function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#141414]/50">
               Tu lugar
             </p>
-            <p className="text-7xl font-extrabold leading-[0.8] tracking-tight [font-family:var(--font-display)]">
-              3
+            <p
+              aria-label="3"
+              className="gaceta-lugar text-7xl font-extrabold leading-[0.8] tracking-tight tabular-nums [font-family:var(--font-display)]"
+            >
+              <span>3</span>
             </p>
           </div>
         </div>
@@ -254,7 +293,7 @@ export default async function PublicHomePage() {
 
   return (
     <main
-      className={`${display.variable} ${serif.variable} ${sans.variable} min-h-screen overflow-x-clip bg-[#F2EEE6] ${C.tinta} [font-family:var(--font-texto)] selection:bg-[#D7261E] selection:text-white`}
+      className={`${display.variable} ${serif.variable} ${sans.variable} gaceta-grano min-h-screen overflow-x-clip bg-[#F2EEE6] ${C.tinta} [font-family:var(--font-texto)] selection:bg-[#D7261E] selection:text-white`}
     >
       <a
         href="#contenido"
@@ -350,15 +389,24 @@ export default async function PublicHomePage() {
       <div id="contenido">
         {/* ───────── Portada ───────── */}
         <section className="relative mx-auto max-w-[1320px] px-5 py-16 sm:px-8 md:py-24">
-          <Kicker>Bienvenida</Kicker>
-          <h1 className="mt-6 max-w-[20ch] text-[clamp(2.75rem,6.2vw,6rem)] font-medium leading-[0.98] tracking-[-0.03em] [font-family:var(--font-serif)]">
+          <OrnamentoVII />
+          <div className="gaceta-entrada relative" style={retraso(0)}>
+            <Kicker>Bienvenida</Kicker>
+          </div>
+          <h1
+            style={retraso(1)}
+            className="gaceta-entrada relative mt-6 max-w-[20ch] text-[clamp(2.75rem,6.2vw,6rem)] font-medium leading-[0.98] tracking-[-0.03em] [font-family:var(--font-serif)]"
+          >
             Te damos la bienvenida al{" "}
             <em className="text-[#D7261E]">
               portal oficial de la Sección VII.
             </em>
           </h1>
 
-          <div className="mt-14 grid gap-10 border-t-2 border-[#141414] pt-10 lg:grid-cols-12">
+          <div
+            style={retraso(2)}
+            className="gaceta-entrada relative mt-14 grid gap-10 border-t-2 border-[#141414] pt-10 lg:grid-cols-12"
+          >
             <p className="text-xl leading-relaxed text-[#141414]/80 [font-family:var(--font-serif)] lg:col-span-6">
               Aquí puedes consultar tu información de bolsa de trabajo y
               escalafón, y los avisos que publica la sección. Desde tu celular o
