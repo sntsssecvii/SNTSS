@@ -1,19 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowRight,
-  BellRing,
-  BriefcaseBusiness,
-  ClipboardList,
-  LogIn,
-  ShieldCheck,
-  Sparkles,
-  Waypoints,
-} from "lucide-react";
+import { Barlow, Barlow_Condensed } from "next/font/google";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 
 import logoSNTSS from "@/assets/logo-sntss.png";
 import seccion7 from "@/assets/seccion7.png";
-import { Button } from "@/components/ui/button";
 import { AtribucionZentry } from "@/components/AtribucionZentry";
 import { ComunicadosLanding } from "@/components/ComunicadosLanding";
 import { MAX_COMUNICADOS_LANDING } from "@/lib/comunicados";
@@ -22,6 +13,18 @@ import type { ComunicadoPublico } from "@/types/comunicados";
 
 // ISR: los endpoints admin de comunicados revalidan "/" al publicar.
 export const revalidate = 300;
+
+const display = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-display",
+});
+
+const texto = Barlow({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-texto",
+});
 
 async function cargarComunicados(): Promise<ComunicadoPublico[]> {
   try {
@@ -33,516 +36,301 @@ async function cargarComunicados(): Promise<ComunicadoPublico[]> {
   }
 }
 
-const accesos = [
+const accesosRapidos = [
+  { label: "Consultar mi posición en bolsa", href: "/login" },
+  { label: "Ver mis trámites y movimientos", href: "/login" },
+  { label: "Solicitar mi cuenta", href: "/registro" },
+];
+
+const servicios = [
   {
-    title: "Mi portal sindical",
-    description:
-      "Consulta tus trámites, tus movimientos y la información que el sindicato pone a tu disposición.",
-    href: "/login",
-    cta: "Acceder al portal",
-    icon: BriefcaseBusiness,
+    titulo: "Bolsa de trabajo",
+    texto:
+      "Tu posición en la bolsa y en escalafón, con las listas que publica la sección en cada corte.",
   },
   {
-    title: "Bolsa de Trabajo",
-    description:
-      "Consulta tu posición en escalafón, movimientos de personal y convocatorias activas de la sección.",
-    href: "/login",
-    cta: "Consultar mi posición",
-    icon: ClipboardList,
+    titulo: "Trámites y movimientos",
+    texto:
+      "El estado de tus solicitudes y los cambios registrados a tu nombre, en un solo lugar.",
   },
   {
-    title: "Convocatorias y avisos",
-    description:
-      "Entérate de avisos, convocatorias y publicaciones oficiales de interés para la base trabajadora.",
-    href: "/login",
-    cta: "Ver convocatorias",
-    icon: BellRing,
+    titulo: "Avisos y convocatorias",
+    texto:
+      "Comunicados oficiales de la Sección VII, publicados directamente por el comité.",
   },
 ];
 
-const razones = [
-  "Consulta tus trámites y movimientos en un solo lugar.",
-  "Recibe información sindical de forma más clara y ordenada.",
-  "Acércate a servicios y avisos oficiales sin depender de canales dispersos.",
-];
-
-const indicadores = [
-  { value: "16,000", label: "trabajadores representados" },
-  { value: "Sección VII", label: "Baja California" },
-  { value: "24/7", label: "disponible en línea" },
-];
-
-const experiencia = [
+const pasos = [
   {
-    title: "Todo en un solo lugar",
-    description:
-      "Sin depender de múltiples canales. Tu información sindical centralizada y al alcance de tu teléfono.",
-    icon: Sparkles,
+    titulo: "Solicita tu cuenta",
+    texto: "Con tu matrícula IMSS y una identificación oficial.",
   },
   {
-    title: "Seguimiento de tus movimientos",
-    description:
-      "Tus trámites y cambios en un espacio más ordenado y más fácil de consultar.",
-    icon: Waypoints,
+    titulo: "La sección valida tu registro",
+    texto: "Revisamos tus datos en 1 a 2 días hábiles.",
   },
   {
-    title: "Comunicación oficial directa",
-    description:
-      "Avisos, convocatorias y publicaciones del sindicato sin intermediarios.",
-    icon: BellRing,
+    titulo: "Entra con tu correo",
+    texto: "Desde el celular o la computadora, cuando lo necesites.",
   },
 ];
 
-const momentos = [
-  "Solicitas tu acceso con tu matrícula IMSS y documentos de identidad.",
-  "El sindicato valida tu registro en 1 a 2 días hábiles.",
-  "Ingresas al portal y accedes a toda tu información sindical.",
-];
+/** Barras inclinadas de la "VII" de la sección, como motivo gráfico. */
+function BarrasVII({ className }: { className?: string }) {
+  return (
+    <div aria-hidden className={className}>
+      <div className="flex h-full gap-[6%]">
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            className="h-full w-[38%] bg-current"
+            style={{ clipPath: "polygon(55% 0, 100% 0, 45% 100%, 0 100%)" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default async function PublicHomePage() {
   const comunicados = await cargarComunicados();
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 selection:bg-red-200 selection:text-red-900">
-      {/* Navbar flotante */}
-      <div className="fixed left-0 right-0 top-6 z-50 mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10">
-        <nav className="flex items-center justify-between rounded-full border border-white/40 bg-white/60 px-6 py-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl transition-all duration-300 hover:bg-white/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
-          <div className="flex items-center gap-4">
+    <main
+      className={`${display.variable} ${texto.variable} min-h-screen bg-[#F4F1EC] text-[#141414] [font-family:var(--font-texto)] selection:bg-[#D7261E] selection:text-white`}
+    >
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:font-semibold"
+      >
+        Saltar al contenido
+      </a>
+
+      {/* Franja institucional */}
+      <div className="bg-[#141414] text-[13px] text-white/75">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-2 sm:px-8">
+          <span className="truncate">
+            Sindicato Nacional de Trabajadores del Seguro Social
+          </span>
+          <span className="hidden shrink-0 sm:inline">
+            Baja California y San Luis R.C., Son.
+          </span>
+        </div>
+      </div>
+
+      {/* Encabezado */}
+      <header className="border-b border-[#141414]/10 bg-[#F4F1EC]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <Link href="/" className="flex items-center gap-3">
             <Image
               src={logoSNTSS}
               alt="SNTSS"
-              width={100}
-              height={50}
-              className="h-10 w-auto object-contain drop-shadow-sm"
+              width={48}
+              height={48}
+              className="h-11 w-auto"
               priority
             />
-            <div className="hidden flex-col sm:flex">
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-red-700">
+            <span className="leading-none">
+              <span className="block text-[26px] font-extrabold uppercase tracking-tight [font-family:var(--font-display)]">
                 Sección VII
               </span>
-              <span className="text-xs font-semibold text-slate-500">
-                Portal Sindicalizados
+              <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#141414]/60">
+                Portal de sindicalizados
               </span>
-            </div>
-          </div>
+            </span>
+          </Link>
 
-          <div className="hidden items-center gap-8 text-sm font-bold text-slate-600 md:flex">
+          <nav className="flex items-center gap-6 text-[15px] font-semibold">
             {comunicados.length > 0 && (
-              <Link
+              <a
                 href="#comunicados"
-                className="transition-colors hover:text-red-700"
+                className="hidden underline-offset-4 hover:underline md:inline"
               >
                 Comunicados
-              </Link>
+              </a>
             )}
-            <Link
+            <a
               href="#servicios"
-              className="transition-colors hover:text-red-700"
+              className="hidden underline-offset-4 hover:underline md:inline"
             >
               Servicios
-            </Link>
-            <Link
-              href="#como-funciona"
-              className="transition-colors hover:text-red-700"
+            </a>
+            <a
+              href="#acceso"
+              className="hidden underline-offset-4 hover:underline md:inline"
             >
-              ¿Cómo funciona?
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              asChild
-              variant="ghost"
-              className="h-10 rounded-full px-5 text-sm font-bold hover:bg-slate-100"
-            >
-              <Link href="/registro">Solicitar acceso</Link>
-            </Button>
-            <Button
-              asChild
-              className="group h-10 rounded-full bg-red-700 px-5 text-sm font-bold text-white shadow-lg shadow-red-700/20 transition-all hover:scale-105 hover:bg-red-800 hover:shadow-red-700/40"
-            >
-              <Link href="/login">
-                Entrar
-                <LogIn className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </Button>
-          </div>
-        </nav>
-      </div>
-
-      {/* Hero Section */}
-      <section className="relative min-h-[85vh] overflow-hidden pt-32 lg:pt-40 pb-20">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute -left-[10%] -top-[10%] h-[50rem] w-[50rem] rounded-full bg-red-300/15 blur-[120px]" />
-          <div className="absolute -right-[10%] top-[20%] h-[40rem] w-[40rem] rounded-full bg-orange-300/15 blur-[120px]" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_0%,#000_70%,transparent_100%)]" />
-        </div>
-
-        <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col px-5 sm:px-8 lg:px-10">
-          <div className="grid flex-1 items-center gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:gap-8">
-            {/* Left Content */}
-            <div className="space-y-10">
-              <div className="inline-flex items-center gap-2 rounded-full border border-red-200/50 bg-white/50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-red-700 shadow-sm backdrop-blur-md">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
-                </span>
-                Servicios en línea para trabajadores
-              </div>
-
-              <div className="space-y-6">
-                <h1 className="text-5xl font-black leading-[1.05] tracking-tight text-slate-900 sm:text-6xl md:text-7xl lg:text-[5rem]">
-                  Servicios sindicales <br />
-                  <span className="bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent">
-                    más cerca de ti.
-                  </span>
-                </h1>
-                <p className="max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-                  Consulta tu posición en escalafón, tus trámites y los avisos
-                  oficiales del sindicato — en un sitio claro, ágil y pensado
-                  para la base trabajadora del IMSS.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <Button
-                  asChild
-                  size="lg"
-                  className="group h-14 rounded-full bg-slate-900 px-8 text-base font-bold shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-1 hover:bg-slate-800 hover:shadow-2xl hover:shadow-slate-900/40"
-                >
-                  <Link href="/login">
-                    Ingresar al portal
-                    <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="h-14 rounded-full border-slate-200 bg-white/50 px-8 text-base font-bold backdrop-blur-sm transition-all hover:bg-white hover:shadow-md"
-                >
-                  <Link href="/registro">Solicitar mi cuenta</Link>
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-6 pt-4">
-                {indicadores.map((item) => (
-                  <div
-                    key={item.label}
-                    className="group flex flex-col justify-center border-l-2 border-red-100 pl-4 transition-colors hover:border-red-500"
-                  >
-                    <span className="text-2xl font-black tracking-tighter text-slate-900 transition-colors group-hover:text-red-700 sm:text-3xl">
-                      {item.value}
-                    </span>
-                    <span className="mt-1 text-xs font-semibold leading-snug text-slate-500">
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right — Glassmorphic Showcase */}
-            <div className="relative mx-auto w-full max-w-lg lg:max-w-none">
-              <div className="absolute -inset-1 z-0 rounded-[3rem] bg-gradient-to-tr from-red-400/30 via-orange-300/30 to-rose-400/30 blur-2xl" />
-
-              <div className="relative z-10 overflow-hidden rounded-[2.5rem] border border-white/40 bg-white/60 p-8 shadow-[0_40px_100px_rgb(0,0,0,0.08)] backdrop-blur-2xl">
-                <div className="mb-8 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-red-800 text-white shadow-lg">
-                      <BriefcaseBusiness className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Acceso sindical
-                      </p>
-                      <p className="text-lg font-black text-slate-800">
-                        Portal del trabajador
-                      </p>
-                    </div>
-                  </div>
-                  <Image
-                    src={seccion7}
-                    alt="Sección VII"
-                    width={48}
-                    height={48}
-                    className="h-12 w-12 opacity-80"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  {razones.map((item, i) => (
-                    <div
-                      key={i}
-                      className="group relative flex items-start gap-4 rounded-2xl border border-white/50 bg-white/40 p-4 transition-all hover:bg-white/80 hover:shadow-sm"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 transition-transform group-hover:scale-110">
-                        <ShieldCheck className="h-4 w-4" />
-                      </div>
-                      <p className="text-sm font-medium leading-relaxed text-slate-600">
-                        {item}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-8 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-xl">
-                  <p className="text-xs font-bold uppercase tracking-widest text-red-400 mb-2">
-                    Compromiso
-                  </p>
-                  <p className="font-semibold leading-snug">
-                    &ldquo;Un servicio más claro y más cercano para las y los
-                    trabajadores.&rdquo;
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <ComunicadosLanding comunicados={comunicados} />
-
-      {/* Services Section */}
-      <section
-        id="servicios"
-        className="relative z-20 mx-auto w-full max-w-7xl px-5 py-20 sm:px-8 lg:px-10"
-      >
-        <div className="mb-16 flex flex-col gap-4 text-center items-center">
-          <span className="inline-block rounded-full bg-red-100 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-red-700">
-            Servicios disponibles
-          </span>
-          <h2 className="max-w-3xl text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">
-            Todo lo que necesitas,{" "}
-            <span className="text-red-700">a un clic de distancia.</span>
-          </h2>
-          <p className="max-w-2xl text-lg text-slate-500">
-            Accede con tu cuenta sindical para consultar tu información,
-            trámites y posición en escalafón.
-          </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {accesos.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.title}
-                href={item.href}
-                className="group relative flex flex-col overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white p-8 shadow-sm transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-red-900/5"
-              >
-                <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-red-50 transition-transform duration-500 group-hover:scale-[2.5]" />
-                <div className="relative z-10">
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-600 text-white shadow-lg shadow-red-600/30 transition-transform group-hover:scale-110 group-hover:rotate-3">
-                    <Icon className="h-7 w-7" />
-                  </div>
-                  <h3 className="mb-3 text-2xl font-black tracking-tight text-slate-900 transition-colors group-hover:text-red-700">
-                    {item.title}
-                  </h3>
-                  <p className="mb-8 flex-1 text-slate-500 leading-relaxed">
-                    {item.description}
-                  </p>
-                  <div className="mt-auto flex items-center text-sm font-bold text-slate-900 transition-colors group-hover:text-red-700">
-                    {item.cta}
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-2" />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-
-        <p className="mt-10 text-center text-sm text-slate-400">
-          ¿Aún no tienes cuenta?{" "}
-          <Link
-            href="/registro"
-            className="font-bold text-red-700 hover:underline"
-          >
-            Solicita tu acceso aquí
-          </Link>{" "}
-          — el sindicato valida tu registro en 1 a 2 días hábiles.
-        </p>
-      </section>
-
-      {/* How it works Section */}
-      <section
-        id="como-funciona"
-        className="relative overflow-hidden bg-slate-900 py-24 text-white"
-      >
-        <div className="absolute inset-0 z-0 opacity-20 bg-[radial-gradient(ellipse_at_top,#7f1d1d_0%,transparent_70%)]" />
-        <div className="relative z-10 mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-          <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
-            <div>
-              <span className="text-xs font-black uppercase tracking-widest text-red-400">
-                Diseñado para ti
-              </span>
-              <h2 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
-                Pensado en tu{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
-                  facilidad.
-                </span>
-              </h2>
-              <p className="mt-6 text-lg text-slate-400 max-w-xl">
-                Encuentra tu información sindical con menos esfuerzo y desde
-                cualquier dispositivo — celular, tablet o computadora.
-              </p>
-
-              <div className="mt-10 space-y-6">
-                {experiencia.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.title} className="flex gap-5 group">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-red-400 transition-colors group-hover:bg-red-500 group-hover:text-white border border-white/5">
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold">{item.title}</h3>
-                        <p className="text-slate-400 mt-1 leading-relaxed">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="relative lg:pl-10">
-              <div className="relative rounded-[2.5rem] border border-white/10 bg-white/5 p-8 backdrop-blur-md shadow-2xl">
-                <h3 className="text-2xl font-black mb-8">¿Cómo funciona?</h3>
-                <div className="space-y-4">
-                  {momentos.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex gap-4 items-start rounded-2xl bg-white/5 p-4 border border-white/5 hover:bg-white/10 transition-colors"
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 font-black shadow-lg shadow-red-600/20 mt-0.5">
-                        {index + 1}
-                      </div>
-                      <p className="font-medium text-slate-200 leading-relaxed">
-                        {item}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="py-24">
-        <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-red-700 via-red-800 to-slate-900 px-8 py-16 sm:px-16 text-center shadow-2xl shadow-red-900/20">
-            <div
-              className="absolute inset-0 opacity-10"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)",
-                backgroundSize: "32px 32px",
-              }}
-            />
-            <div className="relative z-10 max-w-3xl mx-auto space-y-8">
-              <h2 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-tight">
-                Consulta tus servicios sindicales desde un solo lugar.
-              </h2>
-              <p className="text-xl text-red-100/80">
-                Accede a tu cuenta y mantente al tanto de trámites, escalafón y
-                avisos que el sindicato pone a tu disposición.
-              </p>
-              <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center">
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-16 rounded-full bg-white px-10 text-lg font-black text-red-800 shadow-xl hover:bg-slate-50 hover:scale-105 transition-all"
-                >
-                  <Link href="/login">Iniciar sesión</Link>
-                </Button>
-                <Button
-                  asChild
-                  size="lg"
-                  variant="outline"
-                  className="h-16 rounded-full border-white/30 bg-transparent px-10 text-lg font-black text-white hover:bg-white/10 transition-all"
-                >
-                  <Link href="/registro">Crear mi cuenta</Link>
-                </Button>
-              </div>
-              <p className="text-sm text-red-100/50">
-                El registro es validado por el sindicato en 1 a 2 días hábiles.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-8 md:grid-cols-3 lg:px-10">
-          <div className="md:col-span-1">
-            <div className="flex items-center gap-3">
-              <Image
-                src={logoSNTSS}
-                alt="SNTSS"
-                width={50}
-                height={50}
-                className="w-10 opacity-80 grayscale"
-              />
-              <span className="font-black tracking-widest text-slate-800 uppercase text-xs">
-                SNTSS Sección VII
-              </span>
-            </div>
-            <p className="mt-6 text-sm leading-relaxed text-slate-500 max-w-sm">
-              Sitio institucional para acercar trámites, información y servicios
-              a las y los trabajadores sindicalizados de forma clara y segura.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">
-              Navegación
-            </h4>
+              Cómo obtener acceso
+            </a>
             <Link
               href="/login"
-              className="text-sm font-semibold text-slate-500 hover:text-red-700 transition-colors"
+              className="inline-flex min-h-11 items-center bg-[#D7261E] px-5 font-bold text-white transition-colors hover:bg-[#B51E17] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#141414]"
             >
-              Portal de ingreso
+              Entrar
             </Link>
-            <Link
-              href="/registro"
-              className="text-sm font-semibold text-slate-500 hover:text-red-700 transition-colors"
-            >
-              Solicitar registro
-            </Link>
-            <Link
-              href="#servicios"
-              className="text-sm font-semibold text-slate-500 hover:text-red-700 transition-colors"
-            >
-              Servicios
-            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <div id="contenido">
+        {/* Portada */}
+        <section className="relative overflow-hidden bg-[#D7261E] text-white">
+          <BarrasVII className="pointer-events-none absolute -right-24 top-0 hidden h-full w-[520px] text-[#B51E17] lg:block" />
+
+          <div className="relative mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:px-8 md:py-24 lg:grid-cols-[1.25fr_1fr] lg:items-end">
+            <div>
+              <p className="mb-5 text-sm font-bold uppercase tracking-[0.18em] text-white/80">
+                16,000 trabajadoras y trabajadores del IMSS
+              </p>
+              <h1 className="text-[clamp(3rem,8vw,6.25rem)] font-extrabold uppercase leading-[0.9] tracking-tight [font-family:var(--font-display)]">
+                Tu información sindical, clara y a la mano.
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/90">
+                Consulta tu posición en la bolsa de trabajo, el avance de tus
+                trámites y los avisos oficiales de la sección, sin filas ni
+                intermediarios.
+              </p>
+            </div>
+
+            <div className="bg-[#F4F1EC] p-6 text-[#141414] shadow-[10px_10px_0_#141414] sm:p-8">
+              <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#141414]/60">
+                Accesos rápidos
+              </p>
+              <ul className="mt-4 divide-y divide-[#141414]/15 border-y border-[#141414]/15">
+                {accesosRapidos.map((a) => (
+                  <li key={a.label}>
+                    <Link
+                      href={a.href}
+                      className="group flex min-h-14 items-center justify-between gap-4 py-3 text-lg font-semibold transition-colors hover:text-[#D7261E]"
+                    >
+                      {a.label}
+                      <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transition-none" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-sm text-[#141414]/70">
+                ¿Ya tienes cuenta?{" "}
+                <Link
+                  href="/login"
+                  className="font-bold text-[#D7261E] underline underline-offset-4"
+                >
+                  Inicia sesión
+                </Link>
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <ComunicadosLanding comunicados={comunicados} />
+
+        {/* Servicios */}
+        <section
+          id="servicios"
+          className="mx-auto max-w-6xl scroll-mt-6 px-5 py-20 sm:px-8"
+        >
+          <div className="flex flex-col justify-between gap-4 border-b-4 border-[#141414] pb-5 md:flex-row md:items-end">
+            <h2 className="text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
+              Qué puedes consultar
+            </h2>
+            <p className="max-w-sm text-[#141414]/70">
+              Todo con tu cuenta del portal. La información es personal y solo
+              la ves tú.
+            </p>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">
-              Soporte
-            </h4>
-            <p className="text-sm text-slate-500">
-              ¿Tienes dudas con tu acceso?
-            </p>
-            <Link
-              href="mailto:admin@sntssvii.com"
-              className="inline-flex items-center text-sm font-bold text-red-700 hover:underline"
-            >
-              Contactar a soporte <ArrowRight className="ml-1 h-3 w-3" />
-            </Link>
+          <div className="grid md:grid-cols-3">
+            {servicios.map((s, i) => (
+              <article
+                key={s.titulo}
+                className="border-b border-[#141414]/15 py-8 md:border-b-0 md:border-r md:px-8 md:first:pl-0 md:last:border-r-0 md:last:pr-0"
+              >
+                <span className="text-5xl font-extrabold text-[#D7261E] [font-family:var(--font-display)]">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <h3 className="mt-3 text-2xl font-bold uppercase tracking-tight [font-family:var(--font-display)]">
+                  {s.titulo}
+                </h3>
+                <p className="mt-2 leading-relaxed text-[#141414]/75">
+                  {s.texto}
+                </p>
+              </article>
+            ))}
           </div>
+        </section>
+
+        {/* Acceso */}
+        <section
+          id="acceso"
+          className="scroll-mt-6 bg-[#141414] text-[#F4F1EC]"
+        >
+          <div className="mx-auto grid max-w-6xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[1fr_1.4fr]">
+            <div>
+              <h2 className="text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
+                ¿Aún no tienes cuenta?
+              </h2>
+              <p className="mt-5 max-w-md text-lg leading-relaxed text-[#F4F1EC]/75">
+                El acceso es gratuito para todas y todos los trabajadores
+                sindicalizados de la sección.
+              </p>
+              <Link
+                href="/registro"
+                className="mt-8 inline-flex min-h-12 items-center gap-2 bg-[#D7261E] px-6 text-lg font-bold text-white transition-colors hover:bg-[#B51E17] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Solicitar mi cuenta
+                <ArrowUpRight className="h-5 w-5" />
+              </Link>
+            </div>
+
+            <ol className="grid gap-px bg-[#F4F1EC]/15 sm:grid-cols-3">
+              {pasos.map((p, i) => (
+                <li key={p.titulo} className="bg-[#141414] p-6">
+                  <span className="block text-6xl font-extrabold leading-none text-[#D7261E] [font-family:var(--font-display)]">
+                    {i + 1}
+                  </span>
+                  <h3 className="mt-4 text-xl font-bold uppercase tracking-tight [font-family:var(--font-display)]">
+                    {p.titulo}
+                  </h3>
+                  <p className="mt-2 text-[#F4F1EC]/70">{p.texto}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      </div>
+
+      {/* Pie */}
+      <footer className="border-t-[6px] border-[#D7261E] bg-[#F4F1EC]">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5 py-12 sm:px-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <Image
+              src={seccion7}
+              alt="Sección VII Baja California y San Luis R.C., Son."
+              width={72}
+              height={64}
+              className="h-14 w-auto"
+            />
+            <div className="text-sm leading-snug text-[#141414]/70">
+              <p className="font-bold text-[#141414]">SNTSS · Sección VII</p>
+              <p>Baja California y San Luis R.C., Son.</p>
+            </div>
+          </div>
+          <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold">
+            <Link href="/login" className="hover:text-[#D7261E]">
+              Entrar al portal
+            </Link>
+            <Link href="/registro" className="hover:text-[#D7261E]">
+              Solicitar cuenta
+            </Link>
+            <a
+              href="mailto:admin@sntssvii.com"
+              className="hover:text-[#D7261E]"
+            >
+              admin@sntssvii.com
+            </a>
+          </nav>
         </div>
-        <div className="border-t border-slate-100 py-6 text-center">
-          <p className="text-xs text-slate-400 font-medium">
-            © {new Date().getFullYear()} Sindicato Nacional de Trabajadores del
-            Seguro Social. Sección VII.
-          </p>
-          <AtribucionZentry className="mt-1.5" />
+        <div className="border-t border-[#141414]/10 py-5 text-center">
+          <AtribucionZentry />
         </div>
       </footer>
     </main>

@@ -1,23 +1,24 @@
-import { ArrowUpRight, ChevronDown, Megaphone, Pin } from "lucide-react";
-import {
-  CATEGORIAS_COMUNICADO,
-  formatearFechaComunicado,
-} from "@/lib/comunicados";
-import type {
-  CategoriaComunicado,
-  ComunicadoPublico,
-} from "@/types/comunicados";
+import { ArrowUpRight, Plus } from "lucide-react";
+import { CATEGORIAS_COMUNICADO } from "@/lib/comunicados";
+import type { ComunicadoPublico } from "@/types/comunicados";
 
-const ESTILO_CATEGORIA: Record<CategoriaComunicado, string> = {
-  aviso: "bg-slate-100 text-slate-700",
-  negociacion: "bg-red-100 text-red-700",
-  convocatoria: "bg-amber-100 text-amber-800",
+const fechaCorta = (iso: string) => {
+  const d = new Date(iso);
+  const opts = { timeZone: "America/Tijuana" } as const;
+  return {
+    dia: d.toLocaleDateString("es-MX", { ...opts, day: "2-digit" }),
+    mes: d
+      .toLocaleDateString("es-MX", { ...opts, month: "short" })
+      .replace(".", ""),
+    anio: d.toLocaleDateString("es-MX", { ...opts, year: "numeric" }),
+  };
 };
 
 /**
- * Sección pública de comunicados oficiales en la landing.
- * Server component: el cuerpo se renderiza como texto plano (sin HTML) y se
- * expande con <details>, sin JavaScript de cliente.
+ * Sección pública de comunicados oficiales en la landing, en formato de
+ * boletín. Server component: el cuerpo se renderiza como texto plano (sin
+ * HTML) y se expande con <details>, sin JavaScript de cliente.
+ * Usa las variables de fuente que define la landing (--font-display).
  */
 export function ComunicadosLanding({
   comunicados,
@@ -29,76 +30,80 @@ export function ComunicadosLanding({
   return (
     <section
       id="comunicados"
-      className="relative z-20 mx-auto w-full max-w-7xl scroll-mt-28 px-5 py-20 sm:px-8 lg:px-10"
+      className="mx-auto max-w-6xl scroll-mt-6 px-5 py-20 sm:px-8"
     >
-      <div className="mb-12 flex flex-col items-center gap-4 text-center">
-        <span className="inline-flex items-center gap-2 rounded-full bg-red-100 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-red-700">
-          <Megaphone className="h-3.5 w-3.5" />
-          Comunicados oficiales
-        </span>
-        <h2 className="max-w-3xl text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">
-          Información de primera mano,{" "}
-          <span className="text-red-700">sin intermediarios.</span>
+      <div className="flex flex-col justify-between gap-4 border-b-4 border-[#141414] pb-5 md:flex-row md:items-end">
+        <h2 className="text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
+          Comunicados
         </h2>
-        <p className="max-w-2xl text-lg text-slate-500">
-          Avisos, avances de negociación y convocatorias publicados directamente
-          por la Sección VII.
+        <p className="max-w-sm text-[#141414]/70">
+          Avisos, avances de negociación y convocatorias, publicados
+          directamente por la Sección VII.
         </p>
       </div>
 
-      <div className="mx-auto grid max-w-4xl gap-4">
-        {comunicados.map((c, i) => (
-          <details
-            key={c.id}
-            open={i === 0}
-            className={`group rounded-[1.75rem] border bg-white shadow-sm transition-shadow open:shadow-xl open:shadow-red-900/5 ${
-              c.fijado ? "border-red-200" : "border-slate-200/60"
-            }`}
-          >
-            <summary className="flex cursor-pointer list-none items-start gap-4 p-6 sm:p-7 [&::-webkit-details-marker]:hidden">
-              <div className="min-w-0 flex-1 space-y-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-                  {c.fijado && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 uppercase tracking-wider text-white">
-                      <Pin className="h-3 w-3" />
-                      Importante
-                    </span>
-                  )}
-                  <span
-                    className={`rounded-full px-2.5 py-1 uppercase tracking-wider ${ESTILO_CATEGORIA[c.categoria]}`}
+      <ul className="divide-y divide-[#141414]/15">
+        {comunicados.map((c, i) => {
+          const f = fechaCorta(c.fecha);
+          return (
+            <li key={c.id}>
+              <details open={i === 0} className="group">
+                <summary className="grid cursor-pointer list-none grid-cols-[64px_1fr_auto] items-start gap-4 py-6 sm:grid-cols-[88px_1fr_auto] sm:gap-8 [&::-webkit-details-marker]:hidden">
+                  <time
+                    dateTime={c.fecha}
+                    className="leading-none [font-family:var(--font-display)]"
                   >
-                    {CATEGORIAS_COMUNICADO[c.categoria]}
-                  </span>
-                  <time dateTime={c.fecha} className="text-slate-400">
-                    {formatearFechaComunicado(c.fecha)}
+                    <span className="block text-4xl font-extrabold sm:text-5xl">
+                      {f.dia}
+                    </span>
+                    <span className="mt-1 block text-sm font-bold uppercase tracking-wider text-[#141414]/60">
+                      {f.mes} {f.anio}
+                    </span>
                   </time>
-                </div>
-                <h3 className="text-xl font-black leading-snug tracking-tight text-slate-900 sm:text-2xl">
-                  {c.titulo}
-                </h3>
-              </div>
-              <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
-            </summary>
 
-            <div className="space-y-5 px-6 pb-7 sm:px-7">
-              <p className="whitespace-pre-line leading-relaxed text-slate-600">
-                {c.cuerpo}
-              </p>
-              {c.enlace && (
-                <a
-                  href={c.enlace}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-red-700 hover:underline"
-                >
-                  Ver documento
-                  <ArrowUpRight className="h-4 w-4" />
-                </a>
-              )}
-            </div>
-          </details>
-        ))}
-      </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.12em]">
+                      {c.fijado && (
+                        <span className="bg-[#D7261E] px-2 py-1 text-white">
+                          Importante
+                        </span>
+                      )}
+                      <span className="border border-[#141414]/30 px-2 py-[3px] text-[#141414]/75">
+                        {CATEGORIAS_COMUNICADO[c.categoria]}
+                      </span>
+                    </div>
+                    <h3 className="mt-3 text-2xl font-bold uppercase leading-tight tracking-tight transition-colors [font-family:var(--font-display)] group-hover:text-[#D7261E] sm:text-3xl">
+                      {c.titulo}
+                    </h3>
+                  </div>
+
+                  <Plus
+                    aria-hidden
+                    className="mt-1 h-6 w-6 shrink-0 transition-transform group-open:rotate-45 motion-reduce:transition-none"
+                  />
+                </summary>
+
+                <div className="pb-8 pl-[80px] sm:pl-[120px]">
+                  <p className="max-w-[68ch] whitespace-pre-line text-[17px] leading-relaxed text-[#141414]/85">
+                    {c.cuerpo}
+                  </p>
+                  {c.enlace && (
+                    <a
+                      href={c.enlace}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-5 inline-flex items-center gap-1.5 font-bold text-[#D7261E] underline underline-offset-4"
+                    >
+                      Ver documento
+                      <ArrowUpRight className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+              </details>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
