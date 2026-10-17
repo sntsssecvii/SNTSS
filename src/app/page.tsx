@@ -124,9 +124,7 @@ function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
             Mi lugar en las listas
           </span>
           <span className="text-xs font-semibold text-[#141414]/60">
-            {corte
-              ? formatearCorte(corte)
-              : "Cada quincena"}
+            {corte ? formatearCorte(corte) : "Cada quincena"}
           </span>
         </div>
 
@@ -235,14 +233,23 @@ export default async function PublicHomePage() {
             className="flex flex-wrap items-center gap-x-6 gap-y-3 text-[15px] font-semibold"
           >
             {comunicados.length > 0 && (
-              <a href="#avisos" className="hidden underline-offset-4 hover:underline md:inline">
+              <a
+                href="#avisos"
+                className="hidden underline-offset-4 hover:underline md:inline"
+              >
                 Avisos
               </a>
             )}
-            <a href="#portal" className="hidden underline-offset-4 hover:underline md:inline">
+            <a
+              href="#portal"
+              className="hidden underline-offset-4 hover:underline md:inline"
+            >
               Tu portal
             </a>
-            <a href="#acceso" className="hidden underline-offset-4 hover:underline md:inline">
+            <a
+              href="#acceso"
+              className="hidden underline-offset-4 hover:underline md:inline"
+            >
               Abre tu cuenta
             </a>
             <Link
@@ -280,17 +287,16 @@ export default async function PublicHomePage() {
         {/* ───────── Portada: identidad ───────── */}
         <section className="relative mx-auto max-w-[1320px] px-5 py-16 sm:px-8 md:py-24">
           <Kicker numero="01">Quiénes somos</Kicker>
-          <h1 className="mt-6 max-w-[14ch] text-[clamp(3rem,8vw,7.5rem)] font-medium leading-[0.95] tracking-[-0.03em] [font-family:var(--font-serif)]">
-            Somos 16 mil.{" "}
+          <h1 className="mt-6 max-w-[18ch] text-[clamp(2.75rem,6.6vw,6.5rem)] font-medium leading-[0.95] tracking-[-0.03em] [font-family:var(--font-serif)]">
+            Somos quienes sostienen el Seguro Social.{" "}
             <em className="text-[#D7261E]">Somos la Sección VII.</em>
           </h1>
 
           <div className="mt-14 grid gap-10 border-t-2 border-[#141414] pt-10 lg:grid-cols-12">
             <p className="text-xl leading-relaxed text-[#141414]/80 [font-family:var(--font-serif)] lg:col-span-6">
               Las trabajadoras y los trabajadores del Seguro Social en Baja
-              California y San Luis Río Colorado. Enfermería, oficinas,
-              médicos, intendencia, mantenimiento: cada área, cada turno, cada
-              unidad. Una sola sección.
+              California y San Luis Río Colorado. Enfermería, oficinas, médicos,
+              intendencia, mantenimiento. Una sola sección.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row lg:col-span-6 lg:justify-end lg:self-end">
               <Link
@@ -310,15 +316,16 @@ export default async function PublicHomePage() {
           </div>
         </section>
 
-        {/* ───────── Lema ───────── */}
+        {/* ───────── Unidad ───────── */}
         <section className="border-y-2 border-[#141414] bg-[#D7261E] text-white">
           <div className="gaceta-aparece mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-8 md:py-20 lg:grid-cols-12 lg:items-center">
             <p className="text-[clamp(2.25rem,5vw,4.5rem)] font-medium leading-[1.02] tracking-[-0.02em] [font-family:var(--font-serif)] lg:col-span-8">
-              Por el bienestar económico de los trabajadores.
+              Cada turno. Cada unidad. Cada compañero.
             </p>
             <p className="max-w-[40ch] text-lg leading-relaxed text-white/85 lg:col-span-4">
-              Es lo que dice nuestro escudo y es lo que nos une: defender tu
-              trabajo, tu salario y tus derechos.
+              De la consulta externa al turno nocturno, en cada hospital,
+              clínica y oficina del Seguro Social en Baja California y San Luis
+              Río Colorado.
             </p>
           </div>
         </section>
@@ -384,7 +391,7 @@ export default async function PublicHomePage() {
             <div className="gaceta-aparece lg:col-span-5">
               <Kicker numero="03">Abre tu cuenta</Kicker>
               <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
-                Gratis y
+                Tu cuenta,
                 <br />
                 <span className="text-[#D7261E]">en tres pasos.</span>
               </h2>
