@@ -23,6 +23,7 @@ import {
   Activity,
   UserRound,
   Tag,
+  Megaphone,
   Bot,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -104,6 +105,11 @@ const getNavItems = (
         title: "Convenios",
         href: "/admin/convenios",
         icon: Tag,
+      },
+      {
+        title: "Comunicados",
+        href: "/admin/comunicados",
+        icon: Megaphone,
       },
       {
         title: "Propuestas",

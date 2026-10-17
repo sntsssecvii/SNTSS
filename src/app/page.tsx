@@ -15,6 +15,23 @@ import logoSNTSS from "@/assets/logo-sntss.png";
 import seccion7 from "@/assets/seccion7.png";
 import { Button } from "@/components/ui/button";
 import { AtribucionZentry } from "@/components/AtribucionZentry";
+import { ComunicadosLanding } from "@/components/ComunicadosLanding";
+import { MAX_COMUNICADOS_LANDING } from "@/lib/comunicados";
+import { getComunicadosPublicos } from "@/lib/firebase/comunicados";
+import type { ComunicadoPublico } from "@/types/comunicados";
+
+// ISR: los endpoints admin de comunicados revalidan "/" al publicar.
+export const revalidate = 300;
+
+async function cargarComunicados(): Promise<ComunicadoPublico[]> {
+  try {
+    return await getComunicadosPublicos(MAX_COMUNICADOS_LANDING);
+  } catch (err) {
+    // La landing nunca debe caerse por los comunicados.
+    console.error("[landing] no se pudieron cargar comunicados:", err);
+    return [];
+  }
+}
 
 const accesos = [
   {
@@ -82,7 +99,9 @@ const momentos = [
   "Ingresas al portal y accedes a toda tu información sindical.",
 ];
 
-export default function PublicHomePage() {
+export default async function PublicHomePage() {
+  const comunicados = await cargarComunicados();
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 selection:bg-red-200 selection:text-red-900">
       {/* Navbar flotante */}
@@ -108,6 +127,14 @@ export default function PublicHomePage() {
           </div>
 
           <div className="hidden items-center gap-8 text-sm font-bold text-slate-600 md:flex">
+            {comunicados.length > 0 && (
+              <Link
+                href="#comunicados"
+                className="transition-colors hover:text-red-700"
+              >
+                Comunicados
+              </Link>
+            )}
             <Link
               href="#servicios"
               className="transition-colors hover:text-red-700"
@@ -273,6 +300,8 @@ export default function PublicHomePage() {
           </div>
         </div>
       </section>
+
+      <ComunicadosLanding comunicados={comunicados} />
 
       {/* Services Section */}
       <section
