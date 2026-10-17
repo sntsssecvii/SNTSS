@@ -357,8 +357,10 @@ export default function StepInfo({ onNext, initialData }: StepInfoProps) {
               </p>
               <p>
                 <strong>Conservación de documentos:</strong> Los documentos de
-                identificación que subas serán eliminados de forma permanente
-                una vez que tu registro sea validado por el sindicato.
+                identificación que subas se resguardan con acceso restringido al
+                personal que valida los registros, únicamente como respaldo de
+                la validación. Puedes solicitar su eliminación ejerciendo tus
+                derechos ARCO.
               </p>
               <p>
                 <strong>Derechos ARCO:</strong> Puedes solicitar acceso,
