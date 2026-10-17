@@ -48,22 +48,42 @@ async function seguro<T>(fn: () => Promise<T>, respaldo: T): Promise<T> {
   }
 }
 
-// Nombres oficiales de las listas de bolsa (src/types/bolsa-de-trabajo.ts).
-const listasBolsa = [
-  "Nuevo Ingreso",
-  "Cambios de Área",
-  "Cambios de Rama",
-  "Cambios de Residencia Origen",
-  "Cambios de Residencia Destino",
-  "Cambios de Tipo de Plaza",
-  "Cambios de Turno y/o Adscripción",
-  "Ampliaciones de Jornada",
+const beneficios = [
+  {
+    titulo: "Sabe en qué lugar vas",
+    texto:
+      "Tu lugar en las listas de la bolsa de trabajo, actualizado cada quincena.",
+  },
+  {
+    titulo: "Tu ascenso, claro",
+    texto:
+      "Cómo vas en escalafón para subir de categoría o cambiarte de turno o de unidad.",
+  },
+  {
+    titulo: "Sin ir a la oficina",
+    texto: "Desde tu celular, a la hora que quieras. Sin filas ni llamadas.",
+  },
+  {
+    titulo: "Solo para ti",
+    texto: "Entras con tu cuenta y ves únicamente tu información.",
+  },
 ];
 
-const documentos = [
-  "Identificación oficial (INE/IFE)",
-  "Tarjetón de pago reciente",
-  "Constancia de afiliación sindical",
+const pasos = [
+  {
+    titulo: "Regístrate con tu matrícula",
+    texto: "Tu nombre, tu matrícula del IMSS y tu correo.",
+  },
+  {
+    titulo: "Sube tres fotos",
+    texto:
+      "Tu INE, tu último talón de pago y tu constancia sindical. Puedes tomarlas con el celular.",
+  },
+  {
+    titulo: "Listo en 1 o 2 días",
+    texto:
+      "La sección revisa tus datos y te avisamos por correo cuando tu cuenta esté activa.",
+  },
 ];
 
 const C = {
@@ -98,15 +118,15 @@ function Kicker({
 function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
   return (
     <figure className="relative">
-      <div className="border-2 border-[#141414] bg-white shadow-[12px_12px_0_#D7261E]">
+      <div className="border-2 border-[#141414] bg-white text-[#141414] shadow-[12px_12px_0_#D7261E]">
         <div className="flex items-center justify-between border-b-2 border-[#141414] px-5 py-3">
           <span className="text-xs font-bold uppercase tracking-[0.18em]">
-            Mis posiciones actuales
+            Mi lugar en las listas
           </span>
           <span className="text-xs font-semibold text-[#141414]/60">
             {corte
-              ? `Corte ${corte.quincena}ª Q ${corte.mes}/${corte.anio}`
-              : "Corte quincenal"}
+              ? formatearCorte(corte)
+              : "Cada quincena"}
           </span>
         </div>
 
@@ -122,7 +142,7 @@ function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
           </div>
           <div className="text-right">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#141414]/50">
-              Base
+              Tu lugar
             </p>
             <p className="text-7xl font-extrabold leading-[0.8] tracking-tight [font-family:var(--font-display)]">
               47
@@ -133,21 +153,20 @@ function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
         <div className="grid grid-cols-2 border-t border-[#141414]/15 text-sm">
           <div className="border-r border-[#141414]/15 px-5 py-3">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#141414]/50">
-              Promoción
+              Para ascender
             </p>
-            <p className="mt-1 font-semibold">Pos. 12 · Mexicali</p>
+            <p className="mt-1 font-semibold">Lugar 12</p>
           </div>
           <div className="px-5 py-3">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#141414]/50">
-              Cambio de escalafón
+              Cambio de turno
             </p>
             <p className="mt-1 font-semibold">Lugar 3 de 18</p>
           </div>
         </div>
       </div>
-      <figcaption className="mt-5 text-sm italic text-[#141414]/60 [font-family:var(--font-serif)]">
-        Ejemplo ilustrativo de la ficha que ves en tu portal. Los datos son
-        ficticios.
+      <figcaption className="mt-5 text-sm italic opacity-60 [font-family:var(--font-serif)]">
+        Así se ve tu información en el portal. Ejemplo con datos ficticios.
       </figcaption>
     </figure>
   );
@@ -162,15 +181,13 @@ export default async function PublicHomePage() {
     seguro<CorteVigente | null>(getCorteVigente, null),
   ]);
 
-  const textoCorte = corte
-    ? `Corte vigente: ${formatearCorte(corte)}`
-    : "Listas actualizadas cada quincena";
   const cinta = [
-    textoCorte,
-    "Bolsa de trabajo",
-    "Promoción de escalafón",
-    "Cambios de escalafón",
-    "Consulta con tu matrícula",
+    "Sección VII",
+    corte
+      ? `Listas al día: ${formatearCorte(corte)}`
+      : "Listas actualizadas cada quincena",
+    "Baja California y San Luis Río Colorado",
+    "Consulta desde tu celular",
   ];
 
   return (
@@ -222,14 +239,11 @@ export default async function PublicHomePage() {
                 Avisos
               </a>
             )}
-            <a href="#bolsa" className="hidden underline-offset-4 hover:underline md:inline">
-              Bolsa
-            </a>
-            <a href="#escalafon" className="hidden underline-offset-4 hover:underline md:inline">
-              Escalafón
+            <a href="#portal" className="hidden underline-offset-4 hover:underline md:inline">
+              Tu portal
             </a>
             <a href="#acceso" className="hidden underline-offset-4 hover:underline md:inline">
-              Acceso
+              Abre tu cuenta
             </a>
             <Link
               href="/login"
@@ -263,144 +277,101 @@ export default async function PublicHomePage() {
       </div>
 
       <div id="contenido">
-        {/* ───────── Portada ───────── */}
-        <section className="mx-auto grid max-w-[1320px] gap-14 px-5 py-16 sm:px-8 md:py-24 lg:grid-cols-12 lg:gap-10">
-          <div className="lg:col-span-7">
-            <Kicker numero="01">Portal del trabajador</Kicker>
-            <h1 className="mt-6 text-[clamp(2.75rem,6.4vw,5.75rem)] font-medium leading-[0.98] tracking-[-0.025em] [font-family:var(--font-serif)]">
-              Tu lugar en la lista,{" "}
-              <em className="text-[#D7261E]">a la vista.</em>
-            </h1>
-            <p className="mt-8 max-w-[56ch] text-xl leading-relaxed text-[#141414]/80 [font-family:var(--font-serif)]">
-              Consulta tu posición en la bolsa de trabajo y en escalafón con los
-              cortes oficiales de la Sección VII. Solo tus datos, vinculados a
-              tu matrícula, desde el celular o la computadora.
+        {/* ───────── Portada: identidad ───────── */}
+        <section className="relative mx-auto max-w-[1320px] px-5 py-16 sm:px-8 md:py-24">
+          <Kicker numero="01">Quiénes somos</Kicker>
+          <h1 className="mt-6 max-w-[14ch] text-[clamp(3rem,8vw,7.5rem)] font-medium leading-[0.95] tracking-[-0.03em] [font-family:var(--font-serif)]">
+            Somos 16 mil.{" "}
+            <em className="text-[#D7261E]">Somos la Sección VII.</em>
+          </h1>
+
+          <div className="mt-14 grid gap-10 border-t-2 border-[#141414] pt-10 lg:grid-cols-12">
+            <p className="text-xl leading-relaxed text-[#141414]/80 [font-family:var(--font-serif)] lg:col-span-6">
+              Las trabajadoras y los trabajadores del Seguro Social en Baja
+              California y San Luis Río Colorado. Enfermería, oficinas,
+              médicos, intendencia, mantenimiento: cada área, cada turno, cada
+              unidad. Una sola sección.
             </p>
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row lg:col-span-6 lg:justify-end lg:self-end">
               <Link
                 href="/login"
                 className="inline-flex min-h-14 items-center justify-center gap-2 bg-[#D7261E] px-8 text-lg font-bold text-white transition-colors hover:bg-[#B51E17] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#141414]"
               >
-                Consultar mi posición
+                Entrar a mi portal
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
                 href="/registro"
                 className="inline-flex min-h-14 items-center justify-center border-2 border-[#141414] px-8 text-lg font-bold transition-colors hover:bg-[#141414] hover:text-white"
               >
-                Solicitar mi cuenta
+                Abrir mi cuenta
               </Link>
             </div>
           </div>
+        </section>
 
-          <div className="lg:col-span-5 lg:pl-6">
-            <FichaEjemplo corte={corte} />
+        {/* ───────── Lema ───────── */}
+        <section className="border-y-2 border-[#141414] bg-[#D7261E] text-white">
+          <div className="gaceta-aparece mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-8 md:py-20 lg:grid-cols-12 lg:items-center">
+            <p className="text-[clamp(2.25rem,5vw,4.5rem)] font-medium leading-[1.02] tracking-[-0.02em] [font-family:var(--font-serif)] lg:col-span-8">
+              Por el bienestar económico de los trabajadores.
+            </p>
+            <p className="max-w-[40ch] text-lg leading-relaxed text-white/85 lg:col-span-4">
+              Es lo que dice nuestro escudo y es lo que nos une: defender tu
+              trabajo, tu salario y tus derechos.
+            </p>
           </div>
         </section>
 
         {/* ───────── Avisos ───────── */}
-        <ComunicadosLanding comunicados={comunicados} />
+        <div className="pt-20">
+          <ComunicadosLanding comunicados={comunicados} />
+        </div>
 
-        {/* ───────── Bolsa de trabajo ───────── */}
+        {/* ───────── Portal del trabajador ───────── */}
         <section
-          id="bolsa"
-          className="scroll-mt-6 border-t-2 border-[#141414] bg-[#141414] text-[#F2EEE6]"
+          id="portal"
+          className="scroll-mt-6 bg-[#141414] text-[#F2EEE6]"
         >
-          <div className="mx-auto grid max-w-[1320px] gap-14 px-5 py-20 sm:px-8 md:py-28 lg:grid-cols-12 lg:gap-10">
-            <div className="gaceta-aparece lg:col-span-5">
-              <Kicker numero="02" claro>
-                Bolsa de trabajo
-              </Kicker>
-              <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
-                Ocho listas.
-                <br />
-                <span className="text-[#D7261E]">Un corte</span> cada quincena.
-              </h2>
-              <p className="mt-8 max-w-[46ch] text-lg leading-relaxed text-[#F2EEE6]/75 [font-family:var(--font-serif)]">
-                La bolsa de trabajo son las listas de prelación que publica la
-                sección. En tu portal ves en cuáles apareces, con tu posición,
-                categoría, zona y, cuando aplica, turno y adscripción.
-              </p>
+          <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-8 md:py-28">
+            <div className="gaceta-aparece grid gap-14 lg:grid-cols-12 lg:gap-10">
+              <div className="lg:col-span-6">
+                <Kicker numero="02" claro>
+                  Tu portal
+                </Kicker>
+                <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
+                  Tu información,
+                  <br />
+                  <span className="text-[#D7261E]">en tu celular.</span>
+                </h2>
+                <p className="mt-8 max-w-[46ch] text-lg leading-relaxed text-[#F2EEE6]/75 [font-family:var(--font-serif)]">
+                  Lo que antes preguntabas en la oficina, ahora lo ves tú mismo,
+                  cuando quieras.
+                </p>
+              </div>
+              <div className="lg:col-span-6 lg:pl-6">
+                <FichaEjemplo corte={corte} />
+              </div>
             </div>
 
-            <ol className="gaceta-aparece border-t border-[#F2EEE6]/25 lg:col-span-7">
-              {listasBolsa.map((nombre, i) => (
-                <li
-                  key={nombre}
-                  className="group grid grid-cols-[3.5rem_1fr] items-baseline border-b border-[#F2EEE6]/25 py-4 sm:grid-cols-[5rem_1fr]"
+            <div className="mt-20 grid gap-px bg-[#F2EEE6]/20 sm:grid-cols-2 lg:grid-cols-4">
+              {beneficios.map((b, i) => (
+                <article
+                  key={b.titulo}
+                  className="gaceta-aparece bg-[#141414] p-6 lg:p-8"
                 >
-                  <span className="text-2xl font-bold text-[#D7261E] [font-family:var(--font-display)] sm:text-3xl">
+                  <span className="text-5xl font-extrabold text-[#D7261E] [font-family:var(--font-display)]">
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <span className="text-2xl leading-tight transition-colors [font-family:var(--font-serif)] group-hover:text-white sm:text-3xl">
-                    {nombre}
-                  </span>
-                </li>
+                  <h3 className="mt-4 text-2xl font-medium leading-tight [font-family:var(--font-serif)]">
+                    {b.titulo}
+                  </h3>
+                  <p className="mt-3 leading-relaxed text-[#F2EEE6]/70">
+                    {b.texto}
+                  </p>
+                </article>
               ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* ───────── Escalafón ───────── */}
-        <section
-          id="escalafon"
-          className="mx-auto max-w-[1320px] scroll-mt-6 px-5 py-20 sm:px-8 md:py-28"
-        >
-          <div className="gaceta-aparece grid gap-6 border-b-2 border-[#141414] pb-8 lg:grid-cols-12 lg:items-end">
-            <div className="lg:col-span-7">
-              <Kicker numero="03">Escalafón</Kicker>
-              <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
-                Promoción y cambios,
-                <br />
-                <span className="text-[#D7261E]">en claro.</span>
-              </h2>
             </div>
-            <p className="max-w-[44ch] text-lg leading-relaxed text-[#141414]/75 [font-family:var(--font-serif)] lg:col-span-5">
-              Además de la bolsa, el portal te muestra dónde estás en los
-              listados de escalafón que emite la sección.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2">
-            <article className="gaceta-aparece border-b border-[#141414]/20 py-10 md:border-b-0 md:border-r md:pr-10">
-              <p className="text-[13px] font-bold uppercase tracking-[0.2em] text-[#D7261E]">
-                Promoción
-              </p>
-              <h3 className="mt-3 text-3xl font-medium leading-tight [font-family:var(--font-serif)] sm:text-4xl">
-                Tu posición por categoría, área y zona.
-              </h3>
-              <p className="mt-4 max-w-[48ch] leading-relaxed text-[#141414]/75">
-                Ves tu lugar en cada zona donde participas, comparado entre
-                trabajadores activos o PEI según tu estatus, y el periodo de
-                cierre del listado.
-              </p>
-            </article>
-            <article className="gaceta-aparece py-10 md:pl-10">
-              <p className="text-[13px] font-bold uppercase tracking-[0.2em] text-[#D7261E]">
-                Cambios de escalafón
-              </p>
-              <h3 className="mt-3 text-3xl font-medium leading-tight [font-family:var(--font-serif)] sm:text-4xl">
-                Tu lugar dentro de tu grupo.
-              </h3>
-              <p className="mt-4 max-w-[48ch] leading-relaxed text-[#141414]/75">
-                Para cambios de turno o de adscripción: en qué lugar estás de
-                cuántos, por unidad y turno, con la fecha de emisión del
-                listado.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        {/* ───────── Privacidad ───────── */}
-        <section className="border-y-2 border-[#141414] bg-[#D7261E] text-white">
-          <div className="gaceta-aparece mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-8 md:py-20 lg:grid-cols-12 lg:items-center">
-            <p className="text-[clamp(2.25rem,4.6vw,4rem)] font-medium leading-[1.05] tracking-[-0.02em] [font-family:var(--font-serif)] lg:col-span-8">
-              “Solo ves tu información. Nadie más ve la tuya.”
-            </p>
-            <p className="max-w-[44ch] text-lg leading-relaxed text-white/85 lg:col-span-4">
-              Tu cuenta se vincula a tu matrícula y la valida la sección. El
-              portal no publica listas completas ni datos de otros compañeros.
-            </p>
           </div>
         </section>
 
@@ -411,78 +382,46 @@ export default async function PublicHomePage() {
         >
           <div className="grid gap-14 lg:grid-cols-12 lg:gap-10">
             <div className="gaceta-aparece lg:col-span-5">
-              <Kicker numero="04">Acceso</Kicker>
+              <Kicker numero="03">Abre tu cuenta</Kicker>
               <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
-                Tu cuenta en
+                Gratis y
                 <br />
-                <span className="text-[#D7261E]">tres pasos.</span>
+                <span className="text-[#D7261E]">en tres pasos.</span>
               </h2>
               <p className="mt-8 max-w-[44ch] text-lg leading-relaxed text-[#141414]/75 [font-family:var(--font-serif)]">
-                Sin costo para las y los trabajadores sindicalizados de la
-                Sección VII.
+                Para todas y todos los compañeros sindicalizados de la Sección
+                VII.
               </p>
               <Link
                 href="/registro"
                 className="mt-10 inline-flex min-h-14 items-center gap-2 bg-[#141414] px-8 text-lg font-bold text-white transition-colors hover:bg-[#D7261E] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#D7261E]"
               >
-                Solicitar mi cuenta
+                Abrir mi cuenta
                 <ArrowUpRight className="h-5 w-5" />
               </Link>
             </div>
 
             <ol className="lg:col-span-7">
-              <li className="gaceta-aparece grid grid-cols-[4.5rem_1fr] gap-4 border-t-2 border-[#141414] py-8 sm:grid-cols-[6rem_1fr]">
-                <span className="text-7xl font-extrabold leading-[0.8] text-[#D7261E] [font-family:var(--font-display)] sm:text-8xl">
-                  1
-                </span>
-                <div>
-                  <h3 className="text-2xl font-semibold [font-family:var(--font-serif)]">
-                    Llena tus datos
-                  </h3>
-                  <p className="mt-2 leading-relaxed text-[#141414]/75">
-                    Nombre completo, tu matrícula IMSS, correo y una contraseña.
-                  </p>
-                </div>
-              </li>
-              <li className="gaceta-aparece grid grid-cols-[4.5rem_1fr] gap-4 border-t-2 border-[#141414] py-8 sm:grid-cols-[6rem_1fr]">
-                <span className="text-7xl font-extrabold leading-[0.8] text-[#D7261E] [font-family:var(--font-display)] sm:text-8xl">
-                  2
-                </span>
-                <div>
-                  <h3 className="text-2xl font-semibold [font-family:var(--font-serif)]">
-                    Sube tres documentos
-                  </h3>
-                  <ul className="mt-3 space-y-1.5">
-                    {documentos.map((d) => (
-                      <li key={d} className="flex gap-3 leading-relaxed">
-                        <span
-                          aria-hidden
-                          className="mt-[0.6em] h-1.5 w-1.5 shrink-0 bg-[#D7261E]"
-                        />
-                        {d}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-3 text-sm text-[#141414]/60">
-                    Foto con el celular, JPG, PNG, WEBP o PDF, hasta 5 MB cada
-                    uno.
-                  </p>
-                </div>
-              </li>
-              <li className="gaceta-aparece grid grid-cols-[4.5rem_1fr] gap-4 border-y-2 border-[#141414] py-8 sm:grid-cols-[6rem_1fr]">
-                <span className="text-7xl font-extrabold leading-[0.8] text-[#D7261E] [font-family:var(--font-display)] sm:text-8xl">
-                  3
-                </span>
-                <div>
-                  <h3 className="text-2xl font-semibold [font-family:var(--font-serif)]">
-                    La sección valida tu registro
-                  </h3>
-                  <p className="mt-2 leading-relaxed text-[#141414]/75">
-                    En 1 a 2 días hábiles. Te avisamos por correo cuando tu
-                    cuenta esté activa.
-                  </p>
-                </div>
-              </li>
+              {pasos.map((p, i) => (
+                <li
+                  key={p.titulo}
+                  className={`gaceta-aparece grid grid-cols-[4.5rem_1fr] gap-4 border-t-2 border-[#141414] py-8 sm:grid-cols-[6rem_1fr] ${
+                    i === pasos.length - 1 ? "border-b-2" : ""
+                  }`}
+                >
+                  <span className="text-7xl font-extrabold leading-[0.8] text-[#D7261E] [font-family:var(--font-display)] sm:text-8xl">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="text-2xl font-semibold [font-family:var(--font-serif)]">
+                      {p.titulo}
+                    </h3>
+                    <p className="mt-2 leading-relaxed text-[#141414]/75">
+                      {p.texto}
+                    </p>
+                  </div>
+                </li>
+              ))}
             </ol>
           </div>
         </section>
