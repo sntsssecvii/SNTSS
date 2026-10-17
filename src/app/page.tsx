@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Barlow, Barlow_Condensed, Newsreader } from "next/font/google";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
 import logoSNTSS from "@/assets/logo-sntss.png";
@@ -18,6 +17,7 @@ import {
 } from "@/components/FondosGaceta";
 import { MAX_COMUNICADOS_LANDING } from "@/lib/comunicados";
 import { getComunicadosPublicos } from "@/lib/firebase/comunicados";
+import { fuentesGaceta } from "@/lib/fuentes-gaceta";
 import {
   formatearCorte,
   getCorteVigente,
@@ -27,25 +27,6 @@ import type { ComunicadoPublico } from "@/types/comunicados";
 
 // ISR: los endpoints admin de comunicados revalidan "/" al publicar.
 export const revalidate = 300;
-
-const display = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-display",
-});
-
-const serif = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-serif",
-});
-
-const sans = Barlow({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-texto",
-});
 
 /** La landing nunca debe caerse por datos opcionales. */
 async function seguro<T>(fn: () => Promise<T>, respaldo: T): Promise<T> {
@@ -257,7 +238,7 @@ export default async function PublicHomePage() {
 
   return (
     <main
-      className={`${display.variable} ${serif.variable} ${sans.variable} gaceta-grano min-h-screen overflow-x-clip bg-[#F2EEE6] ${C.tinta} [font-family:var(--font-texto)] selection:bg-[#D7261E] selection:text-white`}
+      className={`${fuentesGaceta} gaceta-grano min-h-screen overflow-x-clip bg-[#F2EEE6] ${C.tinta} [font-family:var(--font-texto)] selection:bg-[#D7261E] selection:text-white`}
     >
       <a
         href="#contenido"
