@@ -35,15 +35,14 @@ export function ComunicadosLanding({
       <div className="flex flex-col justify-between gap-4 border-b-4 border-[#141414] pb-5 md:flex-row md:items-end">
         <div>
           <p className="text-[13px] font-bold uppercase tracking-[0.2em] text-[#D7261E]">
-            Avisos oficiales
+            Comunicados
           </p>
           <h2 className="mt-3 text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
-            Lo último de la sección
+            Avisos oficiales
           </h2>
         </div>
         <p className="max-w-sm text-[#141414]/70">
-          Avisos, avances de negociación y convocatorias, publicados
-          directamente por la Sección VII.
+          Comunicados publicados por la Sección VII.
         </p>
       </div>
 

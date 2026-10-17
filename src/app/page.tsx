@@ -50,39 +50,38 @@ async function seguro<T>(fn: () => Promise<T>, respaldo: T): Promise<T> {
 
 const beneficios = [
   {
-    titulo: "Sabe en qué lugar vas",
+    titulo: "Bolsa de trabajo",
     texto:
-      "Tu lugar en las listas de la bolsa de trabajo, actualizado cada quincena.",
+      "Consulta tu lugar en las listas en las que participas, con cada quincena.",
   },
   {
-    titulo: "Tu ascenso, claro",
-    texto:
-      "Cómo vas en escalafón para subir de categoría o cambiarte de turno o de unidad.",
+    titulo: "Escalafón",
+    texto: "Conoce tu lugar para ascender de categoría.",
   },
   {
-    titulo: "Sin ir a la oficina",
-    texto: "Desde tu celular, a la hora que quieras. Sin filas ni llamadas.",
+    titulo: "Cambios de turno y adscripción",
+    texto: "Revisa tu lugar si solicitaste un cambio de turno o de unidad.",
   },
   {
-    titulo: "Solo para ti",
-    texto: "Entras con tu cuenta y ves únicamente tu información.",
+    titulo: "Tu información es personal",
+    texto: "Solo tú la consultas, con tu propia cuenta.",
   },
 ];
 
 const pasos = [
   {
     titulo: "Regístrate con tu matrícula",
-    texto: "Tu nombre, tu matrícula del IMSS y tu correo.",
+    texto: "Captura tu nombre, tu matrícula del IMSS y tu correo electrónico.",
   },
   {
-    titulo: "Sube tres fotos",
+    titulo: "Sube tus documentos",
     texto:
-      "Tu INE, tu último talón de pago y tu constancia sindical. Puedes tomarlas con el celular.",
+      "Tu identificación oficial, tu último talón de pago y tu constancia de afiliación sindical. Puedes tomarles foto con el celular.",
   },
   {
-    titulo: "Listo en 1 o 2 días",
+    titulo: "Validación de tu cuenta",
     texto:
-      "La sección revisa tus datos y te avisamos por correo cuando tu cuenta esté activa.",
+      "La sección revisa tu registro en 1 a 2 días hábiles y te avisa por correo cuando tu cuenta esté activa.",
   },
 ];
 
@@ -111,6 +110,57 @@ function Kicker({
       <span aria-hidden className="h-px w-8 bg-current" />
       {children}
     </p>
+  );
+}
+
+/** Sello circular de fuente oficial, al estilo de un sello documental. */
+function SelloOficial() {
+  return (
+    <div className="relative mx-auto h-44 w-44 shrink-0 md:h-52 md:w-52">
+      <svg
+        viewBox="0 0 200 200"
+        aria-hidden
+        className="absolute inset-0 h-full w-full"
+      >
+        <defs>
+          <path
+            id="sello-arco"
+            d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"
+          />
+        </defs>
+        <circle
+          cx="100"
+          cy="100"
+          r="97"
+          fill="none"
+          stroke="white"
+          strokeWidth="3"
+        />
+        <circle
+          cx="100"
+          cy="100"
+          r="62"
+          fill="none"
+          stroke="white"
+          strokeWidth="1.5"
+        />
+        <text
+          fill="white"
+          className="text-[14px] font-bold uppercase [font-family:var(--font-texto)]"
+        >
+          <textPath href="#sello-arco" textLength="486" lengthAdjust="spacing">
+            Fuente oficial · Sección VII · Fuente oficial · Sección VII ·
+          </textPath>
+        </text>
+      </svg>
+      <div className="absolute inset-[23%] flex items-center justify-center rounded-full bg-white">
+        <Image
+          src={logoSNTSS}
+          alt="Escudo del SNTSS"
+          className="h-[78%] w-auto"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -180,12 +230,11 @@ export default async function PublicHomePage() {
   ]);
 
   const cinta = [
-    "Sección VII",
+    "Sitio oficial · SNTSS Sección VII",
     corte
-      ? `Listas al día: ${formatearCorte(corte)}`
-      : "Listas actualizadas cada quincena",
+      ? `Información actualizada a la ${formatearCorte(corte)}`
+      : "Información actualizada cada quincena",
     "Baja California y San Luis Río Colorado",
-    "Consulta desde tu celular",
   ];
 
   return (
@@ -237,20 +286,20 @@ export default async function PublicHomePage() {
                 href="#avisos"
                 className="hidden underline-offset-4 hover:underline md:inline"
               >
-                Avisos
+                Avisos oficiales
               </a>
             )}
             <a
               href="#portal"
               className="hidden underline-offset-4 hover:underline md:inline"
             >
-              Tu portal
+              Portal del trabajador
             </a>
             <a
               href="#acceso"
               className="hidden underline-offset-4 hover:underline md:inline"
             >
-              Abre tu cuenta
+              Obtener cuenta
             </a>
             <Link
               href="/login"
@@ -284,19 +333,21 @@ export default async function PublicHomePage() {
       </div>
 
       <div id="contenido">
-        {/* ───────── Portada: identidad ───────── */}
+        {/* ───────── Portada ───────── */}
         <section className="relative mx-auto max-w-[1320px] px-5 py-16 sm:px-8 md:py-24">
-          <Kicker numero="01">Quiénes somos</Kicker>
-          <h1 className="mt-6 max-w-[18ch] text-[clamp(2.75rem,6.6vw,6.5rem)] font-medium leading-[0.95] tracking-[-0.03em] [font-family:var(--font-serif)]">
-            Somos quienes sostienen el Seguro Social.{" "}
-            <em className="text-[#D7261E]">Somos la Sección VII.</em>
+          <Kicker numero="01">Bienvenida</Kicker>
+          <h1 className="mt-6 max-w-[20ch] text-[clamp(2.75rem,6.2vw,6rem)] font-medium leading-[0.98] tracking-[-0.03em] [font-family:var(--font-serif)]">
+            Te damos la bienvenida al{" "}
+            <em className="text-[#D7261E]">
+              portal oficial de la Sección VII.
+            </em>
           </h1>
 
           <div className="mt-14 grid gap-10 border-t-2 border-[#141414] pt-10 lg:grid-cols-12">
             <p className="text-xl leading-relaxed text-[#141414]/80 [font-family:var(--font-serif)] lg:col-span-6">
-              Las trabajadoras y los trabajadores del Seguro Social en Baja
-              California y San Luis Río Colorado. Enfermería, oficinas, médicos,
-              intendencia, mantenimiento. Una sola sección.
+              Aquí puedes consultar tu información de bolsa de trabajo y
+              escalafón, y los avisos que publica la sección. Desde tu celular o
+              computadora, cuando lo necesites.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row lg:col-span-6 lg:justify-end lg:self-end">
               <Link
@@ -316,17 +367,32 @@ export default async function PublicHomePage() {
           </div>
         </section>
 
-        {/* ───────── Unidad ───────── */}
+        {/* ───────── Sello de fuente oficial ───────── */}
         <section className="border-y-2 border-[#141414] bg-[#D7261E] text-white">
-          <div className="gaceta-aparece mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-8 md:py-20 lg:grid-cols-12 lg:items-center">
-            <p className="text-[clamp(2.25rem,5vw,4.5rem)] font-medium leading-[1.02] tracking-[-0.02em] [font-family:var(--font-serif)] lg:col-span-8">
-              Cada turno. Cada unidad. Cada compañero.
-            </p>
-            <p className="max-w-[40ch] text-lg leading-relaxed text-white/85 lg:col-span-4">
-              De la consulta externa al turno nocturno, en cada hospital,
-              clínica y oficina del Seguro Social en Baja California y San Luis
-              Río Colorado.
-            </p>
+          <div className="gaceta-aparece mx-auto grid max-w-[1320px] items-center gap-10 px-5 py-14 sm:px-8 md:grid-cols-[auto_1fr] md:gap-14 md:py-16">
+            <SelloOficial />
+            <div>
+              <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white/80">
+                Fuente oficial · Sección VII
+              </p>
+              <p className="mt-4 text-[clamp(2rem,4.4vw,3.75rem)] font-medium leading-[1.05] tracking-[-0.02em] [font-family:var(--font-serif)]">
+                {corte ? (
+                  <>
+                    Información actualizada a la{" "}
+                    <span className="underline decoration-2 underline-offset-[0.18em]">
+                      {formatearCorte(corte)}
+                    </span>
+                    .
+                  </>
+                ) : (
+                  "Información actualizada cada quincena."
+                )}
+              </p>
+              <p className="mt-5 max-w-[60ch] text-lg leading-relaxed text-white/85">
+                Los datos del portal provienen de las listas oficiales que
+                publica la sección.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -344,7 +410,7 @@ export default async function PublicHomePage() {
             <div className="gaceta-aparece grid gap-14 lg:grid-cols-12 lg:gap-10">
               <div className="lg:col-span-6">
                 <Kicker numero="02" claro>
-                  Tu portal
+                  Portal del trabajador
                 </Kicker>
                 <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
                   Tu información,
@@ -352,8 +418,7 @@ export default async function PublicHomePage() {
                   <span className="text-[#D7261E]">en tu celular.</span>
                 </h2>
                 <p className="mt-8 max-w-[46ch] text-lg leading-relaxed text-[#F2EEE6]/75 [font-family:var(--font-serif)]">
-                  Lo que antes preguntabas en la oficina, ahora lo ves tú mismo,
-                  cuando quieras.
+                  Con tu cuenta puedes consultar:
                 </p>
               </div>
               <div className="lg:col-span-6 lg:pl-6">
@@ -389,14 +454,14 @@ export default async function PublicHomePage() {
         >
           <div className="grid gap-14 lg:grid-cols-12 lg:gap-10">
             <div className="gaceta-aparece lg:col-span-5">
-              <Kicker numero="03">Abre tu cuenta</Kicker>
+              <Kicker numero="03">Cómo obtener tu cuenta</Kicker>
               <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
                 Tu cuenta,
                 <br />
                 <span className="text-[#D7261E]">en tres pasos.</span>
               </h2>
               <p className="mt-8 max-w-[44ch] text-lg leading-relaxed text-[#141414]/75 [font-family:var(--font-serif)]">
-                Para todas y todos los compañeros sindicalizados de la Sección
+                Para trabajadoras y trabajadores sindicalizados de la Sección
                 VII.
               </p>
               <Link
