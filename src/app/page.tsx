@@ -48,23 +48,35 @@ async function seguro<T>(fn: () => Promise<T>, respaldo: T): Promise<T> {
   }
 }
 
-const beneficios = [
+const consultas = [
   {
     titulo: "Bolsa de trabajo",
-    texto:
-      "Consulta tu lugar en las listas en las que participas, con cada quincena.",
+    que: "Las listas que ordenan a quienes esperan ingresar o hacer un movimiento: cambiarse de área, de turno, de residencia o ampliar su jornada.",
+    ves: [
+      "Tu lugar en cada lista en la que estás inscrito",
+      "La categoría y la zona de cada solicitud",
+      "Turno y unidad, cuando aplica",
+    ],
+    cuando: "Se actualiza cada quincena.",
   },
   {
     titulo: "Escalafón",
-    texto: "Conoce tu lugar para ascender de categoría.",
+    que: "El orden para ascender de categoría dentro del Instituto.",
+    ves: [
+      "Tu lugar en cada categoría y zona en la que participas",
+      "La fecha de cierre de cada listado",
+    ],
+    cuando: "Se actualiza con cada listado que emite la sección.",
   },
   {
     titulo: "Cambios de turno y adscripción",
-    texto: "Revisa tu lugar si solicitaste un cambio de turno o de unidad.",
-  },
-  {
-    titulo: "Tu información es personal",
-    texto: "Solo tú la consultas, con tu propia cuenta.",
+    que: "El orden de quienes solicitaron cambiarse de turno o de unidad.",
+    ves: [
+      "Tu lugar dentro de tu grupo, por ejemplo 3 de 18",
+      "La unidad y el turno que solicitaste",
+      "La fecha de emisión del listado",
+    ],
+    cuando: "Se actualiza con cada listado que emite la sección.",
   },
 ];
 
@@ -92,11 +104,9 @@ const C = {
 };
 
 function Kicker({
-  numero,
   children,
   claro = false,
 }: {
-  numero: string;
   children: React.ReactNode;
   claro?: boolean;
 }) {
@@ -106,8 +116,7 @@ function Kicker({
         claro ? "text-white/70" : "text-[#141414]/60"
       }`}
     >
-      <span className={claro ? "text-white" : C.rojo}>§ {numero}</span>
-      <span aria-hidden className="h-px w-8 bg-current" />
+      <span aria-hidden className="h-2.5 w-2.5 bg-[#D7261E]" />
       {children}
     </p>
   );
@@ -167,7 +176,13 @@ function SelloOficial() {
 /** Ficha ilustrativa de lo que el trabajador ve en su portal. */
 function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
   return (
-    <figure className="relative">
+    <figure className="relative mt-8 lg:mt-0">
+      <span
+        aria-hidden
+        className="absolute -top-11 right-4 z-10 rotate-[4deg] bg-[#FFD23F] px-4 py-2 text-xl font-extrabold uppercase tracking-tight text-[#141414] shadow-[4px_4px_0_#141414] [font-family:var(--font-display)] sm:-right-6"
+      >
+        ¡Ya casi!
+      </span>
       <div className="border-2 border-[#141414] bg-white text-[#141414] shadow-[12px_12px_0_#D7261E]">
         <div className="flex items-center justify-between border-b-2 border-[#141414] px-5 py-3">
           <span className="text-xs font-bold uppercase tracking-[0.18em]">
@@ -193,7 +208,7 @@ function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
               Tu lugar
             </p>
             <p className="text-7xl font-extrabold leading-[0.8] tracking-tight [font-family:var(--font-display)]">
-              47
+              3
             </p>
           </div>
         </div>
@@ -203,7 +218,7 @@ function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#141414]/50">
               Para ascender
             </p>
-            <p className="mt-1 font-semibold">Lugar 12</p>
+            <p className="mt-1 font-semibold">Lugar 5</p>
           </div>
           <div className="px-5 py-3">
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#141414]/50">
@@ -335,7 +350,7 @@ export default async function PublicHomePage() {
       <div id="contenido">
         {/* ───────── Portada ───────── */}
         <section className="relative mx-auto max-w-[1320px] px-5 py-16 sm:px-8 md:py-24">
-          <Kicker numero="01">Bienvenida</Kicker>
+          <Kicker>Bienvenida</Kicker>
           <h1 className="mt-6 max-w-[20ch] text-[clamp(2.75rem,6.2vw,6rem)] font-medium leading-[0.98] tracking-[-0.03em] [font-family:var(--font-serif)]">
             Te damos la bienvenida al{" "}
             <em className="text-[#D7261E]">
@@ -409,16 +424,15 @@ export default async function PublicHomePage() {
           <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-8 md:py-28">
             <div className="gaceta-aparece grid gap-14 lg:grid-cols-12 lg:gap-10">
               <div className="lg:col-span-6">
-                <Kicker numero="02" claro>
-                  Portal del trabajador
-                </Kicker>
+                <Kicker claro>Portal del trabajador</Kicker>
                 <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
                   Tu información,
                   <br />
                   <span className="text-[#D7261E]">en tu celular.</span>
                 </h2>
                 <p className="mt-8 max-w-[46ch] text-lg leading-relaxed text-[#F2EEE6]/75 [font-family:var(--font-serif)]">
-                  Con tu cuenta puedes consultar:
+                  Con tu cuenta consultas tu lugar en la bolsa de trabajo, en
+                  escalafón y en los cambios de turno y adscripción.
                 </p>
               </div>
               <div className="lg:col-span-6 lg:pl-6">
@@ -426,24 +440,48 @@ export default async function PublicHomePage() {
               </div>
             </div>
 
-            <div className="mt-20 grid gap-px bg-[#F2EEE6]/20 sm:grid-cols-2 lg:grid-cols-4">
-              {beneficios.map((b, i) => (
+            <div className="mt-20 grid gap-px bg-[#F2EEE6]/20 lg:grid-cols-3">
+              {consultas.map((c) => (
                 <article
-                  key={b.titulo}
-                  className="gaceta-aparece bg-[#141414] p-6 lg:p-8"
+                  key={c.titulo}
+                  className="gaceta-aparece flex flex-col bg-[#141414] py-8 lg:px-8 lg:first:pl-0 lg:last:pr-0"
                 >
-                  <span className="text-5xl font-extrabold text-[#D7261E] [font-family:var(--font-display)]">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <h3 className="mt-4 text-2xl font-medium leading-tight [font-family:var(--font-serif)]">
-                    {b.titulo}
+                  <h3 className="text-3xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] sm:text-4xl">
+                    {c.titulo}
                   </h3>
-                  <p className="mt-3 leading-relaxed text-[#F2EEE6]/70">
-                    {b.texto}
+                  <p className="mt-4 text-lg leading-relaxed text-[#F2EEE6]/85 [font-family:var(--font-serif)]">
+                    {c.que}
+                  </p>
+                  <p className="mt-6 text-[12px] font-bold uppercase tracking-[0.2em] text-[#D7261E]">
+                    En tu portal ves
+                  </p>
+                  <ul className="mt-3 space-y-2">
+                    {c.ves.map((v) => (
+                      <li
+                        key={v}
+                        className="flex gap-3 leading-relaxed text-[#F2EEE6]/75"
+                      >
+                        <span
+                          aria-hidden
+                          className="mt-[0.6em] h-1.5 w-1.5 shrink-0 bg-[#D7261E]"
+                        />
+                        {v}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-auto border-t border-[#F2EEE6]/15 pt-4 text-sm font-semibold text-[#F2EEE6]/60 [&:not(:first-child)]:mt-8">
+                    {c.cuando}
                   </p>
                 </article>
               ))}
             </div>
+
+            <p className="gaceta-aparece mt-14 border-t border-[#F2EEE6]/20 pt-8 text-lg leading-relaxed text-[#F2EEE6]/75 [font-family:var(--font-serif)]">
+              <span className="font-semibold text-[#F2EEE6]">
+                Tu información es personal.
+              </span>{" "}
+              Solo tú la consultas, con tu propia cuenta.
+            </p>
           </div>
         </section>
 
@@ -454,7 +492,7 @@ export default async function PublicHomePage() {
         >
           <div className="grid gap-14 lg:grid-cols-12 lg:gap-10">
             <div className="gaceta-aparece lg:col-span-5">
-              <Kicker numero="03">Cómo obtener tu cuenta</Kicker>
+              <Kicker>Cómo obtener tu cuenta</Kicker>
               <h2 className="mt-6 text-[clamp(3rem,6vw,5.5rem)] font-extrabold uppercase leading-[0.88] tracking-tight [font-family:var(--font-display)]">
                 Tu cuenta,
                 <br />
