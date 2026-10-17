@@ -1,4 +1,4 @@
-// src/app/(public)/layout.tsx
+// src/app/(plataforma)/(public)/layout.tsx
 import { AtribucionZentry } from "@/components/AtribucionZentry";
 
 export default function PublicLayout({

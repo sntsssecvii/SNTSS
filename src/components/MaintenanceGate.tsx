@@ -8,7 +8,7 @@ import {
 } from "@/lib/mantenimiento-secreto";
 
 /**
- * Gate server-side del kill-switch. Envuelve toda la app en el layout raíz.
+ * Gate server-side del kill-switch. Envuelve el grupo `(plataforma)`; la landing queda fuera.
  * Si el mantenimiento está activo, el servidor renderiza la pantalla de bloqueo
  * en lugar del árbol de la aplicación — imposible de saltar desde el cliente.
  *
