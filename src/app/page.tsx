@@ -7,6 +7,7 @@ import logoSNTSS from "@/assets/logo-sntss.png";
 import seccion7 from "@/assets/seccion7-contorno.png";
 import { AtribucionZentry } from "@/components/AtribucionZentry";
 import { ComunicadosLanding } from "@/components/ComunicadosLanding";
+import { FichaInteractiva } from "@/components/FichaInteractiva";
 import { MAX_COMUNICADOS_LANDING } from "@/lib/comunicados";
 import { getComunicadosPublicos } from "@/lib/firebase/comunicados";
 import {
@@ -219,56 +220,11 @@ function FichaEjemplo({ corte }: { corte: CorteVigente | null }) {
       >
         ¡Ya casi!
       </span>
-      <div className="border-2 border-[#141414] bg-white text-[#141414] shadow-[12px_12px_0_#D7261E]">
-        <div className="flex items-center justify-between border-b-2 border-[#141414] px-5 py-3">
-          <span className="text-xs font-bold uppercase tracking-[0.18em]">
-            Mi lugar en las listas
-          </span>
-          <span className="text-xs font-semibold text-[#141414]/60">
-            {corte ? formatearCorte(corte) : "Cada quincena"}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-[1fr_auto] items-end gap-4 px-5 pb-5 pt-6">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#D7261E]">
-              Nuevo Ingreso
-            </p>
-            <p className="mt-2 text-xl font-semibold leading-tight [font-family:var(--font-serif)]">
-              Auxiliar Universal de Oficinas
-            </p>
-            <p className="mt-1 text-sm text-[#141414]/60">Zona Mexicali</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#141414]/50">
-              Tu lugar
-            </p>
-            <p
-              aria-label="3"
-              className="gaceta-lugar text-7xl font-extrabold leading-[0.8] tracking-tight tabular-nums [font-family:var(--font-display)]"
-            >
-              <span>3</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 border-t border-[#141414]/15 text-sm">
-          <div className="border-r border-[#141414]/15 px-5 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#141414]/50">
-              Para ascender
-            </p>
-            <p className="mt-1 font-semibold">Lugar 5</p>
-          </div>
-          <div className="px-5 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#141414]/50">
-              Cambio de turno
-            </p>
-            <p className="mt-1 font-semibold">Lugar 3 de 18</p>
-          </div>
-        </div>
-      </div>
+      <FichaInteractiva
+        corte={corte ? formatearCorte(corte) : "Cada quincena"}
+      />
       <figcaption className="mt-5 text-sm italic opacity-60 [font-family:var(--font-serif)]">
-        Así se ve tu información en el portal. Ejemplo con datos ficticios.
+        Toca cada pestaña para ver un ejemplo. Datos ficticios.
       </figcaption>
     </figure>
   );

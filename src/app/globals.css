@@ -263,12 +263,6 @@
 }
 
 /* Landing "Gaceta": textura, entradas y animaciones sutiles */
-@property --gaceta-lugar {
-  syntax: "<integer>";
-  initial-value: 3;
-  inherits: false;
-}
-
 @layer components {
   /* Grano de papel impreso sobre toda la página */
   .gaceta-grano {
@@ -346,6 +340,25 @@
     background-size: 100% 100%;
   }
 
+  /* Ficha interactiva: cambio de pestaña y barra de rotación */
+  .ficha-cambia {
+    animation: ficha-cambia 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  @keyframes ficha-cambia {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  .ficha-progreso {
+    animation: ficha-progreso linear both;
+  }
+  @keyframes ficha-progreso {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
   /* Sello que gira lento */
   .gaceta-gira {
     animation: gaceta-gira 60s linear infinite;
@@ -366,19 +379,6 @@
       animation: gaceta-paralaje linear both;
       animation-timeline: scroll(root);
       animation-range: 0 100vh;
-    }
-    /* Número de la ficha: baja de 18 a 3 (el texto real queda de respaldo) */
-    .gaceta-lugar > span {
-      display: none;
-    }
-    .gaceta-lugar::after {
-      content: counter(lugar);
-      counter-reset: lugar var(--gaceta-lugar);
-    }
-    .gaceta-lugar {
-      animation: gaceta-lugar linear both;
-      animation-timeline: view();
-      animation-range: entry 20% cover 45%;
     }
   }
   @supports (animation-timeline: view()) {
@@ -480,11 +480,6 @@
       transform: translate3d(0, 18%, 0);
     }
   }
-  @keyframes gaceta-lugar {
-    from {
-      --gaceta-lugar: 18;
-    }
-  }
 
   @media (prefers-reduced-motion: reduce) {
     .gaceta-cinta,
@@ -492,7 +487,8 @@
     .gaceta-entrada,
     .gaceta-gira,
     .gaceta-paralaje,
-    .gaceta-lugar,
+    .ficha-cambia,
+    .ficha-progreso,
     .gaceta-revela,
     .gaceta-regla,
     .gaceta-subraya,
