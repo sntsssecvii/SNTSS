@@ -248,3 +248,38 @@
     --info-foreground: 0 0% 100%;
   }
 }
+
+/* Landing "Gaceta": cinta de corte y aparición al hacer scroll */
+@layer components {
+  .gaceta-cinta {
+    animation: gaceta-cinta 40s linear infinite;
+  }
+
+  @keyframes gaceta-cinta {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @supports (animation-timeline: view()) {
+    .gaceta-aparece {
+      animation: gaceta-aparece linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+
+  @keyframes gaceta-aparece {
+    from {
+      opacity: 0;
+      transform: translateY(32px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gaceta-cinta,
+    .gaceta-aparece {
+      animation: none;
+    }
+  }
+}

@@ -29,13 +29,18 @@ export function ComunicadosLanding({
 
   return (
     <section
-      id="comunicados"
-      className="mx-auto max-w-6xl scroll-mt-6 px-5 py-20 sm:px-8"
+      id="avisos"
+      className="mx-auto max-w-[1320px] scroll-mt-6 px-5 pb-24 sm:px-8"
     >
       <div className="flex flex-col justify-between gap-4 border-b-4 border-[#141414] pb-5 md:flex-row md:items-end">
-        <h2 className="text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
-          Comunicados
-        </h2>
+        <div>
+          <p className="text-[13px] font-bold uppercase tracking-[0.2em] text-[#D7261E]">
+            Avisos oficiales
+          </p>
+          <h2 className="mt-3 text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
+            Lo último de la sección
+          </h2>
+        </div>
         <p className="max-w-sm text-[#141414]/70">
           Avisos, avances de negociación y convocatorias, publicados
           directamente por la Sección VII.
@@ -72,7 +77,7 @@ export function ComunicadosLanding({
                         {CATEGORIAS_COMUNICADO[c.categoria]}
                       </span>
                     </div>
-                    <h3 className="mt-3 text-2xl font-bold uppercase leading-tight tracking-tight transition-colors [font-family:var(--font-display)] group-hover:text-[#D7261E] sm:text-3xl">
+                    <h3 className="mt-3 text-2xl font-medium leading-tight tracking-[-0.01em] transition-colors [font-family:var(--font-serif)] group-hover:text-[#D7261E] sm:text-[2rem]">
                       {c.titulo}
                     </h3>
                   </div>
