@@ -268,3 +268,20 @@ Relación entre propuesta aprobada y partida de requerimiento.
 - `ultimoCaso` number — contador de numeroCaso, incrementa en transacción
 - `ultimoFolio` number — contador de folio oficial, incrementa en transacción
 - `anio` number — año vigente para reseteo de contadores
+
+## Módulo: Comunicados oficiales (landing pública)
+
+### `comunicados/{id}`
+
+Comunicados que la sección publica en la landing (`/`). Solo Admin SDK (catch-all de `firestore.rules`); se gestionan en `/admin/comunicados` vía `/api/admin/comunicados`.
+
+- `titulo` string (3–140)
+- `cuerpo` string (10–4000) — texto plano, se respetan saltos de línea
+- `categoria` 'aviso'|'negociacion'|'convocatoria'
+- `enlace` string|null — URL http(s) opcional a un documento
+- `fijado` boolean — aparece primero como "Importante"
+- `publicado` boolean — visible en la landing
+- `fechaPublicacion` Timestamp|null — se fija la primera vez que se publica
+- `creadoEn` Timestamp
+- `creadoPor` string — uid del admin
+- `actualizadoEn` Timestamp (opcional)

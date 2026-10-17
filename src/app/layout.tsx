@@ -11,7 +11,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { Toaster } from "@/components/ui/toaster";
 import { Analytics } from "@vercel/analytics/next";
-import { MaintenanceGate } from "@/components/MaintenanceGate";
 
 // Importar diagnóstico para que esté disponible globalmente
 if (typeof window !== "undefined") {
@@ -49,21 +48,19 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased transition-colors duration-300 font-sans">
-        <MaintenanceGate>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem={false}
-          >
-            <AuthProvider>
-              <NotificationProvider>
-                {children}
-                <Toaster />
-                <Analytics />
-              </NotificationProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </MaintenanceGate>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+        >
+          <AuthProvider>
+            <NotificationProvider>
+              {children}
+              <Toaster />
+              <Analytics />
+            </NotificationProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
