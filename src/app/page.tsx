@@ -4,7 +4,7 @@ import { Barlow, Barlow_Condensed, Newsreader } from "next/font/google";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 
 import logoSNTSS from "@/assets/logo-sntss.png";
-import seccion7 from "@/assets/seccion7.png";
+import seccion7 from "@/assets/seccion7-contorno.png";
 import { AtribucionZentry } from "@/components/AtribucionZentry";
 import { ComunicadosLanding } from "@/components/ComunicadosLanding";
 import { MAX_COMUNICADOS_LANDING } from "@/lib/comunicados";
@@ -440,11 +440,14 @@ export default async function PublicHomePage() {
               </div>
             </div>
 
-            <div className="mt-20 grid gap-px bg-[#F2EEE6]/20 lg:grid-cols-3">
+            <p className="mt-16 text-sm font-semibold text-[#F2EEE6]/60 lg:hidden">
+              Desliza para ver más →
+            </p>
+            <div className="-mx-5 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:-mx-8 sm:px-8 lg:mx-0 lg:mt-20 lg:grid lg:snap-none lg:grid-cols-3 lg:gap-px lg:overflow-visible lg:bg-[#F2EEE6]/20 lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
               {consultas.map((c) => (
                 <article
                   key={c.titulo}
-                  className="gaceta-aparece flex flex-col bg-[#141414] py-8 lg:px-8 lg:first:pl-0 lg:last:pr-0"
+                  className="flex w-[85%] shrink-0 snap-start flex-col border border-[#F2EEE6]/20 bg-[#141414] p-6 sm:w-[60%] lg:w-auto lg:border-0 lg:px-8 lg:py-8 lg:first:pl-0 lg:last:pr-0"
                 >
                   <h3 className="text-3xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] sm:text-4xl">
                     {c.titulo}
