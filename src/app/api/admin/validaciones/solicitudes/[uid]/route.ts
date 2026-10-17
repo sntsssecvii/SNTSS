@@ -104,7 +104,7 @@ export async function POST(
           ? "Tu solicitud de registro ha sido aprobada. Ya puedes acceder a todas las funcionalidades."
           : `Tu solicitud ha sido rechazada. Razón: ${rejectionReason}`,
       type: "system",
-      link: nextStatus === "active" ? "/admin/perfil" : null,
+      link: nextStatus === "active" ? "/dashboard/perfil" : null,
       read: false,
       createdAt: FieldValue.serverTimestamp(),
     });
