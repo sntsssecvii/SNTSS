@@ -32,12 +32,12 @@ export function ComunicadosLanding({
       id="avisos"
       className="mx-auto max-w-[1320px] scroll-mt-6 px-5 pb-24 sm:px-8"
     >
-      <div className="flex flex-col justify-between gap-4 border-b-4 border-[#141414] pb-5 md:flex-row md:items-end">
+      <div className="gaceta-regla flex flex-col justify-between gap-4 border-b-4 border-[#141414] !border-b-transparent pb-5 md:flex-row md:items-end [--grosor:4px] [background-position:0_100%]">
         <div>
           <p className="text-[13px] font-bold uppercase tracking-[0.2em] text-[#D7261E]">
             Comunicados
           </p>
-          <h2 className="mt-3 text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
+          <h2 className="gaceta-revela mt-3 text-5xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] md:text-6xl">
             Avisos oficiales
           </h2>
         </div>
@@ -50,7 +50,11 @@ export function ComunicadosLanding({
         {comunicados.map((c, i) => {
           const f = fechaCorta(c.fecha);
           return (
-            <li key={c.id}>
+            <li
+              key={c.id}
+              style={{ "--i": i } as React.CSSProperties}
+              className="gaceta-escalon"
+            >
               <details open={i === 0} className="group">
                 <summary className="grid cursor-pointer list-none grid-cols-[64px_1fr_auto] items-start gap-4 py-6 sm:grid-cols-[88px_1fr_auto] sm:gap-8 [&::-webkit-details-marker]:hidden">
                   <time

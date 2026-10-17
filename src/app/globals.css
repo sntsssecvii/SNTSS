@@ -308,6 +308,44 @@
     }
   }
 
+  /* Reglas de la gaceta que se dibujan (sin soporte quedan completas) */
+  .gaceta-regla {
+    border-top-color: transparent !important;
+    background-image: linear-gradient(
+      var(--regla, #141414),
+      var(--regla, #141414)
+    );
+    background-repeat: no-repeat;
+    background-origin: border-box;
+    background-position: 0 0;
+    background-size: 100% var(--grosor, 2px);
+  }
+
+  /* Subrayado que se traza */
+  .gaceta-subraya {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 92%;
+    background-size: 100% 2px;
+    padding-bottom: 0.06em;
+  }
+
+  /* Botón con barrido de color al pasar el mouse */
+  .gaceta-boton {
+    background-image: linear-gradient(
+      var(--barrido, #141414),
+      var(--barrido, #141414)
+    );
+    background-repeat: no-repeat;
+    background-position: 0 0;
+    background-size: 0% 100%;
+    transition: background-size 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .gaceta-boton:hover,
+  .gaceta-boton:focus-visible {
+    background-size: 100% 100%;
+  }
+
   /* Sello que gira lento */
   .gaceta-gira {
     animation: gaceta-gira 60s linear infinite;
@@ -343,6 +381,94 @@
       animation-range: entry 20% cover 45%;
     }
   }
+  @supports (animation-timeline: view()) {
+    .gaceta-revela {
+      animation: gaceta-revela linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 30%;
+    }
+    .gaceta-regla {
+      animation: gaceta-regla linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 35%;
+    }
+    .gaceta-subraya {
+      animation: gaceta-subraya linear both;
+      animation-timeline: view();
+      animation-range: entry 40% cover 50%;
+    }
+    .gaceta-ficha {
+      animation: gaceta-ficha linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 35%;
+    }
+    .gaceta-pop {
+      animation: gaceta-pop linear both;
+      animation-timeline: view();
+      animation-range: entry 60% cover 45%;
+    }
+    .gaceta-escalon {
+      animation: gaceta-aparece linear both;
+      animation-timeline: view();
+      animation-range: entry calc(var(--i, 0) * 10%) cover
+        calc(22% + var(--i, 0) * 6%);
+    }
+    .gaceta-escalon.gaceta-regla {
+      animation:
+        gaceta-aparece linear both,
+        gaceta-regla linear both;
+      animation-timeline: view(), view();
+      animation-range:
+        entry calc(var(--i, 0) * 10%) cover calc(22% + var(--i, 0) * 6%),
+        entry 0% cover 35%;
+    }
+    @media (min-width: 1024px) {
+      .lg\:gaceta-escalon {
+        animation: gaceta-aparece linear both;
+        animation-timeline: view();
+        animation-range: entry calc(var(--i, 0) * 10%) cover
+          calc(22% + var(--i, 0) * 6%);
+      }
+    }
+  }
+  @keyframes gaceta-revela {
+    from {
+      clip-path: inset(0 0 100% 0);
+      transform: translateY(35%);
+    }
+    to {
+      clip-path: inset(-10% 0 -10% 0);
+    }
+  }
+  @keyframes gaceta-regla {
+    from {
+      background-size: 0% var(--grosor, 2px);
+    }
+  }
+  @keyframes gaceta-subraya {
+    from {
+      background-size: 0% 2px;
+    }
+  }
+  @keyframes gaceta-ficha {
+    from {
+      opacity: 0;
+      transform: translateY(70px) rotate(-3deg);
+    }
+  }
+  @keyframes gaceta-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.2) rotate(-18deg);
+    }
+    70% {
+      opacity: 1;
+      transform: scale(1.12) rotate(7deg);
+    }
+    100% {
+      transform: scale(1) rotate(4deg);
+    }
+  }
   @keyframes gaceta-aparece {
     from {
       opacity: 0;
@@ -366,8 +492,18 @@
     .gaceta-entrada,
     .gaceta-gira,
     .gaceta-paralaje,
-    .gaceta-lugar {
+    .gaceta-lugar,
+    .gaceta-revela,
+    .gaceta-regla,
+    .gaceta-subraya,
+    .gaceta-ficha,
+    .gaceta-pop,
+    .gaceta-escalon,
+    .lg\:gaceta-escalon {
       animation: none;
+    }
+    .gaceta-boton {
+      transition: none;
     }
   }
 }
