@@ -8,6 +8,14 @@ import seccion7 from "@/assets/seccion7-contorno.png";
 import { AtribucionZentry } from "@/components/AtribucionZentry";
 import { ComunicadosLanding } from "@/components/ComunicadosLanding";
 import { FichaInteractiva } from "@/components/FichaInteractiva";
+import {
+  GranoOscuro,
+  GuiasColumnas,
+  Guilloche,
+  MarcasRegistro,
+  RotuloCierre,
+  VIIFantasma,
+} from "@/components/FondosGaceta";
 import { MAX_COMUNICADOS_LANDING } from "@/lib/comunicados";
 import { getComunicadosPublicos } from "@/lib/firebase/comunicados";
 import {
@@ -302,20 +310,20 @@ export default async function PublicHomePage() {
                 href="#avisos"
                 className="hidden underline-offset-4 hover:underline md:inline"
               >
-                Avisos oficiales
+                Avisos
               </a>
             )}
             <a
               href="#portal"
               className="hidden underline-offset-4 hover:underline md:inline"
             >
-              Portal del trabajador
+              Portal
             </a>
             <a
               href="#acceso"
               className="hidden underline-offset-4 hover:underline md:inline"
             >
-              Obtener cuenta
+              Tu cuenta
             </a>
             <Link
               href="/login"
@@ -394,8 +402,10 @@ export default async function PublicHomePage() {
         </section>
 
         {/* ───────── Sello de fuente oficial ───────── */}
-        <section className="border-y-2 border-[#141414] bg-[#D7261E] text-white">
-          <div className="gaceta-aparece mx-auto grid max-w-[1320px] items-center gap-10 px-5 py-14 sm:px-8 md:grid-cols-[auto_1fr] md:gap-14 md:py-16">
+        <section className="relative isolate overflow-hidden border-y-2 border-[#141414] bg-[#D7261E] text-white">
+          <Guilloche className="-right-40 top-1/2 hidden h-[760px] w-[760px] -translate-y-1/2 md:block" />
+          <Guilloche className="-left-56 -top-40 h-[420px] w-[420px] opacity-60" />
+          <div className="gaceta-aparece relative mx-auto grid max-w-[1320px] items-center gap-10 px-5 py-14 sm:px-8 md:grid-cols-[auto_1fr] md:gap-14 md:py-16">
             <SelloOficial />
             <div>
               <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white/80">
@@ -423,16 +433,28 @@ export default async function PublicHomePage() {
         </section>
 
         {/* ───────── Avisos ───────── */}
-        <div className="pt-20">
-          <ComunicadosLanding comunicados={comunicados} />
-        </div>
+        {comunicados.length > 0 && (
+          <div className="relative isolate pt-20">
+            <div className="pointer-events-none absolute inset-0 -z-10 mx-auto max-w-[1320px]">
+              <GuiasColumnas />
+            </div>
+            <MarcasRegistro />
+            <div className="relative">
+              <ComunicadosLanding comunicados={comunicados} />
+            </div>
+          </div>
+        )}
 
         {/* ───────── Portal del trabajador ───────── */}
         <section
           id="portal"
-          className="scroll-mt-6 bg-[#141414] text-[#F2EEE6]"
+          className="relative isolate scroll-mt-6 overflow-hidden bg-[#141414] text-[#F2EEE6]"
         >
-          <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-8 md:py-28">
+          <GranoOscuro />
+          <VIIFantasma className="-left-24 bottom-0 h-[70%] w-[46%]" />
+          <MarcasRegistro oscuro />
+          <div className="relative isolate mx-auto max-w-[1320px] px-5 py-20 sm:px-8 md:py-28">
+            <GuiasColumnas oscuro />
             <div className="gaceta-aparece grid gap-14 lg:grid-cols-12 lg:gap-10">
               <div className="lg:col-span-6">
                 <Kicker claro>Portal del trabajador</Kicker>
@@ -459,7 +481,7 @@ export default async function PublicHomePage() {
                 <article
                   key={c.titulo}
                   style={{ "--i": i } as React.CSSProperties}
-                  className="lg:gaceta-escalon flex w-[85%] shrink-0 snap-start flex-col border border-[#F2EEE6]/20 bg-[#141414] p-6 sm:w-[60%] lg:w-auto lg:border-0 lg:px-8 lg:py-8 lg:first:pl-0 lg:last:pr-0"
+                  className="lg:gaceta-escalon flex w-[85%] shrink-0 snap-start flex-col border border-[#F2EEE6]/20 p-6 sm:w-[60%] lg:w-auto lg:border-0 lg:px-8 lg:py-8 lg:first:pl-0 lg:last:pr-0"
                 >
                   <h3 className="text-3xl font-extrabold uppercase leading-none tracking-tight [font-family:var(--font-display)] sm:text-4xl">
                     {c.titulo}
@@ -511,8 +533,10 @@ export default async function PublicHomePage() {
         {/* ───────── Acceso ───────── */}
         <section
           id="acceso"
-          className="mx-auto max-w-[1320px] scroll-mt-6 px-5 py-20 sm:px-8 md:py-28"
+          className="relative isolate mx-auto max-w-[1320px] scroll-mt-6 px-5 py-20 sm:px-8 md:py-28"
         >
+          <GuiasColumnas />
+          <MarcasRegistro />
           <div className="grid gap-14 lg:grid-cols-12 lg:gap-10">
             <div className="gaceta-aparece lg:col-span-5">
               <Kicker>Cómo obtener tu cuenta</Kicker>
@@ -563,8 +587,9 @@ export default async function PublicHomePage() {
       </div>
 
       {/* ───────── Colofón ───────── */}
-      <footer className="bg-[#141414] text-[#F2EEE6]">
-        <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-14 sm:px-8 md:grid-cols-12">
+      <footer className="relative isolate overflow-hidden bg-[#141414] text-[#F2EEE6]">
+        <GranoOscuro />
+        <div className="relative mx-auto grid max-w-[1320px] gap-10 px-5 py-14 sm:px-8 md:grid-cols-12">
           <div className="flex items-center gap-5 md:col-span-6">
             <Image
               src={seccion7}
@@ -605,7 +630,8 @@ export default async function PublicHomePage() {
             </a>
           </div>
         </div>
-        <div className="border-t border-[#F2EEE6]/15 py-5 text-center">
+        <RotuloCierre texto="Sección VII" />
+        <div className="relative border-t border-[#F2EEE6]/15 py-5 text-center">
           <AtribucionZentry className="text-[#F2EEE6]/50 [&_span]:text-[#F2EEE6]/70" />
         </div>
       </footer>
