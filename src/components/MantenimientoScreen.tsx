@@ -20,14 +20,14 @@ async function hayAvisos() {
 }
 
 /** Ficha del portal "en pausa": misma tarjeta de la landing, sin datos. */
-function FichaEnPausa() {
+function FichaEnPausa({ sello }: { sello: string }) {
   return (
     <figure className="relative mx-auto w-full max-w-md">
       <span
         style={retraso(4)}
         className="gaceta-entrada absolute -top-10 right-4 sm:-top-5 z-10 rotate-[4deg] bg-[#FFD23F] px-4 py-2 text-lg font-extrabold uppercase tracking-tight text-[#141414] shadow-[4px_4px_0_#141414] [font-family:var(--font-display)] sm:-right-6"
       >
-        En mantenimiento
+        {sello}
       </span>
       <div
         aria-hidden
@@ -76,8 +76,14 @@ function FichaEnPausa() {
  * menciona pagos, motivos internos ni fechas de regreso. Remite a la landing,
  * que sigue en línea con los avisos oficiales.
  */
-export async function MantenimientoScreen() {
+export async function MantenimientoScreen({
+  variante = "portal",
+}: {
+  variante?: "portal" | "registro";
+}) {
   const conAvisos = await hayAvisos();
+  const registro = variante === "registro";
+  const sello = registro ? "En pausa" : "En mantenimiento";
 
   return (
     <main
@@ -92,7 +98,9 @@ export async function MantenimientoScreen() {
             Sindicato Nacional de Trabajadores del Seguro Social
           </span>
           <span className="sm:hidden">SNTSS</span>
-          <span className="text-[#141414]/60">Aviso del portal</span>
+          <span className="text-[#141414]/60">
+            {registro ? "Aviso de registro" : "Aviso del portal"}
+          </span>
         </div>
         <Link
           href="/"
@@ -121,41 +129,58 @@ export async function MantenimientoScreen() {
             className="gaceta-entrada flex items-center gap-3 text-[13px] font-bold uppercase tracking-[0.2em] text-[#141414]/60"
           >
             <span aria-hidden className="h-2.5 w-2.5 bg-[#D7261E]" />
-            Portal del trabajador
+            {registro ? "Registro de cuentas" : "Portal del trabajador"}
           </p>
           <h1
             style={retraso(2)}
             className="gaceta-entrada mt-6 max-w-[16ch] text-[clamp(2.5rem,5.6vw,5.25rem)] font-medium leading-[0.98] tracking-[-0.03em] [font-family:var(--font-serif)]"
           >
-            El portal está en <em className="text-[#D7261E]">mantenimiento.</em>
+            {registro ? "El registro está en " : "El portal está en "}
+            <em className="text-[#D7261E]">
+              {registro ? "pausa." : "mantenimiento."}
+            </em>
           </h1>
           <div
             style={retraso(3)}
             className="gaceta-entrada mt-8 max-w-[46ch] space-y-4 text-xl leading-relaxed text-[#141414]/80 [font-family:var(--font-serif)]"
           >
-            <p>
-              Por ahora no es posible consultar la información del portal. Tu
-              cuenta y tus datos se conservan sin cambios.
-            </p>
-            <p>
-              Mientras tanto, la página de la Sección VII sigue disponible
-              {conAvisos ? " con los avisos oficiales" : ""}.
-            </p>
+            {registro ? (
+              <>
+                <p>Por ahora no es posible abrir cuentas nuevas.</p>
+                <p>
+                  Si ya tienes cuenta, puedes entrar a tu portal y consultar tu
+                  información.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Por ahora no es posible consultar la información del portal.
+                  Tu cuenta y tus datos se conservan sin cambios.
+                </p>
+                <p>
+                  Mientras tanto, la página de la Sección VII sigue disponible
+                  {conAvisos ? " con los avisos oficiales" : ""}.
+                </p>
+              </>
+            )}
           </div>
           <div
             style={retraso(4)}
             className="gaceta-entrada mt-10 flex flex-col gap-3 sm:flex-row"
           >
             <Link
-              href={conAvisos ? "/#avisos" : "/"}
+              href={registro ? "/login" : conAvisos ? "/#avisos" : "/"}
               className="gaceta-boton group inline-flex min-h-14 items-center justify-center gap-2 bg-[#D7261E] px-8 text-lg font-bold text-white focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[#141414]"
             >
-              {conAvisos
-                ? "Ver avisos oficiales"
-                : "Ir a la página de la Sección VII"}
+              {registro
+                ? "Entrar a mi portal"
+                : conAvisos
+                  ? "Ver avisos oficiales"
+                  : "Ir a la página de la Sección VII"}
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1 motion-reduce:transition-none" />
             </Link>
-            {conAvisos && (
+            {(registro || conAvisos) && (
               <Link
                 href="/"
                 className="inline-flex min-h-14 items-center justify-center border-2 border-[#141414] px-8 text-lg font-bold transition-colors hover:bg-[#141414] hover:text-white"
@@ -167,7 +192,7 @@ export async function MantenimientoScreen() {
         </div>
 
         <div style={retraso(3)} className="gaceta-entrada lg:col-span-5">
-          <FichaEnPausa />
+          <FichaEnPausa sello={sello} />
         </div>
       </section>
 

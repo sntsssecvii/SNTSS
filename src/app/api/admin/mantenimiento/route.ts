@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireDeveloperRequest } from "@/lib/firebase/server-auth";
 import {
+  MODOS_PLATAFORMA,
   getEstadoMantenimiento,
   setMantenimiento,
+  setModoPlataforma,
+  type ModoPlataforma,
 } from "@/lib/firebase/mantenimiento";
 import { COOKIE_BYPASS } from "@/lib/mantenimiento-secreto";
 
@@ -53,13 +56,25 @@ export async function POST(req: NextRequest) {
   const noAuth = await autorizar(req);
   if (noAuth) return noAuth;
 
-  const body = (await req.json().catch(() => ({}))) as { activar?: boolean };
-  const activar = body?.activar === true;
+  const body = (await req.json().catch(() => ({}))) as {
+    activar?: boolean;
+    modo?: string;
+  };
 
-  await setMantenimiento(
-    activar,
-    activar ? "Suspensión manual desde panel admin" : undefined,
-  );
+  if (MODOS_PLATAFORMA.includes(body?.modo as ModoPlataforma)) {
+    const modo = body.modo as ModoPlataforma;
+    await setModoPlataforma(
+      modo,
+      modo === "abierto" ? undefined : `Modo ${modo} desde panel admin`,
+    );
+  } else {
+    // Compatibilidad: { activar } enciende/apaga el bloqueo total.
+    const activar = body?.activar === true;
+    await setMantenimiento(
+      activar,
+      activar ? "Suspensión manual desde panel admin" : undefined,
+    );
+  }
 
   const estado = await getEstadoMantenimiento();
   const res = NextResponse.json(estado);

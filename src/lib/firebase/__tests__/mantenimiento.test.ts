@@ -80,4 +80,45 @@ describe("mantenimiento flag store", () => {
     const estado = await getEstadoMantenimiento();
     expect(estado.activo).toBe(false);
   });
+
+  it("doc viejo con solo mantenimientoActivo=true se lee como modo total", async () => {
+    mockGet.mockResolvedValue(docSnap({ mantenimientoActivo: true }));
+    const { getEstadoMantenimiento } = await import("../mantenimiento");
+    expect(await getEstadoMantenimiento()).toMatchObject({
+      activo: true,
+      modo: "total",
+    });
+  });
+
+  it("modo consulta no es bloqueo total", async () => {
+    mockGet.mockResolvedValue(
+      docSnap({ mantenimientoActivo: true, mantenimientoModo: "consulta" }),
+    );
+    const { getEstadoMantenimiento } = await import("../mantenimiento");
+    expect(await getEstadoMantenimiento()).toMatchObject({
+      activo: false,
+      modo: "consulta",
+    });
+  });
+
+  it("setModoPlataforma escribe modo y bandera de compatibilidad", async () => {
+    const { setModoPlataforma } = await import("../mantenimiento");
+    await setModoPlataforma("consulta", "pausa");
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mantenimientoActivo: true,
+        mantenimientoModo: "consulta",
+        mantenimientoMotivo: "pausa",
+      }),
+      { merge: true },
+    );
+    await setModoPlataforma("abierto");
+    expect(mockSet).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        mantenimientoActivo: false,
+        mantenimientoModo: null,
+      }),
+      { merge: true },
+    );
+  });
 });

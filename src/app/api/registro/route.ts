@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 
 import { sendRegistrationEmail } from "@/lib/email";
 import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
+import { getEstadoMantenimiento } from "@/lib/firebase/mantenimiento";
 import { buildUserSearchFields } from "@/lib/firebase/user-search";
 import { registroSchema } from "@/lib/schemas/registro";
 import { assertSameOrigin } from "@/lib/security/cors";
@@ -113,6 +114,17 @@ export async function POST(request: NextRequest) {
   let auditEmail = "";
   const clientIp = getClientIp(request);
   const userAgent = request.headers.get("user-agent") || "unknown";
+
+  // Con la plataforma en pausa nadie valida cuentas: el registro se cierra.
+  if ((await getEstadoMantenimiento()).modo !== "abierto") {
+    return NextResponse.json(
+      {
+        error:
+          "El registro de cuentas está en pausa por el momento. Intenta más tarde.",
+      },
+      { status: 503 },
+    );
+  }
 
   try {
     assertSameOrigin(request);

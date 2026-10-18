@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getEstadoMantenimiento,
-  setMantenimiento,
+  setModoPlataforma,
+  type ModoPlataforma,
 } from "@/lib/firebase/mantenimiento";
-import { secretoMantenimientoValido } from "@/lib/mantenimiento-secreto";
+import {
+  COOKIE_BYPASS,
+  secretoMantenimientoValido,
+} from "@/lib/mantenimiento-secreto";
 
 /**
  * Control privado del kill-switch de mantenimiento.
@@ -14,7 +18,8 @@ import { secretoMantenimientoValido } from "@/lib/mantenimiento-secreto";
  * accesible aunque la plataforma esté suspendida (anti-lockout).
  *
  * Uso: abrir `/api/z-control?k=<secreto>` desde un bookmark. Sin el secreto
- * correcto responde 404 para no delatar su existencia.
+ * correcto responde 404 para no delatar su existencia. Con el secreto válido
+ * siembra además la cookie de bypass, para entrar al panel aunque esté en pausa.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,21 +30,51 @@ const noEncontrado = () =>
     headers: { "content-type": "text/plain" },
   });
 
+const MODOS: Record<
+  ModoPlataforma,
+  { texto: string; color: string; boton: string; clase: string }
+> = {
+  abierto: {
+    texto: "OPERATIVA",
+    color: "#16a34a",
+    boton: "REACTIVAR TODO",
+    clase: "verde",
+  },
+  consulta: {
+    texto: "SOLO CONSULTA",
+    color: "#d97706",
+    boton: "SOLO CONSULTA",
+    clase: "ambar",
+  },
+  total: {
+    texto: "SUSPENDIDA",
+    color: "#dc2626",
+    boton: "SUSPENDER TODO",
+    clase: "rojo",
+  },
+};
+
+const UN_ANIO = 60 * 60 * 24 * 365;
+
 function paginaControl(
-  activo: boolean,
+  modo: ModoPlataforma,
   desde: string | undefined,
   secreto: string,
 ): string {
-  const estadoTexto = activo ? "SUSPENDIDA" : "OPERATIVA";
-  const estadoColor = activo ? "#dc2626" : "#16a34a";
+  const estadoTexto = MODOS[modo].texto;
+  const estadoColor = MODOS[modo].color;
   const desdeTexto =
-    activo && desde
-      ? `Suspendida desde ${new Date(desde).toLocaleString("es-MX")}`
+    modo !== "abierto" && desde
+      ? `Desde ${new Date(desde).toLocaleString("es-MX")}`
       : "";
   const esc = (s: string) => s.replace(/"/g, "&quot;");
-  const botones = activo
-    ? `<button name="accion" value="reactivar" class="btn verde">REACTIVAR PLATAFORMA</button>`
-    : `<button name="accion" value="suspender" class="btn rojo">SUSPENDER PLATAFORMA</button>`;
+  const botones = (Object.keys(MODOS) as ModoPlataforma[])
+    .filter((m) => m !== modo)
+    .map(
+      (m) =>
+        `<button name="accion" value="${m}" class="btn ${MODOS[m].clase}">${MODOS[m].boton}</button>`,
+    )
+    .join("");
 
   return `<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -60,6 +95,8 @@ function paginaControl(
     color:#fff; cursor:pointer; letter-spacing:.02em; }
   .rojo { background:#dc2626; } .rojo:active { background:#b91c1c; }
   .verde { background:#16a34a; } .verde:active { background:#15803d; }
+  .ambar { background:#d97706; } .ambar:active { background:#b45309; }
+  .btn + .btn { margin-top:10px; }
   .hint { font-size:11px; color:#cbd5e1; margin-top:18px; }
 </style></head><body>
   <div class="card">
@@ -79,14 +116,22 @@ export async function GET(req: NextRequest) {
   const secreto = req.nextUrl.searchParams.get("k");
   if (!secretoMantenimientoValido(secreto)) return noEncontrado();
 
-  const { activo, desde } = await getEstadoMantenimiento();
-  return new NextResponse(paginaControl(activo, desde, secreto!), {
+  const { modo, desde } = await getEstadoMantenimiento();
+  const res = new NextResponse(paginaControl(modo, desde, secreto!), {
     status: 200,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
     },
   });
+  res.cookies.set(COOKIE_BYPASS, secreto!, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: UN_ANIO,
+  });
+  return res;
 }
 
 export async function POST(req: NextRequest) {
@@ -96,10 +141,20 @@ export async function POST(req: NextRequest) {
   if (!secretoMantenimientoValido(secretoStr)) return noEncontrado();
 
   const accion = form.get("accion");
-  if (accion === "suspender") {
-    await setMantenimiento(true, "Suspensión manual vía control");
-  } else if (accion === "reactivar") {
-    await setMantenimiento(false);
+  // "suspender"/"reactivar" se aceptan por compatibilidad con bookmarks viejos.
+  const modo: ModoPlataforma | null =
+    accion === "suspender"
+      ? "total"
+      : accion === "reactivar"
+        ? "abierto"
+        : accion === "abierto" || accion === "consulta" || accion === "total"
+          ? accion
+          : null;
+  if (modo) {
+    await setModoPlataforma(
+      modo,
+      modo === "abierto" ? undefined : `Modo ${modo} vía control`,
+    );
   }
 
   // Redirigir de vuelta al panel (GET) para mostrar el nuevo estado.

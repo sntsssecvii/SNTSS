@@ -2,18 +2,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { COOKIE_BYPASS } from "@/lib/mantenimiento-secreto";
 
-const { mockRequireDev, mockGetEstado, mockSet } = vi.hoisted(() => ({
-  mockRequireDev: vi.fn(),
-  mockGetEstado: vi.fn(),
-  mockSet: vi.fn(),
-}));
+const { mockRequireDev, mockGetEstado, mockSet, mockSetModo } = vi.hoisted(
+  () => ({
+    mockRequireDev: vi.fn(),
+    mockGetEstado: vi.fn(),
+    mockSet: vi.fn(),
+    mockSetModo: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/firebase/server-auth", () => ({
   requireDeveloperRequest: mockRequireDev,
 }));
 vi.mock("@/lib/firebase/mantenimiento", () => ({
+  MODOS_PLATAFORMA: ["abierto", "consulta", "total"],
   getEstadoMantenimiento: mockGetEstado,
   setMantenimiento: mockSet,
+  setModoPlataforma: mockSetModo,
 }));
 
 import { GET, POST } from "./route";
@@ -69,6 +74,22 @@ describe("/api/admin/mantenimiento", () => {
     const res = await POST(postReq({ activar: false }));
     expect(mockSet).toHaveBeenCalledWith(false, undefined);
     expect(res.status).toBe(200);
+  });
+
+  it("POST modo=consulta pone la plataforma en solo consulta", async () => {
+    mockRequireDev.mockResolvedValue({ uid: "gera" });
+    mockGetEstado.mockResolvedValue({ activo: false, modo: "consulta" });
+    const res = await POST(postReq({ modo: "consulta" }));
+    expect(mockSetModo).toHaveBeenCalledWith("consulta", expect.any(String));
+    expect(mockSet).not.toHaveBeenCalled();
+    expect(await res.json()).toMatchObject({ modo: "consulta" });
+  });
+
+  it("POST modo inválido cae al compat de activar", async () => {
+    mockRequireDev.mockResolvedValue({ uid: "gera" });
+    await POST(postReq({ modo: "otro" }));
+    expect(mockSetModo).not.toHaveBeenCalled();
+    expect(mockSet).toHaveBeenCalledWith(false, undefined);
   });
 
   it("POST sin developer responde 403 y no togglea", async () => {

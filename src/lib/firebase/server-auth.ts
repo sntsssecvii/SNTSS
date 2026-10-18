@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { getEstadoMantenimiento } from "@/lib/firebase/mantenimiento";
+import { tieneBypass } from "@/lib/mantenimiento-secreto";
 import {
   isAdminRole,
   isSuperAdminRole,
@@ -49,6 +51,16 @@ export async function requireAdminRequest(
 
   if (!isAdminRole(role)) {
     throw new Error("ADMIN_REQUIRED");
+  }
+
+  // Con la plataforma en pausa (modo consulta o total) toda la administración,
+  // incluida la carga de listados, queda bloqueada. El developer y quien trae
+  // la cookie de bypass siguen operando (anti-lockout).
+  if (userData?.isDeveloper !== true && !tieneBypass(request.cookies)) {
+    const { modo } = await getEstadoMantenimiento();
+    if (modo !== "abierto") {
+      throw new Error("PLATAFORMA_EN_PAUSA");
+    }
   }
 
   return {

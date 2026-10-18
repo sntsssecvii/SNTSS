@@ -285,3 +285,16 @@ Comunicados que la sección publica en la landing (`/`). Solo Admin SDK (catch-a
 - `creadoEn` Timestamp
 - `creadoPor` string — uid del admin
 - `actualizadoEn` Timestamp (opcional)
+
+## Módulo: Estado de la plataforma (kill switch)
+
+### `config/plataforma`
+
+Solo Admin SDK (catch-all de `firestore.rules`). Se controla desde el toggle del dashboard (`/api/admin/mantenimiento`, solo developer) o desde `/api/z-control` (secreto).
+
+- `mantenimientoActivo` boolean — `true` si hay cualquier restricción (compatibilidad con docs anteriores)
+- `mantenimientoModo` 'consulta'|'total'|null — sin valor y con `mantenimientoActivo=true` se interpreta como `total`
+  - `consulta`: los trabajadores entran y consultan; panel admin, APIs de administración (`requireAdminRequest`) y registro en pausa
+  - `total`: todo el portal muestra la pantalla de mantenimiento; la landing sigue visible
+- `mantenimientoMotivo` string|null — nota interna, nunca se muestra
+- `mantenimientoDesde` string ISO|null

@@ -19,3 +19,10 @@ export function secretoMantenimientoValido(
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
 }
+
+/** Quien trae la cookie de bypass válida queda exento de cualquier pausa. */
+export function tieneBypass(
+  cookies: { get(nombre: string): { value: string } | undefined } | undefined,
+): boolean {
+  return secretoMantenimientoValido(cookies?.get(COOKIE_BYPASS)?.value);
+}
